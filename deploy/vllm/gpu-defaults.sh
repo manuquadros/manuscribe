@@ -46,6 +46,14 @@ _report_gpu_defaults() {
   fi
 }
 
+# bf16 is right on Blackwell (GB10 is sm_121), but vLLM's backend choice is
+# only as good as the image's kernels, and older tags have none for sm_121 --
+# which, as on the T4, kills the engine on the first request, not at startup.
+_report_blackwell_caveat() {
+  echo "gpu-defaults: Blackwell ($1) is unverified -- run smoke-test.sh" \
+       "first; see deploy/vllm/README.md's GB10 section." >&2
+}
+
 # Fill in DTYPE and ATTENTION_BACKEND to match the detected card.  An empty
 # ATTENTION_BACKEND means "let vLLM choose", which is right on Ampere and newer.
 apply_gpu_defaults() {
@@ -59,6 +67,9 @@ apply_gpu_defaults() {
     : "${DTYPE:=bfloat16}"
     : "${ATTENTION_BACKEND:=}"
     _report_gpu_defaults "compute capability $cap"
+    if [ "$major" -ge 10 ]; then
+      _report_blackwell_caveat "$cap"
+    fi
     return 0
   fi
 

@@ -4,8 +4,12 @@
 #
 # Build:  podman build -f deploy/vllm/Containerfile -t lighton-pdfparser .
 # (build context is the repo root so the COPYs see src/ and pyproject.toml)
+#
+# On an arm64 host (GB10) override VLLM_IMAGE, not just the tag: the default
+# repo may publish no arm64 build. See README.md's GB10 section.
+ARG VLLM_IMAGE=docker.io/vllm/vllm-openai
 ARG VLLM_TAG=v0.22.1
-FROM docker.io/vllm/vllm-openai:${VLLM_TAG}
+FROM ${VLLM_IMAGE}:${VLLM_TAG}
 
 # pdfparser's runtime deps. httpx and pillow already ship in the vLLM image, but
 # listing them keeps the install self-contained if the base ever drops them;

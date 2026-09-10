@@ -48,6 +48,7 @@ unified image derive them at start time from the GPU's compute capability
 | Card | Example | `--dtype` | `--attention-backend` |
 |---|---|---|---|
 | Ampere or newer (sm_80+) | RTX Ada, A10, A100 | `bfloat16` | omitted — vLLM chooses (FlashInfer) |
+| Blackwell (sm_100+) | GB10 (Dell Pro Max with GB10, DGX Spark) | `bfloat16` | omitted — vLLM chooses, **unverified** — see [GB10 section](#gb10--dgx-spark-class-unified-memory-arm64-workstations) below |
 | Turing (sm_75) | Tesla T4 | `float32` | `TRITON_ATTN` |
 | Undetectable (no `nvidia-smi`) | — | `float32` | `TRITON_ATTN`, with a warning |
 
@@ -127,6 +128,79 @@ podman run --rm --device nvidia.com/gpu=all --entrypoint python3 \
 
 Check the flag itself the same way — `vllm serve --help | grep attention` — since
 it is the half of this that a version bump is most likely to move.
+
+## GB10 / DGX Spark-class unified-memory ARM64 workstations
+
+Everything above (`gpu-defaults.sh`, `run-server.sh`, the `Containerfile`) was
+built and validated against x86_64 hosts with a dedicated-VRAM GPU (a 6 GiB dev
+card, a T4). A Grace-Blackwell unified-memory workstation — the Dell Pro Max
+with GB10, NVIDIA DGX Spark, or anything else built on the GB10 Superchip — is
+different on every axis that matters here, and needs deliberate overrides
+rather than the defaults above:
+
+- **ARM64 host, not x86_64.** The Grace CPU is `aarch64`. Any image pulled
+  here must actually ship an arm64 build, not just a matching version number.
+- **Blackwell GPU, compute capability sm_121** (reported by `nvidia-smi` as
+  `12.1`). `gpu-defaults.sh` already routes this into the Ampere-or-newer
+  branch (`bfloat16`, backend left to vLLM) — bf16 is genuinely correct for
+  Blackwell — but it also prints a Blackwell-specific caveat, because "vLLM's
+  own backend choice" only means whatever attention kernels the *image*
+  actually built for this compute capability, and image support for sm_121
+  arrived well after the x86_64/Ampere images this repo was validated against.
+- **128 GB of memory coherently shared between the CPU and the GPU** (not a
+  dedicated VRAM pool). `--gpu-memory-utilization` here reserves a fraction of
+  memory the host OS also needs to run in, unlike on a discrete card — the
+  README's usual "bigger card → raise `GPU_MEM_UTIL`, drop `--enforce-eager`"
+  advice does not apply. Start well below the `0.85` tuned for a dedicated
+  6 GiB card (e.g. `GPU_MEM_UTIL=0.4`) and watch `free -h` / `nvidia-smi`
+  before raising it.
+
+### Picking an image
+
+The `IMAGE` env var (`run-server.sh`) and the `VLLM_IMAGE`/`VLLM_TAG` build
+args (`Containerfile`) exist for exactly this — override the repo, not just
+the tag, since a sm_121-capable build may not live under
+`docker.io/vllm/vllm-openai` at all:
+
+```
+IMAGE=nvcr.io/nvidia/vllm:25.09-py3 ./run-server.sh
+# or, building the unified image:
+podman build --build-arg VLLM_IMAGE=nvcr.io/nvidia/vllm \
+              --build-arg VLLM_TAG=25.09-py3 \
+              -f deploy/vllm/Containerfile -t lighton-pdfparser .
+```
+
+Before trusting whatever tag you land on:
+
+1. Confirm the manifest actually carries arm64: `podman manifest inspect
+   <image>` or `podman inspect --format '{{.Os}}/{{.Architecture}}' <image>`.
+2. Start the server and watch for a death on the **first request** rather than
+   at startup — that shape means the image's attention kernels don't cover
+   sm_121, the same failure mode `gpu-defaults.sh` works around for the T4 by
+   naming `TRITON_ATTN` explicitly. If it happens here, try
+   `ATTENTION_BACKEND=TRITON_ATTN` (or whatever the image's own
+   `AttentionBackendEnum` reports as supporting this capability — see the
+   enum-dump command above) before assuming the hardware itself doesn't work.
+3. Run `./smoke-test.sh` and confirm markdown, not `!!!!` or garbage — the
+   fp16-looks-healthy-but-emits-token-0 failure documented above for
+   pre-Ampere cards is a dtype bug, not an architecture-specific one, and
+   nothing rules it out on a new image/kernel combination you haven't run
+   before.
+
+**This path has not been through the determinism spike** (`spike_results/
+vllm_determinism.md`, Ampere-only) or the integration test suite. Treat its
+output as unverified — smoke-test before trusting a document, the same rule
+this doc already applies to the untested pre-Ampere/fp32 path — until someone
+runs that verification on GB10 specifically and this section is updated to
+say so.
+
+### GPU passthrough
+
+The CDI setup in "One-time host setup" above is architecture-agnostic (`nvidia-ctk`
+generates the same CDI spec shape on ARM64), but the verification image named
+there (`docker.io/nvidia/cuda:12.4.1-base-ubuntu22.04`) needs its own arm64
+manifest check before you rely on it as a smoke test — don't assume a tag that
+works on x86_64 publishes arm64 too.
 
 ## Single container (pdfparser + vLLM)
 
@@ -309,8 +383,10 @@ podman **quadlet** (systemd user unit) — ask and I'll generate the
   prune old images (`podman image prune`) if a pull fails for space.
 - **6 GiB card:** `--enforce-eager` (no CUDA-graph capture) and
   `--gpu-memory-utilization 0.85` are what fit on this GPU in the spike. On a
-  bigger card, drop `--enforce-eager` for CUDA graphs (`ENFORCE_EAGER=""`) and
-  raise utilization.
+  bigger *dedicated-VRAM* card, drop `--enforce-eager` for CUDA graphs
+  (`ENFORCE_EAGER=""`) and raise utilization — but this does not apply to a
+  unified-memory box (GB10 and similar): see the
+  [GB10 section](#gb10--dgx-spark-class-unified-memory-arm64-workstations).
 - **Image tag** is pinned to `v0.22.1` to match the validated spike. Bumping it
   re-opens the determinism/fidelity question — re-run the spike against the new
   tag before trusting it.

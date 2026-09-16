@@ -173,6 +173,10 @@ podman build --from nvcr.io/nvidia/vllm:25.09-py3 \
   -f deploy/vllm/Containerfile -t lighton-pdfparser .
 ```
 
+`run-server.sh` accounts for the image entrypoint difference: the official
+vLLM image already runs `vllm serve`, while the NGC image requires that full
+command after its generic NVIDIA entrypoint.
+
 Before trusting whatever tag you land on:
 
 1. Confirm the manifest actually carries arm64: `podman manifest inspect

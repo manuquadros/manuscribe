@@ -103,11 +103,19 @@ if [ -n "${ATTENTION_BACKEND:-}" ]; then
   backend_args=(--attention-backend "$ATTENTION_BACKEND")
 fi
 
+# The official vLLM image's entrypoint already runs `vllm serve`, while NVIDIA's
+# NGC entrypoint executes the supplied arguments as a complete command.
+server_command=()
+case "$IMAGE" in
+  nvcr.io/nvidia/vllm:* | nvcr.io/nvidia/vllm@*) server_command=(vllm serve) ;;
+esac
+
 # ENFORCE_EAGER is deliberately unquoted below: empty must expand to *no*
 # argument, which a quoted "" would not do.
 # shellcheck disable=SC2086
 exec podman run "${podman_args[@]}" \
   "$IMAGE" \
+    "${server_command[@]}" \
     "$MODEL" \
     --served-model-name lightonocr \
     --dtype "$DTYPE" \

@@ -5,6 +5,9 @@ server, in a rootless podman container. All GPU/torch work lives in vLLM;
 `pdfparser` itself carries no torch or transformers — its model seam
 (`pipeline/model.py`) is a thin HTTP client that talks to this server.
 
+Unless noted otherwise, shell commands assume the repository root as the
+working directory.
+
 The server stays up and keeps the model resident, so each document pays the
 HTTP round-trip, not a ~35 s model reload.
 
@@ -55,7 +58,7 @@ unified image derive them at start time from the GPU's compute capability
 An explicit value always wins, so either can be forced:
 
 ```
-DTYPE=float16 ATTENTION_BACKEND=FLEX_ATTENTION ./run-server.sh
+DTYPE=float16 ATTENTION_BACKEND=FLEX_ATTENTION ./deploy/vllm/run-server.sh
 ```
 
 **The backend is a command-line flag, not an environment variable.**
@@ -108,8 +111,9 @@ at startup fails immediately and legibly, whereas one that OCRs every page to
 
 **The pre-Ampere path is not covered by the determinism spike, and fp32 output
 quality has not been verified on a T4** — it could not be measured on the 6 GiB
-development card, which OOMs before serving. Run `./smoke-test.sh` and confirm
-the output is markdown before trusting a document to it. If fp32 proves too slow,
+development card, which OOMs before serving. Run
+`./deploy/vllm/smoke-test.sh` and confirm the output is markdown before trusting
+a document to it. If fp32 proves too slow,
 `deploy/p100/`'s transformers shim is the fallback — but note it runs fp16 too,
 so smoke-test its output as well rather than assuming it escapes this.
 
@@ -157,17 +161,16 @@ rather than the defaults above:
 
 ### Picking an image
 
-The `IMAGE` env var (`run-server.sh`) and the `VLLM_IMAGE`/`VLLM_TAG` build
-args (`Containerfile`) exist for exactly this — override the repo, not just
-the tag, since a sm_121-capable build may not live under
+The `IMAGE` env var (`run-server.sh`) and Podman's `--from` option override the
+base image for the server-only and unified-image paths, respectively. Override
+the repository, not just the tag, since a sm_121-capable build may not live under
 `docker.io/vllm/vllm-openai` at all:
 
 ```
-IMAGE=nvcr.io/nvidia/vllm:25.09-py3 ./run-server.sh
+GPU_MEM_UTIL=0.4 IMAGE=nvcr.io/nvidia/vllm:25.09-py3 ./deploy/vllm/run-server.sh
 # or, building the unified image:
-podman build --build-arg VLLM_IMAGE=nvcr.io/nvidia/vllm \
-              --build-arg VLLM_TAG=25.09-py3 \
-              -f deploy/vllm/Containerfile -t lighton-pdfparser .
+podman build --from nvcr.io/nvidia/vllm:25.09-py3 \
+  -f deploy/vllm/Containerfile -t lighton-pdfparser .
 ```
 
 Before trusting whatever tag you land on:
@@ -181,9 +184,9 @@ Before trusting whatever tag you land on:
    `ATTENTION_BACKEND=TRITON_ATTN` (or whatever the image's own
    `AttentionBackendEnum` reports as supporting this capability — see the
    enum-dump command above) before assuming the hardware itself doesn't work.
-3. Run `./smoke-test.sh` and confirm markdown, not `!!!!` or garbage — the
-   fp16-looks-healthy-but-emits-token-0 failure documented above for
-   pre-Ampere cards is a dtype bug, not an architecture-specific one, and
+3. Run `./deploy/vllm/smoke-test.sh` and confirm markdown, not `!!!!` or
+   garbage — the fp16-looks-healthy-but-emits-token-0 failure documented above
+   for pre-Ampere cards is a dtype bug, not an architecture-specific one, and
    nothing rules it out on a new image/kernel combination you haven't run
    before.
 
@@ -235,14 +238,15 @@ long-lived container over a one-shot-per-PDF run.
 ## Server only
 
 ```
-./run-server.sh
+./deploy/vllm/run-server.sh
 ```
 
 First run pulls the ~16 G `vllm/vllm-openai:v0.22.1` image (disk is tight — see
 below). Confirm that exact tag is published first — the image tag set can lag
 the pip release the spike used; check with
 `podman search --list-tags docker.io/vllm/vllm-openai` (or the Docker Hub tags
-page) and override via `IMAGE=…/vllm-openai:<tag> ./run-server.sh` if needed.
+page) and override via
+`IMAGE=…/vllm-openai:<tag> ./deploy/vllm/run-server.sh` if needed.
 The model weights are **not** re-downloaded: `run-server.sh` mounts your
 existing `~/.cache/huggingface` (already holds the 2.7 G bbox model). The server
 is ready when the log prints `Application startup complete` on port 8000.
@@ -250,7 +254,7 @@ is ready when the log prints `Application startup complete` on port 8000.
 Tunables are env overrides, e.g.:
 
 ```
-PORT=8001 GPU_MEM_UTIL=0.80 ./run-server.sh
+PORT=8001 GPU_MEM_UTIL=0.80 ./deploy/vllm/run-server.sh
 ```
 
 ### Which interface the port lands on
@@ -262,9 +266,9 @@ the whole access control; publishing on every interface (podman's behaviour when
 `BIND_ADDR` names the one address to publish on:
 
 ```
-BIND_ADDR="$(tailscale ip -4)" ./run-server.sh   # tailnet only
-./run-server.sh                                  # loopback: podman exec, SSH tunnel
-BIND_ADDR=0.0.0.0 ./run-server.sh                # every interface, deliberately
+BIND_ADDR="$(tailscale ip -4)" ./deploy/vllm/run-server.sh   # tailnet only
+./deploy/vllm/run-server.sh                                  # loopback: podman exec, SSH tunnel
+BIND_ADDR=0.0.0.0 ./deploy/vllm/run-server.sh                # every interface, deliberately
 ```
 
 An IPv6 literal is bracketed automatically, and a value that is already
@@ -292,12 +296,12 @@ P100 shim alike; read it before exposing either on a VM with a public IP.
 With the server up, in another shell:
 
 ```
-./smoke-test.sh
+./deploy/vllm/smoke-test.sh
 ```
 
 Renders fixture page 1 with the project's own renderer and OCRs it through the
-chat endpoint; prints the first ~1200 chars of markdown. `PDF=… ./smoke-test.sh`
-to pick another file.
+chat endpoint; prints the first ~1200 chars of markdown.
+`PDF=… ./deploy/vllm/smoke-test.sh` selects another file.
 
 ### Against a server on another host
 
@@ -307,20 +311,20 @@ renders locally and sends only the page image, so point it at the remote server.
 overrides the endpoint, and `MODEL`/`PDFPARSER_VLLM_MODEL` the served name:
 
 ```
-BASE_URL=http://<vm-host>:8000/v1 ./smoke-test.sh
+BASE_URL=http://<vm-host>:8000/v1 ./deploy/vllm/smoke-test.sh
 ```
 
 For this to reach anything, the server must have been started with a
 `BIND_ADDR` that is reachable from here — it binds loopback otherwise, so a
 remote client gets a refused connection no matter what the firewall allows. On
-a tailnet that is `BIND_ADDR="$(tailscale ip -4)" ./run-server.sh`.
+a tailnet that is `BIND_ADDR="$(tailscale ip -4)" ./deploy/vllm/run-server.sh`.
 
 Alternatively leave the server on loopback and forward the port over SSH, which
 keeps the default endpoint working unchanged:
 
 ```
 ssh -N -L 8000:127.0.0.1:8000 <vm-host> &     # in one shell
-./smoke-test.sh                               # in another
+./deploy/vllm/smoke-test.sh                   # in another
 ```
 
 An unreachable host, a closed port or a dead tunnel is reported by the `/models`

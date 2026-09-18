@@ -75,10 +75,16 @@ _REF_HEADING_RE = re.compile(
     re.IGNORECASE,
 )
 
-# The article starts at the first page carrying an "Abstract"/"Introduction"
-# heading; a cover ad / masthead has neither.
+# The article starts at the first page carrying an Abstract/Summary/Introduction/
+# Background heading; a cover ad / masthead has neither.  End-anchored (``\s*$``) so
+# a body subsection that merely starts with one of these words ("Introduction of
+# point mutations") doesn't false-match — only the bare word, optionally preceded by
+# numbering ("1.", "1)", "1 |", the roman-numeral form IEEE uses, or a "■" bullet),
+# counts as the section heading itself.
 _ARTICLE_HEADING_RE = re.compile(
-    r"^\s*(?:\d+[.)]?\s+)?(?:abstract|introduction)\b", re.IGNORECASE
+    r"^\s*(?:(?:\d+|[ivxlcdm]+|■)\s*[.):|]?\s*)?"
+    r"(?:abstract|summary|introduction|background)\s*$",
+    re.IGNORECASE,
 )
 # A markdown ATX heading line ("## Title"), capturing the heading text.
 _MD_HEADING_LINE_RE = re.compile(r"^#{1,6}\s+(.*)")
@@ -432,9 +438,20 @@ def _is_article_page_md(md: str) -> bool:
     return False
 
 
+# A real article's front matter (title/byline page, a separate abstract page) is
+# never more than a couple of pages; bounding the search keeps a heading the pattern
+# fails to recognise (an unanticipated journal format) from silently discarding the
+# whole document instead of just leaving its front matter unrecognised as such.
+_MAX_LEADING_SKIP_PAGES = 3
+
+
 def _leading_pages_to_skip_md(pages_md: list[str]) -> int:
     return next(
-        (i for i, md in enumerate(pages_md) if _is_article_page_md(md)),
+        (
+            i
+            for i, md in enumerate(pages_md[:_MAX_LEADING_SKIP_PAGES])
+            if _is_article_page_md(md)
+        ),
         0,
     )
 

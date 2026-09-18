@@ -755,12 +755,19 @@ def _assemble_document(
     images: list[Image.Image],
     ocr_region: Callable[[Image.Image], str] | None = None,
     encode_image: ImageSink = _base64_src,
+    start: int | None = None,
 ) -> tuple[str, str, str]:
     """The pure assembly core: returns the document HTML plus its plain-text title
     and byline, flattened from the same header HTML the shell renders so a consumer
     gets them without re-parsing the output.  :func:`_assemble_html` is the
-    ``.html``-only view kept for the existing string callers."""
-    start = _leading_pages_to_skip_md(pages_md)
+    ``.html``-only view kept for the existing string callers.
+
+    ``start`` is the leading-page skip count; ``None`` (the default, used by every
+    standalone caller and test) computes it here.  ``lightonocr_pdf_to_document``
+    instead passes the value :func:`_recover_from_text_layer` already computed for
+    the DOI scan, so the two decisions can't drift apart on the same document."""
+    if start is None:
+        start = _leading_pages_to_skip_md(pages_md)
     pages_md = pages_md[start:]
     images = images[start:]
 
@@ -918,9 +925,11 @@ def _recover_from_text_layer(
     pages_md: list[str],
     ocr_region: Callable[[Image.Image], str],
     ocr_regions: Callable[[list[Image.Image]], list[str]],
-) -> tuple[list[str], str | None]:
+) -> tuple[list[str], str | None, int]:
     """Run the post-OCR PDF-text-layer passes over the page markdown, returning the
-    recovered markdown and the best-effort DOI.
+    recovered markdown, the best-effort DOI, and the leading-page skip count computed
+    for the DOI scan — the caller passes it on to :func:`_assemble_document` so the
+    page-drop and the DOI's first-page choice can't disagree on the same document.
 
     Every pass here — plus the DOI scan — reads the PDF text layer via the shared
     ``layers`` (a lazy per-page ``_PageLayer`` cache), which the orchestrator opens
@@ -950,7 +959,7 @@ def _recover_from_text_layer(
         layers.page_raw_text(start),
         pages_md[start] if start < len(pages_md) else "",
     )
-    return pages_md, doi
+    return pages_md, doi, start
 
 
 def _ocr_document_pages(
@@ -1025,7 +1034,7 @@ def lightonocr_pdf_to_document(
         # before assembly runs.
         with _DocumentLayers.open(pdf_path) as layers:
             pages_md = _ocr_document_pages(images, layers, ocr)
-            pages_md, doi = _recover_from_text_layer(
+            pages_md, doi, start = _recover_from_text_layer(
                 layers, pages_md, ocr_region, ocr_regions
             )
         if encode_image is None:
@@ -1033,7 +1042,7 @@ def lightonocr_pdf_to_document(
                 _file_image_writer(image_dir) if image_dir is not None else _base64_src
             )
         html, title, byline = _assemble_document(
-            pages_md, images, ocr_region, encode_image
+            pages_md, images, ocr_region, encode_image, start=start
         )
         return ParsedDocument(html=html, title=title, byline=byline, doi=doi)
     finally:

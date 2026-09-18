@@ -32,6 +32,30 @@ class TestArticlePageDetection:
 
         assert _is_article_page_md("## 1. Introduction\n\nText.") is True
 
+    def test_summary_page_is_article(self) -> None:
+        """Cell Press labels the abstract section "Summary", not "Abstract"."""
+        from pdfparser.pipeline.classify import _is_article_page_md
+
+        assert _is_article_page_md("## SUMMARY\n\nWe describe a new enzyme.") is True
+
+    def test_wiley_numbered_pipe_introduction_is_article(self) -> None:
+        from pdfparser.pipeline.classify import _is_article_page_md
+
+        assert _is_article_page_md("## 1 | INTRODUCTION\n\nText.") is True
+
+    def test_ieee_roman_introduction_is_article(self) -> None:
+        from pdfparser.pipeline.classify import _is_article_page_md
+
+        assert _is_article_page_md("## I. INTRODUCTION\n\nText.") is True
+
+    def test_late_introduction_subsection_is_not_article(self) -> None:
+        """A body subsection merely starting with "Introduction" is not the
+        article's own Introduction heading and must not match."""
+        from pdfparser.pipeline.classify import _is_article_page_md
+
+        md = "### Introduction of point mutations\n\nWe mutated residue 42."
+        assert _is_article_page_md(md) is False
+
     def test_leading_ad_page_skipped(self) -> None:
         from pdfparser.pipeline.classify import _leading_pages_to_skip_md
 
@@ -39,6 +63,21 @@ class TestArticlePageDetection:
         article = "# Real Title\n\n## Abstract\n\nBody."
         assert _leading_pages_to_skip_md([ad, article]) == 1
         assert _leading_pages_to_skip_md([article]) == 0
+
+    def test_late_introduction_subsection_does_not_widen_skip(self) -> None:
+        """Reviewer probe: a Wiley-style "1 | INTRODUCTION" on the real title page
+        must be recognised as the article start so a later body subsection that
+        merely starts with "Introduction" can't push the skip past it and drop
+        the title/byline/abstract."""
+        from pdfparser.pipeline.classify import _leading_pages_to_skip_md
+
+        title_page = "# Real Title\n\n## 1 | INTRODUCTION\n\nText."
+        results_page = "## 2 | RESULTS\n\nText."
+        subsection_page = (
+            "### Introduction of point mutations\n\nWe mutated residue 42."
+        )
+        pages = [title_page, results_page, subsection_page]
+        assert _leading_pages_to_skip_md(pages) == 0
 
 
 class TestRunningFurniture:

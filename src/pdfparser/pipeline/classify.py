@@ -15,6 +15,7 @@ from dataclasses import dataclass, field
 from pdfparser.pipeline.affiliations import _is_affiliation_line
 from pdfparser.pipeline.furniture import _is_degenerate_repetition
 from pdfparser.pipeline.text import (
+    _BOLD_LABEL_CAPTURE_RE,
     _BOLD_LABEL_RE,
     _SENTENCE_END_RE,
     _SUP_DIGITS,
@@ -251,18 +252,6 @@ _LEADING_BANNER_RE = re.compile(
     + "|".join(re.escape(b) for b in _PUBLICATION_BANNER_LABELS)
     + r")\s*</strong>\s*",
     re.IGNORECASE,
-)
-# Matches — and captures the name of — a leading bold label with the colon inside
-# *or* outside the bold ("<strong>Keywords:</strong>" vs "<strong>Keywords</strong>:"):
-# OCR emits both shapes for the same label, and matching colon-inside only stranded
-# the colon-outside keyword line in the body instead of relocating it to the panel.
-# This is the *single* either-colon matcher — every leading-bold-label check
-# (the metadata/glossary/front-matter predicates via ``_bold_label_in``, and the
-# abstract terminator) goes through it, so the colon convention has one home.  Distinct
-# from ``text._BOLD_LABEL_RE`` (colon-inside only), which stays stricter for the
-# merge/furniture guards that must not treat a colon-outside run as a label.
-_BOLD_LABEL_CAPTURE_RE = re.compile(
-    r"^<strong>([^<]+):</strong>|^<strong>([^<]+)</strong>\s*:"
 )
 # Front matter is hidden in a collapsed panel, so misclassifying body prose as
 # front matter makes it invisible.  A real prose paragraph under a metadata

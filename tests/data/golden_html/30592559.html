@@ -1,0 +1,572 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Characterization of the Recombinant (R)- and (S)-Hydroxypropyl-Coenzyme M Dehydrogenases: A Case Study to Augment the Teaching of Enzyme Kinetics and Stereoselectivity</title>
+<style>
+body {
+    font-family: Georgia, serif;
+    max-width: 860px;
+    margin: 2rem auto;
+    padding: 0 1.5rem;
+    color: #222;
+    line-height: 1.7;
+    font-size: 16px;
+}
+header {
+    border-bottom: 1px solid #ccc; margin-bottom: 2rem; padding-bottom: 1rem; }
+header h1 { font-size: 1.4rem; margin: 0 0 .4rem; }
+h1 { font-size: 1.3rem; margin: 1.5em 0 .4em; }
+h2 { font-size: 1.15rem; margin: 1.5em 0 .4em; border-bottom: 1px solid #e0e0e0; }
+h3 { font-size: 1rem; margin: 1.2em 0 .3em; }
+p  { margin: .6em 0; }
+section.abstract { background: #f7f7f7; padding: 1em 1.2em; border-radius: 4px;
+    margin: 1.5em 0; }
+details.metadata { margin: 1.5em 0; border: 1px solid #e0e0e0; border-radius: 4px;
+    padding: .3em 1em; background: #fafafa; font-size: .9rem; color: #555; }
+details.metadata > summary { cursor: pointer; font-weight: bold; color: #333;
+    list-style: disclosure-closed; }
+details.metadata[open] > summary { list-style: disclosure-open;
+    margin-bottom: .4em; }
+figure { margin: 1.5em 0; }
+figcaption { font-size: .875em; color: #555; }
+p.footnote { font-size: .8rem; color: #666; border-top: 1px solid #eee;
+    padding-top: .3em; margin-top: .3em; }
+table { border-collapse: collapse; width: 100%; overflow-x: auto;
+    display: block; font-size: .9rem; margin: 1em 0; }
+caption { font-weight: bold; text-align: left; padding: .4em 0 .6em;
+    font-size: .9rem; color: #333; }
+td, th { padding: .4em .7em; border: 1px solid #ccc; }
+hr { border: none; border-top: 1px solid #ddd; margin: 2rem 0; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Characterization of the Recombinant (R)- and (S)-Hydroxypropyl-Coenzyme M Dehydrogenases: A Case Study to Augment the Teaching of Enzyme Kinetics and Stereoselectivity</h1>
+  <p>Daniel D. Clark</p>
+</header>
+<section class='abstract'>
+<p>A homologous pair of stereospecific NAD-dependent enzymes, (R)- and (S)-hydroxypropyl-coenzyme M dehydrogenase, are part of a bacterial pathway of short-chain alkene and epoxide metabolism. Their discovery and study, which spans multiple publications over more than a decade, is a data rich story that combines both classical and contemporary experimental biochemistry. A subset of the data for characterization of the recombinant enzymes was used as a case study to augment the teaching of enzyme kinetics and stereoselectivity in an undergraduate biochemistry course at California State University-Chico.</p>
+</section>
+<details class='metadata'>
+<summary>Metadata</summary>
+<p><strong>Keywords:</strong> Biochemistry education; enzymology; enzyme kinetics; stereoselectivity; dehydrogenase</p>
+<h3>Abbreviations</h3>
+<p>2-HEC, 2-(2-hydroxyethylthio)ethanesulfonate; 2-KPC, 2-(2-ketopropylthio)ethanesulfonate; CoM, coenzyme M, 2-mercaptoethanesulfonate; EE, enantiomeric excess; HPC, 2-(2-hydroxypropylthio)ethanesulfonate; <em>K</em><sub>IC</sub>, inhibition constant (competitive); <em>K</em><sub>IC</sub>, inhibition constant (uncompetitive); M-HPC, 2-(2-methyl-2-hydroxypropylthio)-ethanesulfonate; R-HPC, 2-[(R)-2-hydroxypropylthio]ethanesulfonate; R-HPCDH, R-HPC dehydrogenase purified from X. autotrophicus Py2; rR-HPCDH, recombinant R-HPCDH1; via expression of xecD1 (Xaut_4868) in E. coli; rS-HPCDH, recombinant S-HPCDH3; via expression of xecE3 (Xaut_5073) in E. coli; SDR, short-chain dehydrogenase/reductase; S-HPC, 2-[(S)-2-hydroxypropylthio]ethanesulfonate; S-HPCDH, S-HPC dehydrogenase purified from X. autotrophicus Py2</p>
+<p>From the Department of Chemistry and Biochemistry, California State University-Chico, Chico, California, 95929</p>
+<p>Volume 47, Number 2, March/April 2019, Pages 124–132</p>
+<p>*To whom correspondence should be addressed. Daniel D. Clark, Tel.: (530)-898-5251. E-mail: ddclark@csuchico.edu.</p>
+<p>Additional Supporting Information may be found in the online version of this article.</p>
+<p>Received 19 June 2018; Revised 23 August 2018; Accepted 6 December 2018</p>
+<p>DOI 10.1002/bmb.21202</p>
+<p>Published online 28 December 2018 in Wiley Online Library (wileyonlinelibrary.com)</p>
+<p>© 2018 International Union of Biochemistry and Molecular Biology, 47(2):124–132, 2019.</p>
+</details>
+<div class="body">
+<h2>Introduction</h2>
+<p>Enzyme kinetics is an important topic for undergraduate life science majors. Nevertheless, exactly how kinetic data can be used to understand enzyme mechanism is sometimes lost on students. Undergraduate biochemistry textbooks typically provide kinetic data for several Michaelis–Menten-like enzymes, but the examples are often limited to a few wild-type enzymes, with data for one or two substrates per enzyme. In the classroom, incorporation of a more expansive dataset with a range of substrates, inhibitors, and mutants for an enzyme, examined in the context of specific mechanistic questions, has the potential to improve student appreciation for how kinetic data can be used.</p>
+<p>The short-chain dehydrogenases/reductase (SDR) enzymes constitute one of the largest protein superfamilies [1]. A unique pair of SDR enzymes, (R)- and (S)-hydroxypropyl-coenzyme M dehydrogenase (R- and S-HPCDH), are part of a bacterial pathway of short-chain alkene and epoxide metabolism (Fig. 1) [2–5]. R- and S-HPCDH act on different substrate enantiomers in a common pathway, a feature shared by only one other known pair of SDR enzymes (tropinone reductase I and II) [2]. Two kinetic studies with recombinant R-HPCDH, Clark and Ensign [6] and Clark et al. [7], were pivotal to development of the larger R- and S-HPCDH story [8–10]. The rR-HPCDH data provided evidence that two arginine residues (R152 and R196) play a key role in substrate binding and stereoselectivity, which was later confirmed by X-ray crystallography [7,8].</p>
+<figure><img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAmAAAAMaCAIAAACux22UAAALXklEQVR4nO3VsQ0AIRDAsOf33/mokdJDYU+QLmtmPgDg9N8OAIAXGSQABIMEgGCQABAMEgCCQQJAMEgACAYJAMEgASAYJAAEgwSAYJAAEAwSAIJBAkAwSAAIBgkAwSABIBgkAASDBIBgkAAQDBIAgkECQDBIAAgGCQDBIAEgGCQABIMEgGCQABAMEgCCQQJAMEgACAYJAMEgASAYJAAEgwSAYJAAEAwSAIJBAkAwSAAIBgkAwSABIBgkAASDBIBgkAAQDBIAgkECQDBIAAgGCQDBIAEgGCQABIMEgGCQABAMEgCCQQJAMEgACAYJAMEgASAYJAAEgwSAYJAAEAwSAIJBAkAwSAAIBgkAwSABIBgkAASDBIBgkAAQDBIAgkECQDBIAAgGCQDBIAEgGCQABIMEgGCQABAMEgCCQQJAMEgACAYJAMEgASAYJAAEgwSAYJAAEAwSAIJBAkAwSAAIBgkAwSABIBgkAASDBIBgkAAQDBIAgkECQDBIAAgGCQDBIAEgGCQABIMEgGCQABAMEgCCQQJAMEgACAYJAMEgASAYJAAEgwSAYJAAEAwSAIJBAkAwSAAIBgkAwSABIBgkAASDBIBgkAAQDBIAgkECQDBIAAgGCQDBIAEgGCQABIMEgGCQABAMEgCCQQJAMEgACAYJAMEgASAYJAAEgwSAYJAAEAwSAIJBAkAwSAAIBgkAwSABIBgkAASDBIBgkAAQDBIAgkECQDBIAAgGCQDBIAEgGCQABIMEgGCQABAMEgCCQQJAMEgACAYJAMEgASAYJAAEgwSAYJAAEAwSAIJBAkAwSAAIBgkAwSABIBgkAASDBIBgkAAQDBIAgkECQDBIAAgGCQDBIAEgGCQABIMEgGCQABAMEgCCQQJAMEgACAYJAMEgASAYJAAEgwSAYJAAEAwSAIJBAkAwSAAIBgkAwSABIBgkAASDBIBgkAAQDBIAgkECQDBIAAgGCQDBIAEgGCQABIMEgGCQABAMEgCCQQJAMEgACAYJAMEgASAYJAAEgwSAYJAAEAwSAIJBAkAwSAAIBgkAwSABIBgkAASDBIBgkAAQDBIAgkECQDBIAAgGCQDBIAEgGCQABIMEgGCQABAMEgCCQQJAMEgACAYJAMEgASAYJAAEgwSAYJAAEAwSAIJBAkAwSAAIBgkAwSABIBgkAASDBIBgkAAQDBIAgkECQDBIAAgGCQDBIAEgGCQABIMEgGCQABAMEgCCQQJAMEgACAYJAMEgASAYJAAEgwSAYJAAEAwSAIJBAkAwSAAIBgkAwSABIBgkAASDBIBgkAAQDBIAgkECQDBIAAgGCQDBIAEgGCQABIMEgGCQABAMEgCCQQJAMEgACAYJAMEgASAYJAAEgwSAYJAAEAwSAIJBAkAwSAAIBgkAwSABIBgkAASDBIBgkAAQDBIAgkECQDBIAAgGCQDBIAEgGCQABIMEgGCQABAMEgCCQQJAMEgACAYJAMEgASAYJAAEgwSAYJAAEAwSAIJBAkAwSAAIBgkAwSABIBgkAASDBIBgkAAQDBIAgkECQDBIAAgGCQDBIAEgGCQABIMEgGCQABAMEgCCQQJAMEgACAYJAMEgASAYJAAEgwSAYJAAEAwSAIJBAkAwSAAIBgkAwSABIBgkAASDBIBgkAAQDBIAgkECQDBIAAgGCQDBIAEgGCQABIMEgGCQABAMEgCCQQJAMEgACAYJAMEgASAYJAAEgwSAYJAAEAwSAIJBAkAwSAAIBgkAwSABIBgkAASDBIBgkAAQDBIAgkECQDBIAAgGCQDBIAEgGCQABIMEgGCQABAMEgCCQQJAMEgACAYJAMEgASAYJAAEgwSAYJAAEAwSAIJBAkAwSAAIBgkAwSABIBgkAASDBIBgkAAQDBIAgkECQDBIAAgGCQDBIAEgGCQABIMEgGCQABAMEgCCQQJAMEgACAYJAMEgASAYJAAEgwSAYJAAEAwSAIJBAkAwSAAIBgkAwSABIBgkAASDBIBgkAAQDBIAgkECQDBIAAgGCQDBIAEgGCQABIMEgGCQABAMEgCCQQJAMEgACAYJAMEgASAYJAAEgwSAYJAAEAwSAIJBAkAwSAAIBgkAwSABIBgkAASDBIBgkAAQDBIAgkECQDBIAAgGCQDBIAEgGCQABIMEgGCQABAMEgCCQQJAMEgACAYJAMEgASAYJAAEgwSAYJAAEAwSAIJBAkAwSAAIBgkAwSABIBgkAASDBIBgkAAQDBIAgkECQDBIAAgGCQDBIAEgGCQABIMEgGCQABAMEgCCQQJAMEgACAYJAMEgASAYJAAEgwSAYJAAEAwSAIJBAkAwSAAIBgkAwSABIBgkAASDBIBgkAAQDBIAgkECQDBIAAgGCQDBIAEgGCQABIMEgGCQABAMEgCCQQJAMEgACAYJAMEgASAYJAAEgwSAYJAAEAwSAIJBAkAwSAAIBgkAwSABIBgkAASDBIBgkAAQDBIAgkECQDBIAAgGCQDBIAEgGCQABIMEgGCQABAMEgCCQQJAMEgACAYJAMEgASAYJAAEgwSAYJAAEAwSAIJBAkAwSAAIBgkAwSABIBgkAASDBIBgkAAQDBIAgkECQDBIAAgGCQDBIAEgGCQABIMEgGCQABAMEgCCQQJAMEgACAYJAMEgASAYJAAEgwSAYJAAEAwSAIJBAkAwSAAIBgkAwSABIBgkAASDBIBgkAAQDBIAgkECQDBIAAgGCQDBIAEgGCQABIMEgGCQABAMEgCCQQJAMEgACAYJAMEgASAYJAAEgwSAYJAAEAwSAIJBAkAwSAAIBgkAwSABIBgkAASDBIBgkAAQDBIAgkECQDBIAAgGCQDBIAEgGCQABIMEgGCQABAMEgCCQQJAMEgACAYJAMEgASAYJAAEgwSAYJAAEAwSAIJBAkAwSAAIBgkAwSABIBgkAASDBIBgkAAQDBIAgkECQDBIAAgGCQDBIAEgGCQABIMEgGCQABAMEgCCQQJAMEgACAYJAMEgASAYJAAEgwSAYJAAEAwSAIJBAkAwSAAIBgkAwSABIBgkAASDBIBgkAAQDBIAgkECQDBIAAgGCQDBIAEgGCQABIMEgGCQABAMEgCCQQJAMEgACAYJAMEgASAYJAAEgwSAYJAAEAwSAIJBAkAwSAAIBgkAwSABIBgkAASDBIBgkAAQDBIAgkECQDBIAAgGCQDBIAEgGCQABIMEgGCQABAMEgCCQQJAMEgACAYJAMEgASAYJAAEgwSAYJAAEAwSAIJBAkAwSAAIBgkAwSABIBgkAASDBIBgkAAQDBIAgkECQDBIAAgGCQDBIAEgGCQABIMEgGCQABAMEgCCQQJAMEgACAYJAMEgASAYJAAEgwSAYJAAEAwSAIJBAkAwSAAIBgkAwSABIBgkAASDBIBgkAAQDBIAgkECQDBIAAgGCQDBIAEgGCQABIMEgGCQABAMEgCCQQJAMEgACAYJAMEgASAYJAAEgwSAYJAAEAwSAIJBAkAwSAAIBgkAwSABIBgkAASDBIBgkAAQDBIAgkECQDBIAAgGCQDBIAEgGCQABIMEgGCQABAMEgCCQQJAMEgACAYJAMEgASAYJAAEgwSAYJAAEAwSAIJBAkAwSAAIBgkAwSABIBgkAASDBIBgkAAQDBIAgkECQDBIAAgGCQDBIAEgGCQABIMEgGCQABAMEgCCQQJAMEgACAYJAMEgASAYJAAEgwSAYJAAEAwSAIJBAkAwSAAIBgkAwSABIBgkAASDBIBgkAAQDBIAgkECQDBIAAgGCQDBIAEgGCQABIMEgGCQABAMEgCCQQJAMEgACAYJAMEgASAYJAAEgwSAYJAAEAwSAIJBAkAwSAAIBgkAwSABIBgkAASDBIBgkAAQDBIAgkECQDBIAAgGCQDBIAEgbKPyCTF88MUtAAAAAElFTkSuQmCC" alt=""><figcaption><strong>FIG 1</strong><br><em>Pathway of short-chain alkene and epoxide metabolism in X. autotrophicus Py2. Enzymatic reactions are as follows: (Step 1) alkene monooxygenase, (Step 2) epoxyalkane: coenzyme M transferase, (Step 3) 2-(2-hydroxypropylthio)ethanesulfonate dehydrogenases (R- and S-HPCDH), and (Step 4) NADPH:2-ketopropyl-coenzyme M [2-(2-ketopropylthio) ethanesulfonate] oxidoreductase/carboxylase.</em></figcaption></figure>
+<p>Herein, I propose that data from the characterization of the recombinant hydroxypropyl-coenzyme M dehydrogenases (rR- and rS-HPCDH) can augment the teaching of enzyme kinetics and stereoselectivity. In this work, selected rR-HPCDH data were combined with a small portion of rS-HPCDH data, for use as a case study. The rR-HPCDH data exemplifies an application of enzyme kinetics to study active site geometry and stereoselectivity in an NAD-dependent alcohol dehydrogenase, whereas the rS-HPCDH data add completeness to the case and enables a comparison of the two enzymes. The case study was used in an undergraduate biochemistry lecture course at California State University-Chico with five goals in mind:</p>
+<ol>
+<li>Students improve their appreciation for the utility of enzyme kinetic data.</li>
+<li>Students improve their understanding of how enzyme kinetic data can be used to define substrate specificity and active site geometry.</li>
+<li>Students improve their understanding of how enzyme kinetic data can be used to predict residues involved in substrate binding.</li>
+<li>Students improve their understanding of how an enzyme can control the stereoselectivity of a reaction.</li>
+<li>Students improve their understanding of hydride transfer stereospecificity in reactions catalyzed by NAD-dependent dehydrogenases.</li>
+</ol>
+<h2>Case Study Description</h2>
+<p>The case study was deployed as a Microsoft PowerPoint presentation that included six parts (see Supporting Information). Because it is based on previously published work, the descriptions that follow are intentionally brief and readers are encouraged to review the cited references, with an emphasis on Clark and Ensign [6] and Clark <em>et al.</em> [7].</p>
+<h3>Part 1—Pathway of Short-Chain Alkene and Epoxide Metabolism in <em>Xanthobacter autotrophicus</em> Py2</h3>
+<p>The microbiology, enzymology, genetics, and proteomics of alkene and epoxide metabolism in <em>X. autotrophicus</em> Py2 were reviewed previously [5,11–13]. Briefly, <em>X. autotrophicus</em> Py2 is a gram-negative aerobic soil bacterium that utilizes a four-step CO₂⁻ and coenzyme M-dependent pathway for the metabolism of propylene to acetocetate (Fig. 1 and Supporting Information Slide 4) [5]. Interestingly, before the discovery of coenzyme M (CoM) in this pathway, it was thought to have an exclusive role in biological methane production (i.e. methanogenesis) [4]. Integral to the pathway in Fig. 1 are R- and S-HPCDH that individually allow for metabolism of only a single epoxypropane enantiomer [6]. As a pair they enable <em>X. autotrophicus</em> Py2 to utilize enantiomeric epoxide mixtures, including those produced <em>in vivo</em> by an alkene monooxygenase during growth on propylene gas (Fig. 1) [6].</p>
+<h3>Part 2—Proposed Active Site Models (Pre-X-Ray Crystallography)</h3>
+<p>Prior to their structural elucidation, active site models were proposed for R- and S-HPCDH (Fig. 2 and Supporting Information Slide 5) [3]. These models, supported by multiple lines of evidence, were a reference for further experimentation (Fig. 2 and Supporting Information Slide 5) [3,6,7]. Protein sequence alignments showed that R- and S-HPCDH, which are 41% identical to each other, were SDR enzymes [3,6]. This finding led to the proposal that R- and S-HPCDH stereoselectivity might be controlled by differential substrate orientation using charged residues, similar to plant tropinone reductase I and II, which are the only other known pair of stereospecific SDR enzymes [3,6]. Chemical modification and substrate protection experiments with rR-HPCDH suggested the charged residues were one or more arginines [6]. Thus, two important features of the active site models in Fig. 2 include the classic SDR enzyme catalytic residues, and the charged residues that differentially orient the substrate for optimal hydride transfer to the NAD⁺ cofactor.</p>
+<figure><img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAA3YAAAHVCAIAAAAy2P6zAAAI0klEQVR4nO3WwQkAIBDAMHX/nc8lCoIkE/TZPTMLAAA653UAAAC/sZgAAMQsJgAAMYsJAEDMYgIAELOYAADELCYAADGLCQBAzGICABCzmAAAxCwmAAAxiwkAQMxiAgAQs5gAAMQsJgAAMYsJAEDMYgIAELOYAADELCYAADGLCQBAzGICABCzmAAAxCwmAAAxiwkAQMxiAgAQs5gAAMQsJgAAMYsJAEDMYgIAELOYAADELCYAADGLCQBAzGICABCzmAAAxCwmAAAxiwkAQMxiAgAQs5gAAMQsJgAAMYsJAEDMYgIAELOYAADELCYAADGLCQBAzGICABCzmAAAxCwmAAAxiwkAQMxiAgAQs5gAAMQsJgAAMYsJAEDMYgIAELOYAADELCYAADGLCQBAzGICABCzmAAAxCwmAAAxiwkAQMxiAgAQs5gAAMQsJgAAMYsJAEDMYgIAELOYAADELCYAADGLCQBAzGICABCzmAAAxCwmAAAxiwkAQMxiAgAQs5gAAMQsJgAAMYsJAEDMYgIAELOYAADELCYAADGLCQBAzGICABCzmAAAxCwmAAAxiwkAQMxiAgAQs5gAAMQsJgAAMYsJAEDMYgIAELOYAADELCYAADGLCQBAzGICABCzmAAAxCwmAAAxiwkAQMxiAgAQs5gAAMQsJgAAMYsJAEDMYgIAELOYAADELCYAADGLCQBAzGICABCzmAAAxCwmAAAxiwkAQMxiAgAQs5gAAMQsJgAAMYsJAEDMYgIAELOYAADELCYAADGLCQBAzGICABCzmAAAxCwmAAAxiwkAQMxiAgAQs5gAAMQsJgAAMYsJAEDMYgIAELOYAADELCYAADGLCQBAzGICABCzmAAAxCwmAAAxiwkAQMxiAgAQs5gAAMQsJgAAMYsJAEDMYgIAELOYAADELCYAADGLCQBAzGICABCzmAAAxCwmAAAxiwkAQMxiAgAQs5gAAMQsJgAAMYsJAEDMYgIAELOYAADELCYAADGLCQBAzGICABCzmAAAxCwmAAAxiwkAQMxiAgAQs5gAAMQsJgAAMYsJAEDMYgIAELOYAADELCYAADGLCQBAzGICABCzmAAAxCwmAAAxiwkAQMxiAgAQs5gAAMQsJgAAMYsJAEDMYgIAELOYAADELCYAADGLCQBAzGICABCzmAAAxCwmAAAxiwkAQMxiAgAQs5gAAMQsJgAAMYsJAEDMYgIAELOYAADELCYAADGLCQBAzGICABCzmAAAxCwmAAAxiwkAQMxiAgAQs5gAAMQsJgAAMYsJAEDMYgIAELOYAADELCYAADGLCQBAzGICABCzmAAAxCwmAAAxiwkAQMxiAgAQs5gAAMQsJgAAMYsJAEDMYgIAELOYAADELCYAADGLCQBAzGICABCzmAAAxCwmAAAxiwkAQMxiAgAQs5gAAMQsJgAAMYsJAEDMYgIAELOYAADELCYAADGLCQBAzGICABCzmAAAxCwmAAAxiwkAQMxiAgAQs5gAAMQsJgAAMYsJAEDMYgIAELOYAADELCYAADGLCQBAzGICABCzmAAAxCwmAAAxiwkAQMxiAgAQs5gAAMQsJgAAMYsJAEDMYgIAELOYAADELCYAADGLCQBAzGICABCzmAAAxCwmAAAxiwkAQMxiAgAQs5gAAMQsJgAAMYsJAEDMYgIAELOYAADELCYAADGLCQBAzGICABCzmAAAxCwmAAAxiwkAQMxiAgAQs5gAAMQsJgAAMYsJAEDMYgIAELOYAADELCYAADGLCQBAzGICABCzmAAAxCwmAAAxiwkAQMxiAgAQs5gAAMQsJgAAMYsJAEDMYgIAELOYAADELCYAADGLCQBAzGICABCzmAAAxCwmAAAxiwkAQMxiAgAQs5gAAMQsJgAAMYsJAEDMYgIAELOYAADELCYAADGLCQBAzGICABCzmAAAxCwmAAAxiwkAQMxiAgAQs5gAAMQsJgAAMYsJAEDMYgIAELOYAADELCYAADGLCQBAzGICABCzmAAAxCwmAAAxiwkAQMxiAgAQs5gAAMQsJgAAMYsJAEDMYgIAELOYAADELCYAADGLCQBAzGICABCzmAAAxCwmAAAxiwkAQMxiAgAQs5gAAMQsJgAAMYsJAEDMYgIAELOYAADELCYAADGLCQBAzGICABCzmAAAxCwmAAAxiwkAQMxiAgAQs5gAAMQsJgAAMYsJAEDMYgIAELOYAADELCYAADGLCQBAzGICABCzmAAAxCwmAAAxiwkAQMxiAgAQs5gAAMQsJgAAMYsJAEDMYgIAELOYAADELCYAADGLCQBAzGICABCzmAAAxCwmAAAxiwkAQMxiAgAQs5gAAMQsJgAAMYsJAEDMYgIAELOYAADELCYAADGLCQBAzGICABCzmAAAxCwmAAAxiwkAQMxiAgAQs5gAAMQsJgAAMYsJAEDMYgIAELOYAADELCYAADGLCQBAzGICABCzmAAAxCwmAAAxiwkAQMxiAgAQs5gAAMQsJgAAMYsJAEDMYgIAELOYAADELCYAADGLCQBAzGICABCzmAAAxCwmAAAxiwkAQMxiAgAQs5gAAMQsJgAAMYsJAEDMYgIAELOYAADELCYAADGLCQBAzGICABCzmAAAxCwmAAAxiwkAQMxiAgAQs5gAAMQsJgAAMYsJAEDMYgIAELOYAADELCYAADGLCQBAzGICABCzmAAAxCwmAAAxiwkAQMxiAgAQs5gAAMQsJgAAMYsJAEDMYgIAELOYAADELCYAADGLCQBAzGICABCzmAAAxCwmAAAxiwkAQMxiAgAQs5gAAMQsJgAAMYsJAEDMYgIAELOYAADELCYAADGLCQBAzGICABCzmAAAxCwmAAAxiwkAQMxiAgAQs5gAAMQsJgAAMYsJAEDMYgIAELOYAADELCYAADGLCQBAzGICABCzmAAAxCwmAAAxiwkAQMxiAgAQs5gAAMQsJgAAMYsJAEDMYgIAELOYAADELCYAADGLCQBAzGICABCzmAAAxCwmAAAxiwkAQOwC6pIGp3+ejqQAAAAASUVORK5CYII=" alt=""><figcaption>FIG 2 Proposed active site models of R- and S-HPCDH (pre-X-ray crystallography).</figcaption></figure>
+<h2>Part 3—Characterization of rR-HPCDH</h2>
+<p>Data for the characterization of rR-HPCDH were adapted from Clark and Ensign [6], and principally from Clark <em>et al.</em> [7]. As presented to students, two major goals for the characterization of rR-HPCDH were [1] to define the active site geometry for comparison to the proposed model, and [2] to determine the identity of the charged residue(s) (presumably one or more arginines) that bind/orient the substrate and help control stereoselectivity (Fig. 2 and Supporting Information Slides 5 and 6).</p>
+<p>The experimental approach to define active site geometry was to examine rR-HPCDH substrate specificity by collecting kinetic data for a range of structurally related alcohols and a few inhibitors [7]. Table I provides data for selected substrates and inhibitors investigated, while Fig. 3 gives their structures [7]. In the case study presentation, Table I was simplified and data were highlighted while the rR-HPCDH active site model was occupied with the molecule under consideration (Supporting Information Slides 7–31). To encourage class discussion, predetermined questions were posed to students (e.g. Supporting Information: Slides 7–11). Additionally, for the oxidation of the 2-alkanols, two potential substrate-binding modes were shown and discussed in the context of the data (Supporting Information: Slides 7–31). As shown in Table I, <em>K</em><sub>m</sub> values for the (R)-2-alkanols decreased as the carbon chain length was increased, while <em>k</em><sub>cat</sub> values were nearly constant [7]. Carbon chain length was not a major determinant of <em>k</em><sub>cat</sub>, which is presumably dictated by proper alignment of the hydroxyl group and hydrogen atom, for general base abstraction and hydride transfer, respectively [7]. The (S)-2-alkanols longer than 2-pentanol were very poor substrates (Table I) [7]. The enantiomers of 2-butanol exhibited nearly identical <em>K</em><sub>m</sub> values, while the <em>K</em><sub>m</sub> for (S)-2-pentanol was significantly larger than (R)-2-pentanol (Table I) [7]. These data suggested that enantiomers of 2-butanol can bind with either their methyl or ethyl group oriented into the “methyl binding pocket” (Supporting Information Slides 12–15) [7]. Whereas for longer 2-alkanols, groups beyond n-propyl apparently cannot be accommodated by the “methyl binding pocket” and presumably are favored to interact with the “CoM binding pocket” (Supporting Information Slides 16–31) [7].</p>
+<p>The C-terminal domains of SDR enzymes are responsible for imparting substrate specificity [3]. To identify the charged residue(s) in the rR-HPCDH active site that bind the sulfonate of the substrate, five C-terminal arginine mutants were constructed (Table II and Supporting Information Slide 32) [7]. Mutants were characterized for their ability to catalyze the NADH-dependent reduction of two ketones, 2-KPC (a sulfonate-containing molecule, see Fig. 1) and 2-butanone (a molecule that lacked a sulfonate) (Table II and Supporting Information Slide 32) [7]. The idea was that if a particular arginine interacted with the sulfonate of 2-KPC, then changing it to an alanine would affect the kinetic parameters with 2-KPC, but not 2-butanone. Two mutants, R152A and R196A, exhibited substantially different kinetic parameters for 2-KPC versus the effects seen for 2-butanone (relative to the wild-type enzyme) (Table II and Supporting Information Slide 32) [7]. The interpretation was that R152 and R196 bind the sulfonate of 2-KPC [7].</p>
+<p>In consideration of the rR-HPCDH active site model in Fig. 2, it was predicted that the stereospecificity of 2-butanone reduction could be altered by inclusion of an additive (e.g. ethanesulfonate, CH₃CH₂SO₃⁻Na⁺), and if so, the effect could be exploited to provide additional evidence to support the proposed roles of R152 and R196 [7]. For rR-HPCDH to produce an enantiomeric mixture of 2-butanol, 2-butanone must have two binding modes to enable hydride transfer from NADH to different faces of the carbonyl carbon (Supporting Information Slide 33) [7]. As shown in Table III, analyses of 2-butanol production revealed that, with no additives present, all forms of rR-HPCDH preferred a re-face hydride addition to produce an enantiomeric excess (EE) of (S)-2-butanol (see also Supporting Information Slides 33 and 34) [7]. However, the addition of ethanesulfonate dramatically increased the EE of (S)-2-butanol produced by all forms of rR-HPCDH except the R152A and R196A mutants (Table III, see also Supporting Information Slide 35) [7]. The effect of ethanesulfonate and other additives on (S)-butanol production was termed “enantioselective modulation” and it was highly selective for sulfonate containing molecules (Table III and Supporting Information Slide 34) [7]. The interpretation was that the sulfonate of ethanesulfonate interacted with R152 and R196 in the “CoM binding pocket” alongside 2-butanone, in a way that discouraged a si-face hydride addition to produce (R)-2-butanol (Supporting Information Slides 33–35) [7]. Furthermore, substitution of R152 or R196 for alanine inhibited ethanesulfonate binding to the extent that its addition did not increase the EE of (S)-2-butanol produced by these mutants (Table III) [7].</p>
+<table><caption>TABLE I Selected substrates and inhibitors used to investigate rR-HPCDH specificity and active site geometry</caption>
+<thead>
+<tr>
+<th>Molecule</th>
+<th>Classification</th>
+<th><em>K</em><sub>m</sub> or <em>K</em><sub>i</sub> (mM)<sup>a</sup></th>
+<th><em>k</em><sub>cat</sub> (s<sup>−1</sup>)</th>
+<th><em>k</em><sub>cat</sub>/<em>K</em><sub>m</sub> (M<sup>−1</sup>·s<sup>−1</sup>)</th>
+<th>Enantioselectivity (E)<sup>b</sup></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td colspan="6">Sulfonate-containing:</td>
+</tr>
+<tr>
+<td>R-HPC</td>
+<td>Substrate (physiological)</td>
+<td>0.102 ± 0.002</td>
+<td>26.8</td>
+<td>2.6 × 10<sup>5</sup></td>
+<td></td>
+</tr>
+<tr>
+<td>S-HPC</td>
+<td>Substrate</td>
+<td>0.100 ± 0.001</td>
+<td>0.044</td>
+<td>4.4 × 10<sup>2</sup></td>
+<td>590 (R)</td>
+</tr>
+<tr>
+<td></td>
+<td>Competitive inhibitor</td>
+<td>0.156 ± 0.007 ( <em>K</em><sub>ic</sub> )</td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>2-HEC</td>
+<td>Substrate</td>
+<td>0.750 ± 0.040</td>
+<td>0.29</td>
+<td>3.9 × 10<sup>2</sup></td>
+<td></td>
+</tr>
+<tr>
+<td>M-HPC</td>
+<td>Competitive inhibitor</td>
+<td>0.406 ± 0.013 ( <em>K</em><sub>ic</sub> )</td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>CoM</td>
+<td>Mixed inhibitor</td>
+<td>2.250 ± 0.130 ( <em>K</em><sub>ic</sub> )</td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td></td>
+<td></td>
+<td>3.620 ± 0.170 ( <em>K</em><sub>iu</sub> )</td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td colspan="6">2-Alkanols:</td>
+</tr>
+<tr>
+<td>2-Propanol</td>
+<td>Substrate</td>
+<td>1726 ± 88</td>
+<td>2.9</td>
+<td>1.7 × 10<sup>0</sup></td>
+<td></td>
+</tr>
+<tr>
+<td>(R)-Butanol</td>
+<td>Substrate</td>
+<td>328 ± 18</td>
+<td>0.98</td>
+<td>3.0 × 10<sup>0</sup></td>
+<td></td>
+</tr>
+<tr>
+<td>(S)-Butanol</td>
+<td>Substrate</td>
+<td>315 ± 11</td>
+<td>2.2</td>
+<td>7.1 × 10<sup>0</sup></td>
+<td>0.42 (R)</td>
+</tr>
+<tr>
+<td>(R)-2-Pentanol</td>
+<td>Substrate</td>
+<td>20 ± 1</td>
+<td>1.1</td>
+<td>5.6 × 10<sup>1</sup></td>
+<td></td>
+</tr>
+<tr>
+<td>(S)-2-Pentanol</td>
+<td>Substrate</td>
+<td>153 ± 8</td>
+<td>2.9</td>
+<td>1.9 × 10<sup>1</sup></td>
+<td>2.9 (R)</td>
+</tr>
+<tr>
+<td>(R)-2-Hexanol</td>
+<td>Substrate</td>
+<td>4.6 ± 0.2</td>
+<td>2.7</td>
+<td>5.8 × 10<sup>2</sup></td>
+<td></td>
+</tr>
+<tr>
+<td>(S)-2-Hexanol</td>
+<td>Substrate</td>
+<td>ND<sup>c</sup></td>
+<td>ND</td>
+<td>ND</td>
+<td>ND</td>
+</tr>
+<tr>
+<td>(R)-2-heptanol</td>
+<td>Substrate</td>
+<td>2.64 ± 0.03</td>
+<td>1.8</td>
+<td>6.8 × 10<sup>2</sup></td>
+<td></td>
+</tr>
+<tr>
+<td>(S)-2-Heptanol</td>
+<td>Substrate</td>
+<td>ND</td>
+<td>ND</td>
+<td>ND</td>
+<td>ND</td>
+</tr>
+<tr>
+<td>(R)-2-Octanol</td>
+<td>Substrate</td>
+<td>1.08 ± 0.08</td>
+<td>1.7</td>
+<td>1.5 × 10<sup>3</sup></td>
+<td></td>
+</tr>
+<tr>
+<td>(S)-2-Octanol</td>
+<td>Substrate</td>
+<td>ND</td>
+<td>ND</td>
+<td>ND</td>
+<td>ND</td>
+</tr>
+</tbody>
+</table><p class="footnote">Molecule structures are shown in Fig. 3.</p><p class="footnote"><sup>a</sup>Apparent <em>K</em><sub>m</sub> values and inhibition constants ( <em>K</em><sub>ic</sub> for competitive inhibition and <em>K</em><sub>iu</sub> for uncompetitive inhibition) are given as means ± standard deviations. All other values are means only.</p><p class="footnote"><sup>b</sup>Enantioselectivity was defined as (<em>k</em><sub>cat</sub>/<em>K</em><sub>m</sub>)<sub>R-enantiomer</sub>/(<em>k</em><sub>cat</sub>/<em>K</em><sub>m</sub>)<sub>S-enantiomer</sub> .</p><p class="footnote"><sup>c</sup>ND = not determined; accurate steady-state kinetic data were unobtainable due to lack of saturation up to the point of substrate solubility. Data adapted from Clark and Ensign [6] and Clark et al. [7].</p>
+<figure><img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAk4AAAKmCAIAAAA0LIZNAAAKDElEQVR4nO3VQQ0AIBDAMMC/50MFIVlaBfttz8wCgK7zOwAA3rI6AOKsDoA4qwMgzuoAiLM6AOKsDoA4qwMgzuoAiLM6AOKsDoA4qwMgzuoAiLM6AOKsDoA4qwMgzuoAiLM6AOKsDoA4qwMgzuoAiLM6AOKsDoA4qwMgzuoAiLM6AOKsDoA4qwMgzuoAiLM6AOKsDoA4qwMgzuoAiLM6AOKsDoA4qwMgzuoAiLM6AOKsDoA4qwMgzuoAiLM6AOKsDoA4qwMgzuoAiLM6AOKsDoA4qwMgzuoAiLM6AOKsDoA4qwMgzuoAiLM6AOKsDoA4qwMgzuoAiLM6AOKsDoA4qwMgzuoAiLM6AOKsDoA4qwMgzuoAiLM6AOKsDoA4qwMgzuoAiLM6AOKsDoA4qwMgzuoAiLM6AOKsDoA4qwMgzuoAiLM6AOKsDoA4qwMgzuoAiLM6AOKsDoA4qwMgzuoAiLM6AOKsDoA4qwMgzuoAiLM6AOKsDoA4qwMgzuoAiLM6AOKsDoA4qwMgzuoAiLM6AOKsDoA4qwMgzuoAiLM6AOKsDoA4qwMgzuoAiLM6AOKsDoA4qwMgzuoAiLM6AOKsDoA4qwMgzuoAiLM6AOKsDoA4qwMgzuoAiLM6AOKsDoA4qwMgzuoAiLM6AOKsDoA4qwMgzuoAiLM6AOKsDoA4qwMgzuoAiLM6AOKsDoA4qwMgzuoAiLM6AOKsDoA4qwMgzuoAiLM6AOKsDoA4qwMgzuoAiLM6AOKsDoA4qwMgzuoAiLM6AOKsDoA4qwMgzuoAiLM6AOKsDoA4qwMgzuoAiLM6AOKsDoA4qwMgzuoAiLM6AOKsDoA4qwMgzuoAiLM6AOKsDoA4qwMgzuoAiLM6AOKsDoA4qwMgzuoAiLM6AOKsDoA4qwMgzuoAiLM6AOKsDoA4qwMgzuoAiLM6AOKsDoA4qwMgzuoAiLM6AOKsDoA4qwMgzuoAiLM6AOKsDoA4qwMgzuoAiLM6AOKsDoA4qwMgzuoAiLM6AOKsDoA4qwMgzuoAiLM6AOKsDoA4qwMgzuoAiLM6AOKsDoA4qwMgzuoAiLM6AOKsDoA4qwMgzuoAiLM6AOKsDoA4qwMgzuoAiLM6AOKsDoA4qwMgzuoAiLM6AOKsDoA4qwMgzuoAiLM6AOKsDoA4qwMgzuoAiLM6AOKsDoA4qwMgzuoAiLM6AOKsDoA4qwMgzuoAiLM6AOKsDoA4qwMgzuoAiLM6AOKsDoA4qwMgzuoAiLM6AOKsDoA4qwMgzuoAiLM6AOKsDoA4qwMgzuoAiLM6AOKsDoA4qwMgzuoAiLM6AOKsDoA4qwMgzuoAiLM6AOKsDoA4qwMgzuoAiLM6AOKsDoA4qwMgzuoAiLM6AOKsDoA4qwMgzuoAiLM6AOKsDoA4qwMgzuoAiLM6AOKsDoA4qwMgzuoAiLM6AOKsDoA4qwMgzuoAiLM6AOKsDoA4qwMgzuoAiLM6AOKsDoA4qwMgzuoAiLM6AOKsDoA4qwMgzuoAiLM6AOKsDoA4qwMgzuoAiLM6AOKsDoA4qwMgzuoAiLM6AOKsDoA4qwMgzuoAiLM6AOKsDoA4qwMgzuoAiLM6AOKsDoA4qwMgzuoAiLM6AOKsDoA4qwMgzuoAiLM6AOKsDoA4qwMgzuoAiLM6AOKsDoA4qwMgzuoAiLM6AOKsDoA4qwMgzuoAiLM6AOKsDoA4qwMgzuoAiLM6AOKsDoA4qwMgzuoAiLM6AOKsDoA4qwMgzuoAiLM6AOKsDoA4qwMgzuoAiLM6AOKsDoA4qwMgzuoAiLM6AOKsDoA4qwMgzuoAiLM6AOKsDoA4qwMgzuoAiLM6AOKsDoA4qwMgzuoAiLM6AOKsDoA4qwMgzuoAiLM6AOKsDoA4qwMgzuoAiLM6AOKsDoA4qwMgzuoAiLM6AOKsDoA4qwMgzuoAiLM6AOKsDoA4qwMgzuoAiLM6AOKsDoA4qwMgzuoAiLM6AOKsDoA4qwMgzuoAiLM6AOKsDoA4qwMgzuoAiLM6AOKsDoA4qwMgzuoAiLM6AOKsDoA4qwMgzuoAiLM6AOKsDoA4qwMgzuoAiLM6AOKsDoA4qwMgzuoAiLM6AOKsDoA4qwMgzuoAiLM6AOKsDoA4qwMgzuoAiLM6AOKsDoA4qwMgzuoAiLM6AOKsDoA4qwMgzuoAiLM6AOKsDoA4qwMgzuoAiLM6AOKsDoA4qwMgzuoAiLM6AOKsDoA4qwMgzuoAiLM6AOKsDoA4qwMgzuoAiLM6AOKsDoA4qwMgzuoAiLM6AOKsDoA4qwMgzuoAiLM6AOKsDoA4qwMgzuoAiLM6AOKsDoA4qwMgzuoAiLM6AOKsDoA4qwMgzuoAiLM6AOKsDoA4qwMgzuoAiLM6AOKsDoA4qwMgzuoAiLM6AOKsDoA4qwMgzuoAiLM6AOKsDoA4qwMgzuoAiLM6AOKsDoA4qwMgzuoAiLM6AOKsDoA4qwMgzuoAiLM6AOKsDoA4qwMgzuoAiLM6AOKsDoA4qwMgzuoAiLM6AOKsDoA4qwMgzuoAiLM6AOKsDoA4qwMgzuoAiLM6AOKsDoA4qwMgzuoAiLM6AOKsDoA4qwMgzuoAiLM6AOKsDoA4qwMgzuoAiLM6AOKsDoA4qwMgzuoAiLM6AOKsDoA4qwMgzuoAiLM6AOKsDoA4qwMgzuoAiLM6AOKsDoA4qwMgzuoAiLM6AOKsDoA4qwMgzuoAiLM6AOKsDoA4qwMgzuoAiLM6AOKsDoA4qwMgzuoAiLM6AOKsDoA4qwMgzuoAiLM6AOKsDoA4qwMgzuoAiLM6AOKsDoA4qwMgzuoAiLM6AOKsDoA4qwMgzuoAiLM6AOKsDoA4qwMgzuoAiLM6AOKsDoA4qwMgzuoAiLM6AOKsDoA4qwMgzuoAiLM6AOKsDoA4qwMgzuoAiLM6AOKsDoA4qwMgzuoAiLM6AOKsDoA4qwMgzuoAiLM6AOKsDoA4qwMgzuoAiLM6AOKsDoA4qwMgzuoAiLM6AOKsDoA4qwMgzuoAiLM6AOKsDoA4qwMgzuoAiLM6AOKsDoA4qwMgzuoAiLM6AOKsDoA4qwMgzuoAiLM6AOKsDoA4qwMgzuoAiLM6AOKsDoA4qwMgzuoAiLM6AOKsDoA4qwMgzuoAiLM6AOKsDoA4qwMgzuoAiLM6AOKsDoA4qwMgzuoAiLM6AOKsDoA4qwMgzuoAiLM6AOKsDoA4qwMgzuoAiLM6AOKsDoA4qwMgzuoAiLM6AOKsDoA4qwMgzuoAiLM6AOKsDoA4qwMgzuoAiLM6AOKsDoA4qwMgzuoAiLM6AOKsDoA4qwMgzuoAiLM6AOKsDoA4qwMgzuoAiLM6AOKsDoA4qwMgzuoAiLM6AOKsDoA4qwMgzuoAiLM6AOKsDoA4qwMgzuoAiLM6AOKsDoA4qwMgzuoAiLM6AOKsDoA4qwMgzuoAiLu5UAhJ/29uWAAAAABJRU5ErkJggg==" alt=""><figcaption>FIG 3 Structure of selected molecules used to the study of the HPC dehydrogenases.</figcaption></figure>
+<h2>Part 4—rR-HPCDH Structure Determined by X-Ray Crystallography</h2>
+<p>As a testament to the utility of enzyme kinetic experiments, the proposed roles for R152 and R196 in substrate binding and stereoselectivity were justified by the rR-HPCDH structure [8]. The 1.8 Å ternary complex (enzyme + 2-KPC + NAD⁺) clearly showed interaction of the R152 and R196 side chains with the sulfonate of 2-KPC (Supporting Information Slide 36) [8]. Additionally, a tryptophan at position 195 appeared to be a “backstop” that prevented translation of the substrate and facilitated proper alignment with respect to NAD (Supporting Information Slide 36) [8].</p>
+<h2>Part 5—In Brief: rR-HPCDH Versus rS-HPCDH</h2>
+<p>Data for comparison of the rR- and rS-HPCDH kinetic parameters were adapted from rR-HPCDH1 and rS-HPCDH3 data in Sliwa et al. (Table IV and Supporting Information Slide 37) [9]. A few of the Table IV values for rR-HPCDH vary from those in Table I (e.g. <em>k</em><sub>cat</sub> for R-HPC and <em>K</em><sub>m</sub> for S-HPC), which is a reflection of data adapted from two studies separated by 6 years [7,9]. Table IV shows that the stereoselectivity of rR-HCDPH is largely attained with a <em>k</em><sub>cat</sub> for R-HPC that is 400 times greater than S-HPC, whereas rS-HPCDH stereoselectivity is largely attained with a <em>K</em><sub>m</sub> for S-HPC that is 293.5 times lower than R-HPC (see also Supporting Information Slide 37) [9]. Comparison of the rR- and rS-HPCDH crystal structures revealed that overall they were highly homologous with their HPC binding pockets rotated 60° with respect to each other, akin to the proposed active site models in Fig. 2 [10]. Modeling of R-HPC into the rS-HPCDH structure revealed that the R-HPC methyl group sterically clashed with a serine at position 143, which provided a structural basis for the high <em>K</em><sub>m</sub> of R-HPC [10].</p>
+<h2>Part 6—Physiological Implications</h2>
+<p>The physiological implications of the rR- and rS-HPCDH kinetic parameters, previously discussed by Sliwa et al., were used to close the case study (Supporting Information Slide 38) [9]. In short, Fig. 1 shows that propylene is metabolized into 95% (R)- and 5% (S)-epoxypropane, which is predicted to result in a cellular concentration of S-HPC that is 20-fold lower than R-HPC [9]. R-HPCDH has a similar <em>K</em><sub>m</sub> value for R- and S-HPC, but the higher <em>k</em><sub>cat</sub> for R-HPC facilitates preferential turnover of the more abundant enantiomer. In the case of S-HPCDH, to be efficient at the lower S-HPC concentration, and avoid inhibition by R-HPC, it evolved a much lower <em>K</em><sub>m</sub> for S-HPC [9]. Despite a lower abundance of cellular S-HPC, its metabolism is crucial to maximize the acetyl-CoA yield from propylene and prevent the wasteful sequestration of CoM (Fig. 1).</p>
+<table><caption><strong>TABLE II</strong> Characterization of rR-HPCDH mutants for their ability to reduce a sulfonate-containing ketone substrate (2-KPC) and a nonsulfonate containing ketone substrate (2-butanone)</caption>
+  <thead>
+    <tr>
+      <th rowspan="2">Enzyme</th>
+      <th colspan="3">2-KPC</th>
+      <th colspan="3">2-Butanone</th>
+    </tr>
+    <tr>
+      <th><em>K</em><sub>m</sub> (mM)<sup>a</sup></th>
+      <th><em>k</em><sub>cat</sub> (s⁻¹)</th>
+      <th><em>k</em><sub>cat</sub>/<em>K</em><sub>m</sub> (M⁻¹·s⁻¹)</th>
+      <th><em>K</em><sub>m</sub> (mM)<sup>a</sup></th>
+      <th><em>k</em><sub>cat</sub> (s⁻¹)</th>
+      <th><em>k</em><sub>cat</sub>/<em>K</em><sub>m</sub> (M⁻¹·s⁻¹)</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>WT</td>
+      <td>0.092 ± 0.003</td>
+      <td>24.5</td>
+      <td>2.7 × 10⁵</td>
+      <td>52 ± 4</td>
+      <td>0.027</td>
+      <td>0.52</td>
+    </tr>
+    <tr>
+      <td>R152A</td>
+      <td>~27<sup>b</sup></td>
+      <td>1.4<sup>b</sup></td>
+      <td>52<sup>b</sup></td>
+      <td>41 ± 3</td>
+      <td>0.028</td>
+      <td>0.68</td>
+    </tr>
+    <tr>
+      <td>R179A</td>
+      <td>ND<sup>c</sup></td>
+      <td></td>
+      <td></td>
+      <td>ND<sup>c</sup></td>
+      <td></td>
+      <td></td>
+    </tr>
+    <tr>
+      <td>R196A</td>
+      <td>~8.7<sup>b</sup></td>
+      <td>2.4<sup>b</sup></td>
+      <td>270<sup>b</sup></td>
+      <td>23 ± 1</td>
+      <td>0.033</td>
+      <td>1.4</td>
+    </tr>
+    <tr>
+      <td>R203A</td>
+      <td>0.44 ± 0.010</td>
+      <td>27.9</td>
+      <td>6.3 × 10⁴</td>
+      <td>39 ± 1</td>
+      <td>0.012</td>
+      <td>0.31</td>
+    </tr>
+    <tr>
+      <td>R209A</td>
+      <td>0.15 ± 0.005</td>
+      <td>15</td>
+      <td>1.0 × 10⁵</td>
+      <td>84 ± 3</td>
+      <td>0.032</td>
+      <td>0.38</td>
+    </tr>
+  </tbody>
+</table><p class="footnote"><sup>a</sup>Apparent <em>K</em><sub>m</sub> values are given as means ± standard deviations. All other values are means only.</p><p class="footnote"><sup>b</sup>The estimated kinetic values for these mutants were well above the [2-KPC] that could be added to assays due to the low solubility of 2-KPC. Thus, the values obtained by fitting the experimental data should be considered as estimates of the values.</p><p class="footnote"><sup>c</sup>ND = no detectable activity.</p><p class="footnote">Data adapted from Clark et al. [7].</p>
+<table><caption>TABLE III Additives tested for their ability to modify the stereoselectivity of wild-type and mutant rR-HPCDH-catalyzed 2-butanone reduction</caption>
+<thead>
+<tr>
+<th colspan="7">2-Butanol production<sup>a</sup></th>
+</tr>
+<tr>
+<th>Additive<sup>b</sup></th>
+<th>Enzyme</th>
+<th>% (S)</th>
+<th>% (R)</th>
+<th>EE<sup>c</sup></th>
+<th>ΔEE<sup>d</sup></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>None</td>
+<td>Wild-type</td>
+<td>69.8 ± 0.9</td>
+<td>30.2 ± 0.9</td>
+<td>39.6</td>
+<td>0</td>
+</tr>
+<tr>
+<td></td>
+<td>R152A</td>
+<td>78.7 ± 0.3</td>
+<td>21.3 ± 0.3</td>
+<td>57.4</td>
+<td>0</td>
+</tr>
+<tr>
+<td></td>
+<td>R196A</td>
+<td>68.2 ± 0.2</td>
+<td>31.8 ± 0.2</td>
+<td>36.4</td>
+<td>0</td>
+</tr>
+<tr>
+<td></td>
+<td>R203A</td>
+<td>69.0 ± 1</td>
+<td>31 ± 1</td>
+<td>38</td>
+<td>0</td>
+</tr>
+<tr>
+<td></td>
+<td>R209A</td>
+<td>71.9 ± 0.2</td>
+<td>28.1 ± 0.2</td>
+<td>43.8</td>
+<td>0</td>
+</tr>
+<tr>
+<td>CH<sub>3</sub>CH<sub>2</sub>SO<sub>3</sub><sup>−</sup>Na<sup>+</sup></td>
+<td>wild-type</td>
+<td>95.4 ± 0.3</td>
+<td>4.6 ± 0.3</td>
+<td>90.8</td>
+<td>+51.2</td>
+</tr>
+<tr>
+<td></td>
+<td>R152A</td>
+<td>79.3 ± 0.1</td>
+<td>20.7 ± 0.1</td>
+<td>58.6</td>
+<td>+1.2</td>
+</tr>
+<tr>
+<td></td>
+<td>R196A</td>
+<td>68.0 ± 0.3</td>
+<td>32.0 ± 0.3</td>
+<td>36.0</td>
+<td>−0.4</td>
+</tr>
+<tr>
+<td></td>
+<td>R203A</td>
+<td>91.0 ± 0.2</td>
+<td>9.0 ± 0.2</td>
+<td>82.0</td>
+<td>+44</td>
+</tr>
+<tr>
+<td></td>
+<td>R209A</td>
+<td>91.4 ± 0.1</td>
+<td>8.1 ± 0.1</td>
+<td>83.3</td>
+<td>+39.5</td>
+</tr>
+<tr>
+<td>HSCH<sub>2</sub>CH<sub>2</sub>SO<sub>3</sub><sup>−</sup>Na<sup>+</sup></td>
+<td>Wild-type</td>
+<td>93.9 ± 0.3</td>
+<td>6.1 ± 0.3</td>
+<td>87.8</td>
+<td>+48.2</td>
+</tr>
+<tr>
+<td>CH<sub>3</sub>CH<sub>2</sub>COO<sup>−</sup>Na<sup>+</sup></td>
+<td>Wild-type</td>
+<td>76.0 ± 0.4</td>
+<td>24.0 ± 0.4</td>
+<td>52.0</td>
+<td>+12.4</td>
+</tr>
+<tr>
+<td>CH<sub>3</sub>COO<sup>−</sup>Na<sup>+</sup></td>
+<td>Wild-type</td>
+<td>73.3 ± 0.3</td>
+<td>26.7 ± 0.3</td>
+<td>46.6</td>
+<td>+7.0</td>
+</tr>
+<tr>
+<td>CH<sub>3</sub>CH<sub>2</sub>NH<sub>3</sub><sup>+</sup>Cl<sup>−</sup></td>
+<td>Wild-type</td>
+<td>72.4 ± 0.6</td>
+<td>27.6 ± 0.6</td>
+<td>44.8</td>
+<td>+5.2</td>
+</tr>
+<tr>
+<td>CH<sub>3</sub>CH<sub>2</sub>OH</td>
+<td>Wild-type</td>
+<td>72.7 ± 0.2</td>
+<td>27.3 ± 0.2</td>
+<td>45.4</td>
+<td>+5.8</td>
+</tr>
+<tr>
+<td>Na<sub>2</sub>SO<sub>4</sub></td>
+<td>Wild-type</td>
+<td>72.9 ± 0.4</td>
+<td>27.1 ± 0.4</td>
+<td>45.8</td>
+<td>+6.2</td>
+</tr>
+<tr>
+<td>NaCl</td>
+<td>Wild-type</td>
+<td>70.2 ± 0.3</td>
+<td>29.8 ± 0.3</td>
+<td>40.4</td>
+<td>+0.8</td>
+</tr>
+</tbody>
+</table><p class="footnote">The data that support the proposed roles for R152 and R196 in substrate binding are emphasized.</p><p class="footnote"><sup>a</sup>Quantified by chiral gas chromatography, with percent yields reported as means ± standard deviations.</p><p class="footnote"><sup>b</sup>All additives were present at an overall concentration of 1 mM.</p><p class="footnote"><sup>c</sup>Enantiomeric excess.</p><p class="footnote"><sup>d</sup>Change in enantiomeric excess calculated as (EE)−(EE for none).</p><p class="footnote">Data adapted from Clark et al. [7].</p>
+<h2>Implementation</h2>
+<p>The case study was used in a biochemistry lecture course (CHEM 451) designed for biology, microbiology, chemistry, and biochemistry majors at California State University-Chico, during the Spring 2018 semester. CHEM 451 employs Lehninger Principles of Biochemistry as the text [14]. In the course schedule, the case study was deployed after a discussion of enzymes (6 × 50 minute lectures) was complete. This ensured that prerequisite topics were covered, which included enzyme classification (esp. oxidoreductases), Michaelis-Menton enzyme kinetics, enzyme inhibition (incl. chemical modification and substrate protection experiments), selected enzyme mechanisms (incl. alcohol dehydrogenase and chymotrypsin), substrate specificity (exemplified by the serine proteases), the basic concept of site-directed mutagenesis, and the nomenclature of amino acid substitutions (e.g. R152A). Although the general mechanism of a Zn<sup>2+</sup>-dependent alcohol dehydrogenase was covered, the reaction stereospecificity was not. An additional prerequisite topic, covered on the same day of the case study, was prochirality.</p>
+<table><caption>TABLE IV Comparison of rR- and rS-HPCDH kinetic parameters and stereoselectivity</caption>
+<thead>
+<tr>
+<th>Substrate</th>
+<th><em>K</em><sub>m</sub> (mM)<sup>a</sup></th>
+<th><em>k</em><sub>cat</sub> (s<sup>−1</sup>)</th>
+<th><em>k</em><sub>cat</sub>/<em>K</em><sub>m</sub> (M<sup>−1</sup>·s<sup>−1</sup>)</th>
+<th>Enantioselectivity (E)</th>
+<th>Stereoselectivity attained by</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td colspan="6">rR-HPCDH</td>
+</tr>
+<tr>
+<td>R-HPC</td>
+<td>0.096 ± 0.007</td>
+<td>48 ± 1</td>
+<td>5.0 × 10<sup>5</sup></td>
+<td>943 (R)<sup>b</sup></td>
+<td><em>k</em><sub>cat</sub> : 400 × greater for R-HPC</td>
+</tr>
+<tr>
+<td>S-HPC</td>
+<td>0.220 ± 0.070</td>
+<td>0.12 ± 0.01</td>
+<td>5.3 × 10<sup>2</sup></td>
+<td></td>
+<td><em>K</em><sub>m</sub> : 2.3 × lower for R-HPC</td>
+</tr>
+<tr>
+<td colspan="6">rS-HPCDH</td>
+</tr>
+<tr>
+<td>R-HPC</td>
+<td>9.100 ± 1.100</td>
+<td>5.5 ± 0.2</td>
+<td>6.0 × 10<sup>2</sup></td>
+<td>1320 (S)<sup>c</sup></td>
+<td><em>K</em><sub>m</sub> : 293.5 × lower for S-HPC</td>
+</tr>
+<tr>
+<td>S-HPC</td>
+<td>0.031 ± 0.001</td>
+<td>25 ± 0.2</td>
+<td>7.9 × 10<sup>5</sup></td>
+<td></td>
+<td><em>k</em><sub>cat</sub> : 4.5 × greater for S-HPC</td>
+</tr>
+</tbody>
+</table><p class="footnote"><sup>a</sup>Apparent <em>K</em><sub>m</sub> values are given as means ± standard deviations.<br>
+<sup>b</sup>Enantioselectivity was defined as (<em>k</em><sub>cat</sub>/<em>K</em><sub>m</sub>)<sub>R-enantiomer</sub>/(<em>k</em><sub>cat</sub>/<em>K</em><sub>m</sub>)<sub>S-enantiomer</sub> .<br>
+<sup>c</sup>Enantioselectivity was defined as (<em>k</em><sub>cat</sub>/<em>K</em><sub>m</sub>)<sub>S-enantiomer</sub>/(<em>k</em><sub>cat</sub>/<em>K</em><sub>m</sub>)<sub>R-enantiomer</sub> .<br>
+Adapted from rR-HPCDH1 and rS-HPCDH3 data in Sliwa et al. [9].</p>
+<p>Approximately 40 minutes of a 50-minute lecture were used for the presentation and discussion of the case study. The amount of class time that could be dedicated to the case study, in a single session, was restricted by the format of CHEM 451 (3 × 50 minute lectures per week) and the decision to use in-class pre- and postcase study surveys. Ideally, more than 40 minutes are needed for students to digest all of the complexities of the case study. To maximize time with the data, a minimal amount of time was spent on background (Supporting Information Slides 1–5). In particular, for the proposed active site models, explanation of the supporting data focused almost exclusively on the arginine-specific chemical modification of rR-HPCDH (see Supporting Information Slide 5), as it was essential to appreciate the data that would follow. The discussions largely stemmed from the predetermined questions at selected points in the case study (Supporting Information Slides 7–11). As an example, the first question of this kind asked, “What can be said about the proximity of the hydrogen in R-HPC for hydride transfer to NAD<sup>+</sup>?” (Supporting Information Slide 7). Student responses, noting the nearness of the hydrogen to the nicotinamide ring of NAD<sup>+</sup>, set the stage for questions and discussion of S-HPC data (Supporting Information Slides 7 and 8). In general, due to time constraints, the nature of each of these question-driven discussions was a short, albeit instructive, back-and-forth with students.</p>
+<h2>Assessment</h2>
+<p>CHEM 451 enrollment was 65 students, with 59 (91%) attending on the day of the case study. The first and last 5 minutes of class were used for pre- and postcase study surveys using iClickers. These surveys, referred to as either the “presurvey” or “postsurvey,” were designed to correlate with the five goals of the case study. Survey questions and student responses were not discussed in class. Survey results are shown in Fig. 4. Students were given 1 minute each to answer questions A and B, with 30 seconds each for all others (Fig. 4). An additional postsurvey question, not shown in Fig. 4, asked students to respond to the statement “the case study was interesting.” Fifty-nine students responded to the statement as follows: strongly agree (47.4%), agree (40.7%), neither agree nor disagree (11.9%), disagree (0%), and strongly disagree (0%).</p>
+<p>Questions A and B were included at the start of each survey to assess understanding of hydride transfer stereospecificity in reactions catalyzed by NAD-dependent dehydrogenases (Figs. 4A and 4B). For question A, the A, B, and C responses were grouped in Fig. 4A because each reflected an understanding that the reaction would be stereospecific. For question B, the A, B, and C responses were grouped in Fig. 4B because each reflected an understanding that the highlighted hydrogen atoms interacted differently with alcohol dehydrogenase, and both reaction pathways for hydride abstraction would not be expected. For both questions A and B, the pre-to-post survey change in overall student response percentages reflected favorable improvements (Figs. 4A and 4B). However, it is likely that the prerequisite discussion of prochirality, which occurred after the presurvey but before presentation of the case study, biased postsurvey responses to question B (Fig. 4B). In Fig. 4, questions C–F reflect the change in student attitudes after exposure to the case study. For all of these questions, positive changes in attitude were observed (Figs. 4C–4F). Notably, a significant proportion of students migrated to the “strongly agree” response for each question (Figs. 4C–4F).</p>
+<figure><img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAABMcAAAYQCAIAAAD+Vbq+AAAiOElEQVR4nO3XQQ0AIBDAMMC/58PDPoSkVbDv9swsAAAASM7rAAAAAD7mKgEAAOhcJQAAAJ2rBAAAoHOVAAAAdK4SAACAzlUCAADQuUoAAAA6VwkAAEDnKgEAAOhcJQAAAJ2rBAAAoHOVAAAAdK4SAACAzlUCAADQuUoAAAA6VwkAAEDnKgEAAOhcJQAAAJ2rBAAAoHOVAAAAdK4SAACAzlUCAADQuUoAAAA6VwkAAEDnKgEAAOhcJQAAAJ2rBAAAoHOVAAAAdK4SAACAzlUCAADQuUoAAAA6VwkAAEDnKgEAAOhcJQAAAJ2rBAAAoHOVAAAAdK4SAACAzlUCAADQuUoAAAA6VwkAAEDnKgEAAOhcJQAAAJ2rBAAAoHOVAAAAdK4SAACAzlUCAADQuUoAAAA6VwkAAEDnKgEAAOhcJQAAAJ2rBAAAoHOVAAAAdK4SAACAzlUCAADQuUoAAAA6VwkAAEDnKgEAAOhcJQAAAJ2rBAAAoHOVAAAAdK4SAACAzlUCAADQuUoAAAA6VwkAAEDnKgEAAOhcJQAAAJ2rBAAAoHOVAAAAdK4SAACAzlUCAADQuUoAAAA6VwkAAEDnKgEAAOhcJQAAAJ2rBAAAoHOVAAAAdK4SAACAzlUCAADQuUoAAAA6VwkAAEDnKgEAAOhcJQAAAJ2rBAAAoHOVAAAAdK4SAACAzlUCAADQuUoAAAA6VwkAAEDnKgEAAOhcJQAAAJ2rBAAAoHOVAAAAdK4SAACAzlUCAADQuUoAAAA6VwkAAEDnKgEAAOhcJQAAAJ2rBAAAoHOVAAAAdK4SAACAzlUCAADQuUoAAAA6VwkAAEDnKgEAAOhcJQAAAJ2rBAAAoHOVAAAAdK4SAACAzlUCAADQuUoAAAA6VwkAAEDnKgEAAOhcJQAAAJ2rBAAAoHOVAAAAdK4SAACAzlUCAADQuUoAAAA6VwkAAEDnKgEAAOhcJQAAAJ2rBAAAoHOVAAAAdK4SAACAzlUCAADQuUoAAAA6VwkAAEDnKgEAAOhcJQAAAJ2rBAAAoHOVAAAAdK4SAACAzlUCAADQuUoAAAA6VwkAAEDnKgEAAOhcJQAAAJ2rBAAAoHOVAAAAdK4SAACAzlUCAADQuUoAAAA6VwkAAEDnKgEAAOhcJQAAAJ2rBAAAoHOVAAAAdK4SAACAzlUCAADQuUoAAAA6VwkAAEDnKgEAAOhcJQAAAJ2rBAAAoHOVAAAAdK4SAACAzlUCAADQuUoAAAA6VwkAAEDnKgEAAOhcJQAAAJ2rBAAAoHOVAAAAdK4SAACAzlUCAADQuUoAAAA6VwkAAEDnKgEAAOhcJQAAAJ2rBAAAoHOVAAAAdK4SAACAzlUCAADQuUoAAAA6VwkAAEDnKgEAAOhcJQAAAJ2rBAAAoHOVAAAAdK4SAACAzlUCAADQuUoAAAA6VwkAAEDnKgEAAOhcJQAAAJ2rBAAAoHOVAAAAdK4SAACAzlUCAADQuUoAAAA6VwkAAEDnKgEAAOhcJQAAAJ2rBAAAoHOVAAAAdK4SAACAzlUCAADQuUoAAAA6VwkAAEDnKgEAAOhcJQAAAJ2rBAAAoHOVAAAAdK4SAACAzlUCAADQuUoAAAA6VwkAAEDnKgEAAOhcJQAAAJ2rBAAAoHOVAAAAdK4SAACAzlUCAADQuUoAAAA6VwkAAEDnKgEAAOhcJQAAAJ2rBAAAoHOVAAAAdK4SAACAzlUCAADQuUoAAAA6VwkAAEDnKgEAAOhcJQAAAJ2rBAAAoHOVAAAAdK4SAACAzlUCAADQuUoAAAA6VwkAAEDnKgEAAOhcJQAAAJ2rBAAAoHOVAAAAdK4SAACAzlUCAADQuUoAAAA6VwkAAEDnKgEAAOhcJQAAAJ2rBAAAoHOVAAAAdK4SAACAzlUCAADQuUoAAAA6VwkAAEDnKgEAAOhcJQAAAJ2rBAAAoHOVAAAAdK4SAACAzlUCAADQuUoAAAA6VwkAAEDnKgEAAOhcJQAAAJ2rBAAAoHOVAAAAdK4SAACAzlUCAADQuUoAAAA6VwkAAEDnKgEAAOhcJQAAAJ2rBAAAoHOVAAAAdK4SAACAzlUCAADQuUoAAAA6VwkAAEDnKgEAAOhcJQAAAJ2rBAAAoHOVAAAAdK4SAACAzlUCAADQuUoAAAA6VwkAAEDnKgEAAOhcJQAAAJ2rBAAAoHOVAAAAdK4SAACAzlUCAADQuUoAAAA6VwkAAEDnKgEAAOhcJQAAAJ2rBAAAoHOVAAAAdK4SAACAzlUCAADQuUoAAAA6VwkAAEDnKgEAAOhcJQAAAJ2rBAAAoHOVAAAAdK4SAACAzlUCAADQuUoAAAA6VwkAAEDnKgEAAOhcJQAAAJ2rBAAAoHOVAAAAdK4SAACAzlUCAADQuUoAAAA6VwkAAEDnKgEAAOhcJQAAAJ2rBAAAoHOVAAAAdK4SAACAzlUCAADQuUoAAAA6VwkAAEDnKgEAAOhcJQAAAJ2rBAAAoHOVAAAAdK4SAACAzlUCAADQuUoAAAA6VwkAAEDnKgEAAOhcJQAAAJ2rBAAAoHOVAAAAdK4SAACAzlUCAADQuUoAAAA6VwkAAEDnKgEAAOhcJQAAAJ2rBAAAoHOVAAAAdK4SAACAzlUCAADQuUoAAAA6VwkAAEDnKgEAAOhcJQAAAJ2rBAAAoHOVAAAAdK4SAACAzlUCAADQuUoAAAA6VwkAAEDnKgEAAOhcJQAAAJ2rBAAAoHOVAAAAdK4SAACAzlUCAADQuUoAAAA6VwkAAEDnKgEAAOhcJQAAAJ2rBAAAoHOVAAAAdK4SAACAzlUCAADQuUoAAAA6VwkAAEDnKgEAAOhcJQAAAJ2rBAAAoHOVAAAAdK4SAACAzlUCAADQuUoAAAA6VwkAAEDnKgEAAOhcJQAAAJ2rBAAAoHOVAAAAdK4SAACAzlUCAADQuUoAAAA6VwkAAEDnKgEAAOhcJQAAAJ2rBAAAoHOVAAAAdK4SAACAzlUCAADQuUoAAAA6VwkAAEDnKgEAAOhcJQAAAJ2rBAAAoHOVAAAAdK4SAACAzlUCAADQuUoAAAA6VwkAAEDnKgEAAOhcJQAAAJ2rBAAAoHOVAAAAdK4SAACAzlUCAADQuUoAAAA6VwkAAEDnKgEAAOhcJQAAAJ2rBAAAoHOVAAAAdK4SAACAzlUCAADQuUoAAAA6VwkAAEDnKgEAAOhcJQAAAJ2rBAAAoHOVAAAAdK4SAACAzlUCAADQuUoAAAA6VwkAAEDnKgEAAOhcJQAAAJ2rBAAAoHOVAAAAdK4SAACAzlUCAADQuUoAAAA6VwkAAEDnKgEAAOhcJQAAAJ2rBAAAoHOVAAAAdK4SAACAzlUCAADQuUoAAAA6VwkAAEDnKgEAAOhcJQAAAJ2rBAAAoHOVAAAAdK4SAACAzlUCAADQuUoAAAA6VwkAAEDnKgEAAOhcJQAAAJ2rBAAAoHOVAAAAdK4SAACAzlUCAADQuUoAAAA6VwkAAEDnKgEAAOhcJQAAAJ2rBAAAoHOVAAAAdK4SAACAzlUCAADQuUoAAAA6VwkAAEDnKgEAAOhcJQAAAJ2rBAAAoHOVAAAAdK4SAACAzlUCAADQuUoAAAA6VwkAAEDnKgEAAOhcJQAAAJ2rBAAAoHOVAAAAdK4SAACAzlUCAADQuUoAAAA6VwkAAEDnKgEAAOhcJQAAAJ2rBAAAoHOVAAAAdK4SAACAzlUCAADQuUoAAAA6VwkAAEDnKgEAAOhcJQAAAJ2rBAAAoHOVAAAAdK4SAACAzlUCAADQuUoAAAA6VwkAAEDnKgEAAOhcJQAAAJ2rBAAAoHOVAAAAdK4SAACAzlUCAADQuUoAAAA6VwkAAEDnKgEAAOhcJQAAAJ2rBAAAoHOVAAAAdK4SAACAzlUCAADQuUoAAAA6VwkAAEDnKgEAAOhcJQAAAJ2rBAAAoHOVAAAAdK4SAACAzlUCAADQuUoAAAA6VwkAAEDnKgEAAOhcJQAAAJ2rBAAAoHOVAAAAdK4SAACAzlUCAADQuUoAAAA6VwkAAEDnKgEAAOhcJQAAAJ2rBAAAoHOVAAAAdK4SAACAzlUCAADQuUoAAAA6VwkAAEDnKgEAAOhcJQAAAJ2rBAAAoHOVAAAAdK4SAACAzlUCAADQuUoAAAA6VwkAAEDnKgEAAOhcJQAAAJ2rBAAAoHOVAAAAdK4SAACAzlUCAADQuUoAAAA6VwkAAEDnKgEAAOhcJQAAAJ2rBAAAoHOVAAAAdK4SAACAzlUCAADQuUoAAAA6VwkAAEDnKgEAAOhcJQAAAJ2rBAAAoHOVAAAAdK4SAACAzlUCAADQuUoAAAA6VwkAAEDnKgEAAOhcJQAAAJ2rBAAAoHOVAAAAdK4SAACAzlUCAADQuUoAAAA6VwkAAEDnKgEAAOhcJQAAAJ2rBAAAoHOVAAAAdK4SAACAzlUCAADQuUoAAAA6VwkAAEDnKgEAAOhcJQAAAJ2rBAAAoHOVAAAAdK4SAACAzlUCAADQuUoAAAA6VwkAAEDnKgEAAOhcJQAAAJ2rBAAAoHOVAAAAdK4SAACAzlUCAADQuUoAAAA6VwkAAEDnKgEAAOhcJQAAAJ2rBAAAoHOVAAAAdK4SAACAzlUCAADQuUoAAAA6VwkAAEDnKgEAAOhcJQAAAJ2rBAAAoHOVAAAAdK4SAACAzlUCAADQuUoAAAA6VwkAAEDnKgEAAOhcJQAAAJ2rBAAAoHOVAAAAdK4SAACAzlUCAADQuUoAAAA6VwkAAEDnKgEAAOhcJQAAAJ2rBAAAoHOVAAAAdK4SAACAzlUCAADQuUoAAAA6VwkAAEDnKgEAAOhcJQAAAJ2rBAAAoHOVAAAAdK4SAACAzlUCAADQuUoAAAA6VwkAAEDnKgEAAOhcJQAAAJ2rBAAAoHOVAAAAdK4SAACAzlUCAADQuUoAAAA6VwkAAEDnKgEAAOhcJQAAAJ2rBAAAoHOVAAAAdK4SAACAzlUCAADQuUoAAAA6VwkAAEDnKgEAAOhcJQAAAJ2rBAAAoHOVAAAAdK4SAACAzlUCAADQuUoAAAA6VwkAAEDnKgEAAOhcJQAAAJ2rBAAAoHOVAAAAdK4SAACAzlUCAADQuUoAAAA6VwkAAEDnKgEAAOhcJQAAAJ2rBAAAoHOVAAAAdK4SAACAzlUCAADQuUoAAAA6VwkAAEDnKgEAAOhcJQAAAJ2rBAAAoHOVAAAAdK4SAACAzlUCAADQuUoAAAA6VwkAAEDnKgEAAOhcJQAAAJ2rBAAAoHOVAAAAdK4SAACAzlUCAADQuUoAAAA6VwkAAEDnKgEAAOhcJQAAAJ2rBAAAoHOVAAAAdK4SAACAzlUCAADQuUoAAAA6VwkAAEDnKgEAAOhcJQAAAJ2rBAAAoHOVAAAAdK4SAACAzlUCAADQuUoAAAA6VwkAAEDnKgEAAOhcJQAAAJ2rBAAAoHOVAAAAdK4SAACAzlUCAADQuUoAAAA6VwkAAEDnKgEAAOhcJQAAAJ2rBAAAoHOVAAAAdK4SAACAzlUCAADQuUoAAAA6VwkAAEDnKgEAAOhcJQAAAJ2rBAAAoHOVAAAAdK4SAACAzlUCAADQuUoAAAA6VwkAAEDnKgEAAOhcJQAAAJ2rBAAAoHOVAAAAdK4SAACAzlUCAADQuUoAAAA6VwkAAEDnKgEAAOhcJQAAAJ2rBAAAoHOVAAAAdK4SAACAzlUCAADQuUoAAAA6VwkAAEDnKgEAAOhcJQAAAJ2rBAAAoHOVAAAAdK4SAACAzlUCAADQuUoAAAA6VwkAAEDnKgEAAOhcJQAAAJ2rBAAAoHOVAAAAdK4SAACAzlUCAADQuUoAAAA6VwkAAEDnKgEAAOhcJQAAAJ2rBAAAoHOVAAAAdK4SAACAzlUCAADQuUoAAAA6VwkAAEDnKgEAAOhcJQAAAJ2rBAAAoHOVAAAAdK4SAACAzlUCAADQuUoAAAA6VwkAAEDnKgEAAOhcJQAAAJ2rBAAAoHOVAAAAdK4SAACAzlUCAADQuUoAAAA6VwkAAEDnKgEAAOhcJQAAAJ2rBAAAoHOVAAAAdK4SAACAzlUCAADQuUoAAAA6VwkAAEDnKgEAAOhcJQAAAJ2rBAAAoHOVAAAAdK4SAACAzlUCAADQuUoAAAA6VwkAAEDnKgEAAOhcJQAAAJ2rBAAAoHOVAAAAdK4SAACAzlUCAADQuUoAAAA6VwkAAEDnKgEAAOhcJQAAAJ2rBAAAoHOVAAAAdK4SAACAzlUCAADQuUoAAAA6VwkAAEDnKgEAAOhcJQAAAJ2rBAAAoHOVAAAAdK4SAACAzlUCAADQuUoAAAA6VwkAAEDnKgEAAOhcJQAAAJ2rBAAAoHOVAAAAdK4SAACAzlUCAADQuUoAAAA6VwkAAEDnKgEAAOhcJQAAAJ2rBAAAoHOVAAAAdK4SAACAzlUCAADQuUoAAAA6VwkAAEDnKgEAAOhcJQAAAJ2rBAAAoHOVAAAAdK4SAACAzlUCAADQuUoAAAA6VwkAAEDnKgEAAOhcJQAAAJ2rBAAAoHOVAAAAdK4SAACAzlUCAADQuUoAAAA6VwkAAEDnKgEAAOhcJQAAAJ2rBAAAoHOVAAAAdK4SAACAzlUCAADQuUoAAAA6VwkAAEDnKgEAAOhcJQAAAJ2rBAAAoHOVAAAAdK4SAACAzlUCAADQuUoAAAA6VwkAAEDnKgEAAOhcJQAAAJ2rBAAAoHOVAAAAdK4SAACAzlUCAADQuUoAAAA6VwkAAEDnKgEAAOhcJQAAAJ2rBAAAoHOVAAAAdK4SAACAzlUCAADQuUoAAAA6VwkAAEDnKgEAAOhcJQAAAJ2rBAAAoHOVAAAAdK4SAACAzlUCAADQuUoAAAA6VwkAAEDnKgEAAOhcJQAAAJ2rBAAAoHOVAAAAdK4SAACAzlUCAADQuUoAAAA6VwkAAEDnKgEAAOhcJQAAAJ2rBAAAoHOVAAAAdK4SAACAzlUCAADQuUoAAAA6VwkAAEDnKgEAAOhcJQAAAJ2rBAAAoHOVAAAAdK4SAACAzlUCAADQuUoAAAA6VwkAAEDnKgEAAOhcJQAAAJ2rBAAAoHOVAAAAdK4SAACAzlUCAADQuUoAAAA6VwkAAEDnKgEAAOhcJQAAAJ2rBAAAoHOVAAAAdK4SAACAzlUCAADQuUoAAAA6VwkAAEDnKgEAAOhcJQAAAJ2rBAAAoHOVAAAAdK4SAACAzlUCAADQuUoAAAA6VwkAAEDnKgEAAOhcJQAAAJ2rBAAAoHOVAAAAdK4SAACAzlUCAADQuUoAAAA6VwkAAEDnKgEAAOhcJQAAAJ2rBAAAoHOVAAAAdK4SAACAzlUCAADQuUoAAAA6VwkAAEDnKgEAAOhcJQAAAJ2rBAAAoHOVAAAAdK4SAACAzlUCAADQuUoAAAA6VwkAAEDnKgEAAOhcJQAAAJ2rBAAAoHOVAAAAdK4SAACAzlUCAADQuUoAAAA6VwkAAEDnKgEAAOhcJQAAAJ2rBAAAoHOVAAAAdK4SAACAzlUCAADQuUoAAAA6VwkAAEDnKgEAAOhcJQAAAJ2rBAAAoHOVAAAAdK4SAACAzlUCAADQuUoAAAA6VwkAAEDnKgEAAOhcJQAAAJ2rBAAAoHOVAAAAdK4SAACAzlUCAADQuUoAAAA6VwkAAEDnKgEAAOhcJQAAAJ2rBAAAoHOVAAAAdK4SAACAzlUCAADQuUoAAAA6VwkAAEDnKgEAAOhcJQAAAJ2rBAAAoHOVAAAAdK4SAACAzlUCAADQuUoAAAA6VwkAAEDnKgEAAOhcJQAAAJ2rBAAAoHOVAAAAdK4SAACAzlUCAADQuUoAAAA6VwkAAEDnKgEAAOhcJQAAAJ2rBAAAoHOVAAAAdK4SAACAzlUCAADQuUoAAAA6VwkAAEDnKgEAAOhcJQAAAJ2rBAAAoHOVAAAAdK4SAACAzlUCAADQuUoAAAA6VwkAAEDnKgEAAOhcJQAAAJ2rBAAAoHOVAAAAdK4SAACAzlUCAADQuUoAAAA6VwkAAEDnKgEAAOhcJQAAAJ2rBAAAoHOVAAAAdK4SAACAzlUCAADQuUoAAAA6VwkAAEDnKgEAAOhcJQAAAJ2rBAAAoHOVAAAAdK4SAACAzlUCAADQuUoAAAA6VwkAAEDnKgEAAOhcJQAAAJ2rBAAAoHOVAAAAdK4SAACAzlUCAADQuUoAAAA6VwkAAEDnKgEAAOhcJQAAAJ2rBAAAoHOVAAAAdK4SAACAzlUCAADQuUoAAAA6VwkAAEDnKgEAAOhcJQAAAJ2rBAAAoHOVAAAAdK4SAACAzlUCAADQuUoAAAA6VwkAAEDnKgEAAOhcJQAAAJ2rBAAAoHOVAAAAdK4SAACAzlUCAADQuUoAAAA6VwkAAEDnKgEAAOhcJQAAAJ2rBAAAoHOVAAAAdK4SAACAzlUCAADQuUoAAAA6VwkAAEDnKgEAAOhcJQAAAJ2rBAAAoHOVAAAAdK4SAACAzlUCAADQuUoAAAA6VwkAAEDnKgEAAOhcJQAAAJ2rBAAAoHOVAAAAdK4SAACAzlUCAADQuUoAAAA6VwkAAEDnKgEAAOhcJQAAAJ2rBAAAoHOVAAAAdK4SAACAzlUCAADQuUoAAAA6VwkAAEDnKgEAAOhcJQAAAJ2rBAAAoHOVAAAAdK4SAACAzlUCAADQuUoAAAA6VwkAAEDnKgEAAOhcJQAAAJ2rBAAAoHOVAAAAdK4SAACAzlUCAADQuUoAAAA6VwkAAEDnKgEAAOhcJQAAAJ2rBAAAoHOVAAAAdK4SAACAzlUCAADQuUoAAAA6VwkAAEDnKgEAAOhcJQAAAJ2rBAAAoHOVAAAAdK4SAACAzlUCAADQuUoAAAA6VwkAAEDnKgEAAOhcJQAAAJ2rBAAAoHOVAAAAdK4SAACAzlUCAADQuUoAAAA6VwkAAEDnKgEAAOhcJQAAAJ2rBAAAoHOVAAAAdK4SAACAzlUCAADQuUoAAAA6VwkAAEDnKgEAAOhcJQAAAJ2rBAAAoHOVAAAAdK4SAACAzlUCAADQuUoAAAA6VwkAAEDnKgEAAOhcJQAAAJ2rBAAAoHOVAAAAdK4SAACAzlUCAADQuUoAAAA6VwkAAEDnKgEAAOhcJQAAAJ2rBAAAoHOVAAAAdK4SAACAzlUCAADQuUoAAAA6VwkAAEDnKgEAAOhcJQAAAJ2rBAAAoHOVAAAAdK4SAACAzlUCAADQuUoAAAA6VwkAAEDnKgEAAOhcJQAAAJ2rBAAAoHOVAAAAdK4SAACAzlUCAADQuUoAAAA6VwkAAEDnKgEAAOhcJQAAAJ2rBAAAoHOVAAAAdK4SAACAzlUCAADQuUoAAAA6VwkAAEDnKgEAAOhcJQAAAJ2rBAAAoHOVAAAAdK4SAACAzlUCAADQuUoAAAA6VwkAAEDnKgEAAOhcJQAAAJ2rBAAAoHOVAAAAdK4SAACAzlUCAADQuUoAAAA6VwkAAEDnKgEAAOhcJQAAAJ2rBAAAoHOVAAAAdK4SAACAzlUCAADQuUoAAAA6VwkAAEDnKgEAAOhcJQAAAJ2rBAAAoHOVAAAAdK4SAACAzlUCAADQuUoAAAA6VwkAAEDnKgEAAOhcJQAAAJ2rBAAAoHOVAAAAdK4SAACAzlUCAADQuUoAAAA6VwkAAEDnKgEAAOhcJQAAAJ2rBAAAoHOVAAAAdK4SAACAzlUCAADQuUoAAAA6VwkAAEDnKgEAAOhcJQAAAJ2rBAAAoHOVAAAAdK4SAACAzlUCAADQuUoAAAA6VwkAAEDnKgEAAOhcJQAAAJ2rBAAAoHOVAAAAdK4SAACAzlUCAADQuUoAAAA6VwkAAEDnKgEAAOhcJQAAAJ2rBAAAoHOVAAAAdK4SAACAzlUCAADQuUoAAAA6VwkAAEDnKgEAAOhcJQAAAJ2rBAAAoHOVAAAAdK4SAACAzlUCAADQuUoAAAA6VwkAAEDnKgEAAOhcJQAAAJ2rBAAAoHOVAAAAdK4SAACAzlUCAADQuUoAAAA6VwkAAEDnKgEAAOhcJQAAAJ2rBAAAoHOVAAAAdK4SAACAzlUCAADQuUoAAAA6VwkAAEDnKgEAAOhcJQAAAJ2rBAAAoHOVAAAAdK4SAACAzlUCAADQuUoAAAA6VwkAAEDnKgEAAOhcJQAAAJ2rBAAAoHOVAAAAdK4SAACAzlUCAADQuUoAAAA6VwkAAEDnKgEAAOhcJQAAAJ2rBAAAoHOVAAAAdK4SAACAzlUCAADQuUoAAAA6VwkAAEDnKgEAAOhcJQAAAJ2rBAAAoHOVAAAAdK4SAACAzlUCAADQuUoAAAA6VwkAAEDnKgEAAOhcJQAAAJ2rBAAAoHOVAAAAdK4SAACAzlUCAADQuUoAAAA6VwkAAEDnKgEAAOhcJQAAAJ2rBAAAoHOVAAAAdK4SAACAzlUCAADQuUoAAAA6VwkAAEDnKgEAAOhcJQAAAJ2rBAAAoHOVAAAAdK4SAACAzlUCAADQuUoAAAA6VwkAAEDnKgEAAOhcJQAAAJ2rBAAAoHOVAAAAdK4SAACAzlUCAADQuUoAAAA6VwkAAEDnKgEAAOhcJQAAAJ2rBAAAoHOVAAAAdK4SAACAzlUCAADQuUoAAAA6VwkAAEDnKgEAAOhcJQAAAJ2rBAAAoHOVAAAAdK4SAACAzlUCAADQuUoAAAA6VwkAAEDnKgEAAOhcJQAAAJ2rBAAAoHOVAAAAdK4SAACAzlUCAADQuUoAAAA6VwkAAEDnKgEAAOhcJQAAAJ2rBAAAoHOVAAAAdK4SAACAzlUCAADQuUoAAAA6VwkAAEDnKgEAAOhcJQAAAJ2rBAAAoHOVAAAAdK4SAACAzlUCAADQuUoAAAA6VwkAAEDnKgEAAOhcJQAAAJ2rBAAAoHOVAAAAdK4SAACAzlUCAADQuUoAAAA6VwkAAEDnKgEAAOhcJQAAAJ2rBAAAoHOVAAAAdK4SAACAzlUCAADQuUoAAAA6VwkAAEDnKgEAAOhcJQAAAJ2rBAAAoHOVAAAAdK4SAACAzlUCAADQuUoAAAA6VwkAAEDnKgEAAOhcJQAAAJ2rBAAAoHOVAAAAdK4SAACAzlUCAADQuUoAAAA6VwkAAEDnKgEAAOhcJQAAAJ2rBAAAoHOVAAAAdK4SAACAzlUCAADQuUoAAAA6VwkAAEDnKgEAAOhcJQAAAJ2rBAAAoHOVAAAAdK4SAACAzlUCAADQuUoAAAA6VwkAAEDnKgEAAOhcJQAAAJ2rBAAAoHOVAAAAdK4SAACAzlUCAADQuUoAAAA6VwkAAEDnKgEAAOhcJQAAAJ2rBAAAoHOVAAAAdK4SAACAzlUCAADQuUoAAAA6VwkAAEDnKgEAAOhcJQAAAJ2rBAAAoHOVAAAAdK4SAACAzlUCAADQuUoAAAA6VwkAAEDnKgEAAOhcJQAAAJ2rBAAAoHOVAAAAdK4SAACAzlUCAADQuUoAAAA6VwkAAEDnKgEAAOhcJQAAAJ2rBAAAoHOVAAAAdK4SAACAzlUCAADQuUoAAAA6VwkAAEDnKgEAAOhcJQAAAJ2rBAAAoHOVAAAAdK4SAACAzlUCAADQuUoAAAA6VwkAAEDnKgEAAOhcJQAAAJ2rBAAAoHOVAAAAdK4SAACAzlUCAADQuUoAAAA6VwkAAEDnKgEAAOhcJQAAAJ2rBAAAoHOVAAAAdK4SAACAzlUCAADQuUoAAAA6VwkAAEDnKgEAAOhcJQAAAJ2rBAAAoHOVAAAAdK4SAACAzlUCAADQXTxTDx15iM4FAAAAAElFTkSuQmCC" alt=""><figcaption>FIG 4 Questions and student response percentages for iClicker survey questions administered pre- (light gray) and post- (dark gray) presentation of the case study.</figcaption></figure>
+<h2>Ideas for Improvement</h2>
+<p>In retrospect, a few notable ideas for improvement have been identified. Additional class time (esp. for active learning), and a small group format, as opposed to a lecture (such as CHEM 451 with 65 students), would be expected to enhance discussions. Some or all of the predetermined questions (see Supporting Information Slides 7–11) could become iClicker questions. If students were kept naïve to Clark <em>et al.</em> [7], data could be presented in a way that would let them use the R-HPCDH active site model (see Fig. 2) to predict experimental results. For example, students could be presented with two identical R-HPCDH active site models—one occupied with R-HPC and the other with S-HPC. They would then be given <em>K</em><sub>m</sub> and <em>k</em><sub>cat</sub> values for R-HPC and asked to predict/rationalize <em>K</em><sub>m</sub> and <em>k</em><sub>cat</sub> values for S-HPC. Student predictions could be compared to actual data and their rationalizations discussed. This approach would also make insightful comparisons of other molecule pairs (e.g. R-HPC vs. 2-HEC, R-HPC vs. M-HPC, R-HPC vs. 2-propanol, enantiomers of 2-butanol, etc.). Furthermore, additional predictive opportunities, guided by the R-HPCDH active site model, can be imagined for the ketone reduction data (Table III and Supporting Information Slides 32–35). Students could be asked to predict how an arginine-to-alanine substitution in the “CoM binding pocket” might affect <em>K</em><sub>m</sub> and <em>k</em><sub>cat</sub> values for 2-KPC and 2-butanone. The effect of additives (e.g. 2-ethanesulfonate) on the stereochemistry of 2-butanone reduction by wild-type and mutant rR-HPCDH is also an engaging topic to design predictive questions. In conclusion, with these ideas for improvement offered, and in spite of any deficiencies in the case study as implemented herein, reasonable gains in each of the five goals were observed (Fig. 4).</p>
+<h2>Summary</h2>
+<p>This article describes a case study that can augment the teaching of enzyme kinetics and stereoselectivity. Although it was implemented as a lecture presentation/discussion, the R- and S-HPCDH story has the potential to be developed into other experiences with a different format (e.g. small group discussion) or educational focus (e.g. a bioinformatics or molecular modeling assignment). In addition to helping with a few goals for my students, the case study was an opportunity to share some of my graduate work and the interesting biochemistry of <em>X. autotrophicus</em> Py2. Lastly, it provided for additional emphasis on dehydrogenases, which are important for students to comprehend, as they appear throughout the central metabolic pathways encountered by undergraduate life science majors.</p>
+<h2>Acknowledgments</h2>
+<p>The author thank his Ph.D. advisor Scott Ensign at Utah State University, and former Ensign Lab members Jeff Allen, Jon Krum, and Jeff Boyd for their contributions to the <em>Xanthobacter autotrophicus</em> Py2 story that helped provide the foundation for this work.</p>
+<h2>REFERENCES</h2>
+<p>[1] Persson, B., Kallberg, Y. (2013) Classification and nomenclature of the superfamily of short-chain dehydrogenases/reductases (SDRs). Chem. Biol. Interact. 202, 111–115.</p>
+<p>[2] Allen, J. R., Ensign, S. A. (1997) Purification to homogeneity and reconstitution of the individual components of the epoxide carboxylase multiprotein enzyme complex from <em>Xanthobacter</em> strain Py2. J. Biol. Chem. 272, 32121–32128.</p>
+<p>[3] Allen, J. R., Ensign, S. A. (1999) Two short-chain dehydrogenases confer stereoselectivity for enantiomers of epoxypropane in the multiprotein epoxide carboxylating systems of <em>Xanthobacter</em> strain Py2 and <em>Nocardia corallina</em> B276. Biochemistry 38, 247–256.</p>
+<p>[4] Allen, J. R., Clark, D. D., Krum, J. G., Ensign, S. A. (1999) A role for coenzyme M (2-mercaptoethanesulfonic acid) in a bacterial pathway of aliphatic epoxide carboxylation. Proc. Natl. Acad. Sci. U. S. A. 96, 8432–8437.</p>
+<p>[5] Ensign, S. A., Allen, J. R. (2003) Aliphatic epoxide carboxylation. Annu. Rev. Biochem. 72, 55–76.</p>
+<p>[6] Clark, D. D., Ensign, S. A. (2002) Characterization of the 2-[(R)-2-hydroxypropylthio]-ethanesulfonate dehydrogenase from <em>Xanthobacter</em> strain Py2: Product inhibition, pH dependence of kinetic parameters, site-directed mutagenesis, rapid equilibrium inhibition, and chemical modification. Biochemistry 41, 2727–2740.</p>
+<p>[7] Clark, D. D., Boyd, J. M., Ensign, S. A. (2004) The stereoselectivity and catalytic properties of <em>Xanthobacter autotrophicus</em> 2-[(R)-2-hydroxypropylthio]ethanesulfonate dehydrogenase are controlled by interactions between C-terminal arginine residues and the sulfonyl of coenzyme M. Biochemistry 43, 6763–6771.</p>
+<p>[8] Krishnakumar, A. M., Nocek, B. P., Clark, D. D., Ensign, S. A., Peters, J. W. (2006) Structural basis for stereoselectivity in the (R)- and (S)-hydroxypropylthioethanesulfonate dehydrogenases. Biochemistry 45, 8831–8840.</p>
+<p>[9] Sliwa, D. A., Krishnakumar, A. M., Peters, J. W., Ensign, S. A. (2010) Molecular basis for enantioselectivity in the (R)- and (S)-hydroxypropylthioethanesulfonate dehydrogenases, a unique pair of stereoselective short-chain dehydrogenases/reductases involved in aliphatic epoxide carboxylation. Biochemistry 49, 3487–3498.</p>
+<p>[10] Bakelar, J. W., Sliwa, D. A., Johnson, S. J. (2013) Crystal structures of S-HPCDH reveal determinants of stereospecificity for R- and S-hydroxypropyl-coenzyme M dehydrogenases. Arch. Biochem. Biophys. 533, 62–68.</p>
+<p>[11] Ensign, S. A. (2001) Microbial metabolism of aliphatic alkenes. Biochemistry 40, 5845–5853.</p>
+<p>[12] Krishnakumar, A. M., Sliwa, D., Endrizzi, J. A., Boyd, E. S., Ensign, S. A., Peters, J. W. (2008) Getting a handle on the role of coenzyme M in alkene metabolism. Microbiol. Mol. Biol. Rev. 72, 445–456.</p>
+<p>[13] Broberg, C. A., Clark, D. D. (2010) Shotgun proteomics of <em>Xanthobacter autotrophicus</em> Py2 reveals proteins specific to growth on propylene. Arch. Microbiol. 192, 945–957.</p>
+<p>[14] Nelson, D. L., Cox, M. M. (2013) Lehninger: Principles of Biochemistry, 6th ed., W.H. Freeman, New York.</p>
+</div>
+</body>
+</html>

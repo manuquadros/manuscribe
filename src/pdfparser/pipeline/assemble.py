@@ -19,6 +19,7 @@ from pathlib import Path
 import nh3
 from PIL import Image  # noqa: TC002 — beartype reads annotations at runtime
 
+from pdfparser.pipeline.block import Block
 from pdfparser.pipeline.classify import (
     _FOOTNOTE_MARKER_CHARS,
     _REF_HEADING_RE,
@@ -759,7 +760,20 @@ def _assemble_document(
         )
         stray_metadata, per_page_parts[0] = _extract_stray_metadata(per_page_parts[0])
 
-    parts = [part for page in per_page_parts for part in page]
+    # From here on, a block is the typed post-flatten `Block` (see block.py), not a
+    # bare str. Every pass below this point still takes/returns list[str] (they are
+    # migrated to read Block fields directly in later, separate changes — see
+    # pdfparser-tickets/tickets/typed-block-model-design.md) so each call is wrapped
+    # with a thin unwrap-to-html / rewrap-to-Block shim at its boundary. This proves
+    # list[Block] can flow end to end with zero behavior change before any pass's
+    # internals are touched. source_page is exact on construction here and
+    # best-effort (None) on any block a shim below creates by merging/splitting —
+    # nothing downstream reads it yet, so an approximate value is behavior-neutral.
+    blocks: list[Block] = [
+        Block.of(part, source_page=page_idx)
+        for page_idx, page in enumerate(per_page_parts)
+        for part in page
+    ]
     # Uniform table-cleanup passes (each list[str] -> list[str]), in a load-bearing
     # order: panel-fusion must precede caption colocation so the single "Table N …"
     # caption attaches to the *merged* table; footnote colocation must precede both
@@ -772,11 +786,11 @@ def _assemble_document(
         _colocate_table_captions,
         _colocate_table_footnotes,
     ):
-        parts = cleanup(parts)
+        blocks = [Block.of(s) for s in cleanup([b.html for b in blocks])]
 
-    meta = _classify_parts(parts)
+    meta = _classify_parts([b.html for b in blocks])
 
-    abstract = _merge_split_paragraphs_stable(meta.abstract)
+    abstract = [Block.of(s) for s in _merge_split_paragraphs_stable(meta.abstract)]
     # One copy of a recurring copyright/open-access license footer, captured before the
     # furniture strip drops the per-page repeats, so it lands in the panel not nowhere.
     license_footer = _capture_license_footer(meta.body)
@@ -785,33 +799,58 @@ def _assemble_document(
     # few repeats to count as furniture) stays in the body — capturing would duplicate.
     if license_footer is not None and license_footer in stripped_body:
         license_footer = None
-    body = _merge_split_paragraphs_stable(stripped_body)
-    body = _consolidate_numbered_references(body)
-    body = _insert_footnotes_before_refs(body, meta.footnotes)
-    leading_metadata, body = _extract_front_matter(body)
+    body = [Block.of(s) for s in _merge_split_paragraphs_stable(stripped_body)]
+    body = [
+        Block.of(s) for s in _consolidate_numbered_references([b.html for b in body])
+    ]
+    body = [
+        Block.of(s)
+        for s in _insert_footnotes_before_refs([b.html for b in body], meta.footnotes)
+    ]
+    leading_metadata_str, body_str = _extract_front_matter([b.html for b in body])
+    leading_metadata = [Block.of(s) for s in leading_metadata_str]
+    body = [Block.of(s) for s in body_str]
     # A headingless, label-less abstract (Frontiers, Bioscience Reports) the
     # classifier left atop the body — recovered once the leading front matter is gone.
     if not abstract:
-        abstract, body = _recover_headingless_abstract(body)
+        abstract_str, body_str = _recover_headingless_abstract([b.html for b in body])
+        abstract = [Block.of(s) for s in abstract_str]
+        body = [Block.of(s) for s in body_str]
     # Re-level body section headings the OCR's ##/### jitter left inconsistent, using
     # only high-confidence signals (section numbering, canonical section names) so a
     # real section is never demoted.  Runs last, once the body's heading set is settled.
-    body = _normalize_heading_levels(body)
+    body = [Block.of(s) for s in _normalize_heading_levels([b.html for b in body])]
     # A copyright/journal-citation clause the OCR ran onto the abstract's end is front
     # matter; move it to the panel so it doesn't read as abstract prose.
-    abstract, abstract_citation = _split_abstract_citation(abstract)
-    metadata = leading_metadata + named_metadata + stray_metadata + abstract_citation
+    abstract_citation_str: list[str]
+    abstract_str, abstract_citation_str = _split_abstract_citation(
+        [b.html for b in abstract]
+    )
+    abstract = [Block.of(s) for s in abstract_str]
+    abstract_citation = [Block.of(s) for s in abstract_citation_str]
+    named_metadata_blocks = [Block.of(s) for s in named_metadata]
+    stray_metadata_blocks = [Block.of(s) for s in stray_metadata]
+    metadata = (
+        leading_metadata
+        + named_metadata_blocks
+        + stray_metadata_blocks
+        + abstract_citation
+    )
     if license_footer is not None:
-        metadata = metadata + [license_footer]
+        metadata = metadata + [Block.of(license_footer)]
 
     title_html = _sanitize_content_html(meta.title_html) or "Untitled"
     byline_html = _sanitize_content_html(meta.byline_html)
     html = _document_shell(
         title_html=title_html,
         byline_html=byline_html,
-        abstract=_abstract_section([_sanitize_content_html(part) for part in abstract]),
-        metadata=_metadata_panel([_sanitize_content_html(part) for part in metadata]),
-        body="\n".join(_sanitize_content_html(part) for part in body),
+        abstract=_abstract_section(
+            [_sanitize_content_html(part.html) for part in abstract]
+        ),
+        metadata=_metadata_panel(
+            [_sanitize_content_html(part.html) for part in metadata]
+        ),
+        body="\n".join(_sanitize_content_html(part.html) for part in body),
     )
     # markdown-it entity-escapes the header HTML (`&` → `&amp;`), so unescape the
     # tag-stripped text back to the reader-visible title/byline a consumer stores.

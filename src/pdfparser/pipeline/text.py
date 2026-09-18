@@ -31,6 +31,18 @@ _TRAILING_UNICODE_SUP_CITATION_RE = re.compile(rf"[{_SUP_DIGITS}]+\s*$")
 # Paragraphs that open with a bold label ("Keywords:", "Abbreviations:", "Note:")
 # are structured metadata, never mid-sentence continuations.
 _BOLD_LABEL_RE = re.compile(r"^<strong>[^<]+:</strong>")
+# Matches — and captures the name of — a leading bold label with the colon inside
+# *or* outside the bold ("<strong>Keywords:</strong>" vs "<strong>Keywords</strong>:"):
+# OCR emits both shapes for the same label, and matching colon-inside only stranded
+# the colon-outside keyword line in the body instead of relocating it to the panel.
+# This is the *single* either-colon matcher — every leading-bold-label check
+# (the metadata/glossary/front-matter predicates via ``_bold_label_in``, and the
+# abstract terminator) goes through it, so the colon convention has one home.  Distinct
+# from ``_BOLD_LABEL_RE`` (colon-inside only), which stays stricter for the
+# merge/furniture guards that must not treat a colon-outside run as a label.
+_BOLD_LABEL_CAPTURE_RE = re.compile(
+    r"^<strong>([^<]+):</strong>|^<strong>([^<]+)</strong>\s*:"
+)
 _HEADING_TAG_RE = re.compile(r"^<h([1-6])>(.*)</h\1>$", re.DOTALL)
 
 # A caption opens with a figure/table label ("FIG. 2 …", "**Table 1.** …").

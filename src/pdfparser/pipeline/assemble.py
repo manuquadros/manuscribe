@@ -16,6 +16,7 @@ from collections.abc import Callable  # noqa: TC003 — beartype reads annotatio
 from dataclasses import dataclass
 from pathlib import Path
 
+import nh3
 from PIL import Image  # noqa: TC002 — beartype reads annotations at runtime
 
 from pdfparser.pipeline.classify import (
@@ -500,6 +501,81 @@ def _page_to_html_parts(
     return parts
 
 
+# LightOnOCR transcribes whatever the source PDF's visible text/markup shows, so a
+# corrupted or deliberately crafted PDF can make the model emit a <script>/<iframe>
+# or an on*-handler attribute that markdown.py's html:True passthrough would
+# otherwise carry verbatim into HTML the D3 Annotation Hub stores and serves. This
+# is the final allow-list boundary all OCR-sourced content HTML passes through
+# before reaching the document shell (title, byline, abstract, metadata, body —
+# the shell's own <html>/<head>/<style>/wrapper markup is never run through it).
+# Anything outside `_CONTENT_TAGS` is unwrapped (tag dropped, text kept); the tags
+# in `_CONTENT_CLEAN_TAGS` drop their content too, since script/style source or an
+# iframe's off-screen document isn't reader-visible prose to preserve. No <a>/href:
+# nothing in this package emits one deliberately — the block-level markdown parser
+# (unlike the inline one used for captions/cells) still has CommonMark's
+# link/autolink rules enabled, so OCR prose shaped like a citation adjacency
+# ("[12](2019)") could otherwise resolve to a live link — and no fixture needs an
+# outbound link. "data" is allowed only as a URL scheme (for <img src>): a data:
+# URI decoded in an <img> context cannot execute embedded script (unlike
+# <object>/<iframe>), even for image/svg+xml.
+_CONTENT_TAGS = frozenset(
+    {
+        "p",
+        "br",
+        "h1",
+        "h2",
+        "h3",
+        "h4",
+        "h5",
+        "h6",
+        "ol",
+        "ul",
+        "li",
+        "table",
+        "thead",
+        "tbody",
+        "tr",
+        "th",
+        "td",
+        "caption",
+        "sup",
+        "sub",
+        "em",
+        "strong",
+        "figure",
+        "figcaption",
+        "img",
+    }
+)
+_CONTENT_CLEAN_TAGS = frozenset(
+    {"script", "style", "iframe", "noscript", "object", "embed", "svg", "template"}
+)
+_CONTENT_ATTRIBUTES: dict[str, set[str]] = {
+    "td": {"colspan", "rowspan"},
+    "th": {"colspan", "rowspan"},
+    "ol": {"start"},
+    "img": {"src", "alt"},
+}
+# The only content-level class pdfparser itself emits (classify.py/merge.py/
+# tables/recover.py footnote paragraphs); anything else stays unstyled rather than
+# letting OCR-crafted markup pick a class the wrapper CSS targets.
+_CONTENT_ALLOWED_CLASSES: dict[str, set[str]] = {"p": {"footnote"}}
+_CONTENT_URL_SCHEMES = frozenset(nh3.ALLOWED_URL_SCHEMES) | {"data"}
+
+_CONTENT_SANITIZER = nh3.Cleaner(
+    tags=_CONTENT_TAGS,
+    clean_content_tags=_CONTENT_CLEAN_TAGS,
+    attributes=_CONTENT_ATTRIBUTES,
+    allowed_classes=_CONTENT_ALLOWED_CLASSES,
+    url_schemes=_CONTENT_URL_SCHEMES,
+)
+
+
+def _sanitize_content_html(html: str) -> str:
+    """Run one block of OCR-sourced content HTML through the final allow-list pass."""
+    return _CONTENT_SANITIZER.clean(html)
+
+
 def _abstract_section(abstract: list[str]) -> str:
     if not abstract:
         return ""
@@ -728,17 +804,22 @@ def _assemble_document(
     if license_footer is not None:
         metadata = metadata + [license_footer]
 
+    title_html = _sanitize_content_html(meta.title_html) or "Untitled"
+    byline_html = _sanitize_content_html(meta.byline_html)
     html = _document_shell(
-        title_html=meta.title_html or "Untitled",
-        byline_html=meta.byline_html,
-        abstract=_abstract_section(abstract),
-        metadata=_metadata_panel(metadata),
-        body="\n".join(body),
+        title_html=title_html,
+        byline_html=byline_html,
+        abstract=_abstract_section([_sanitize_content_html(part) for part in abstract]),
+        metadata=_metadata_panel([_sanitize_content_html(part) for part in metadata]),
+        body="\n".join(_sanitize_content_html(part) for part in body),
     )
     # markdown-it entity-escapes the header HTML (`&` → `&amp;`), so unescape the
     # tag-stripped text back to the reader-visible title/byline a consumer stores.
-    title = _html.unescape(_visible_text(meta.title_html)).strip()
-    byline = _html.unescape(_visible_text(meta.byline_html)).strip()
+    # Derived from the sanitized HTML so a stripped <script>'s inner text can't leak
+    # into the plain-text title/byline the Hub stores even though the rendered HTML
+    # dropped it.
+    title = _html.unescape(_visible_text(title_html)).strip()
+    byline = _html.unescape(_visible_text(byline_html)).strip()
     return html, title, byline
 
 

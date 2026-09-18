@@ -14,6 +14,7 @@ dependencies = [
   "pylatexenc>=2.10",
   "pyspellchecker>=0.9.0",
   "numpy>=2.5.2",
+  "nh3>=0.3.7",
 ]
 
 [build-system]

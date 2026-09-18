@@ -764,13 +764,15 @@ class TestLightonAssembly:
         from pdfparser.pipeline.classify import _classify_parts
 
         meta = _classify_parts(
-            [
-                "<h1>T</h1>",
-                "<p>A. Author</p>",
-                "<h2>Introduction</h2>",
-                "<p>¹ Department of Chemistry, Example University, Daejeon, "
-                "South Korea</p>",
-            ]
+            _as_blocks(
+                [
+                    "<h1>T</h1>",
+                    "<p>A. Author</p>",
+                    "<h2>Introduction</h2>",
+                    "<p>¹ Department of Chemistry, Example University, Daejeon, "
+                    "South Korea</p>",
+                ]
+            )
         )
         assert any("Department of Chemistry" in b for b in meta.body)
         assert not any("Department of Chemistry" in f for f in meta.footnotes)
@@ -903,15 +905,17 @@ class TestLightonAssembly:
         from pdfparser.pipeline.classify import _classify_parts
 
         meta = _classify_parts(
-            [
-                "<h1>T</h1>",
-                "<h2>X</h2>",
-                "<p><strong>ABSTRACT</strong>: First abstract paragraph.</p>",
-                "<p>Second abstract paragraph continues here.</p>",
-                "<p><strong>KEYWORDS</strong>: alpha, beta</p>",
-                "<h2>Introduction</h2>",
-                "<p>Body.</p>",
-            ]
+            _as_blocks(
+                [
+                    "<h1>T</h1>",
+                    "<h2>X</h2>",
+                    "<p><strong>ABSTRACT</strong>: First abstract paragraph.</p>",
+                    "<p>Second abstract paragraph continues here.</p>",
+                    "<p><strong>KEYWORDS</strong>: alpha, beta</p>",
+                    "<h2>Introduction</h2>",
+                    "<p>Body.</p>",
+                ]
+            )
         )
         assert len(meta.abstract) == 2
         assert not any("KEYWORDS" in a for a in meta.abstract)
@@ -924,14 +928,16 @@ class TestLightonAssembly:
         from pdfparser.pipeline.classify import _classify_parts
 
         meta = _classify_parts(
-            [
-                "<h1>T</h1>",
-                "<h2>X</h2>",
-                "<p><strong>ABSTRACT:</strong></p>",
-                "<p>The abstract body follows on the next block.</p>",
-                "<h2>Introduction</h2>",
-                "<p>Body.</p>",
-            ]
+            _as_blocks(
+                [
+                    "<h1>T</h1>",
+                    "<h2>X</h2>",
+                    "<p><strong>ABSTRACT:</strong></p>",
+                    "<p>The abstract body follows on the next block.</p>",
+                    "<h2>Introduction</h2>",
+                    "<p>Body.</p>",
+                ]
+            )
         )
         assert "<p></p>" not in meta.abstract
         assert meta.abstract == ["<p>The abstract body follows on the next block.</p>"]

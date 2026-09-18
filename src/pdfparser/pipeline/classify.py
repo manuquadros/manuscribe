@@ -13,6 +13,7 @@ from collections import Counter
 from dataclasses import dataclass, field
 
 from pdfparser.pipeline.affiliations import _is_affiliation_line
+from pdfparser.pipeline.block import Block, BlockKind
 from pdfparser.pipeline.furniture import _is_degenerate_repetition
 from pdfparser.pipeline.text import (
     _BOLD_LABEL_CAPTURE_RE,
@@ -556,16 +557,25 @@ def _classify_paragraph(state: _ClassifyState, part: str) -> None:
     state.body.append(part)
 
 
-def _classify_parts(parts: list[str]) -> _Meta:
+def _classify_parts(blocks: list[Block]) -> _Meta:
     """Single pass: pull the title, byline, abstract and footnotes out of the
-    flat block list; everything else is body."""
+    flat block list; everything else is body.
+
+    The dispatch reads ``block.kind``/``heading_level``/``inner`` (computed once
+    in ``Block.of``) instead of re-parsing each block with ``_heading_inner`` here
+    too.  ``_classify_heading``/``_classify_paragraph`` still take plain strings —
+    their own ~15 helper predicates (bold-label family, footnote-marker variants,
+    front-matter detection) are a separate, larger migration."""
     state = _ClassifyState()
-    for idx, part in enumerate(parts):
-        heading = _heading_inner(part)
-        if heading is not None:
-            _classify_heading(state, heading[0], heading[1], part, parts, idx)
+    parts = [b.html for b in blocks]
+    for idx, block in enumerate(blocks):
+        if block.kind is BlockKind.HEADING:
+            assert block.heading_level is not None and block.inner is not None
+            _classify_heading(
+                state, block.heading_level, block.inner, block.html, parts, idx
+            )
         else:
-            _classify_paragraph(state, part)
+            _classify_paragraph(state, block.html)
     return _Meta(
         state.title_html,
         state.byline_html,

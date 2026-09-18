@@ -819,7 +819,7 @@ def _assemble_document(
     blocks = [Block.of(s) for s in _colocate_table_captions(blocks)]
     blocks = [Block.of(s) for s in _colocate_table_footnotes(blocks)]
 
-    meta = _classify_parts([b.html for b in blocks])
+    meta = _classify_parts(blocks)
 
     abstract = [Block.of(s) for s in _merge_split_paragraphs_stable(meta.abstract)]
     # One copy of a recurring copyright/open-access license footer, captured before the

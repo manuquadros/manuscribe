@@ -2,7 +2,7 @@
 
 import re
 
-from helpers import _body, _run_lighton, _tables_text
+from helpers import _as_blocks, _body, _run_lighton, _tables_text
 
 
 class TestTableCaptionColocation:
@@ -16,7 +16,7 @@ class TestTableCaptionColocation:
             "<p><strong>TABLE 1</strong> Enzyme kinetics of PtTRI and PtTRII</p>",
             "<table><tbody><tr><td>1</td></tr></tbody></table>",
         ]
-        assert _colocate_table_captions(parts) == [
+        assert _colocate_table_captions(_as_blocks(parts)) == [
             "<table><caption><strong>TABLE 1</strong> Enzyme kinetics of PtTRI "
             "and PtTRII</caption><tbody><tr><td>1</td></tr></tbody></table>"
         ]
@@ -28,7 +28,7 @@ class TestTableCaptionColocation:
             "<table><tbody><tr><td>1</td></tr></tbody></table>",
             "<p>Table 2. Results.</p>",
         ]
-        out = _colocate_table_captions(parts)
+        out = _colocate_table_captions(_as_blocks(parts))
         assert out == [
             "<table><caption>Table 2. Results.</caption>"
             "<tbody><tr><td>1</td></tr></tbody></table>"
@@ -43,7 +43,7 @@ class TestTableCaptionColocation:
             "<h2>TABLE 2 Comparison between various tropinone reductases</h2>",
             "<table><tbody><tr><td>1</td></tr></tbody></table>",
         ]
-        out = _colocate_table_captions(parts)
+        out = _colocate_table_captions(_as_blocks(parts))
         assert out == [
             "<table><caption>TABLE 2 Comparison between various tropinone "
             "reductases</caption><tbody><tr><td>1</td></tr></tbody></table>"
@@ -59,7 +59,7 @@ class TestTableCaptionColocation:
             "<h2>Table of Contents</h2>",
             "<table><tbody><tr><td>1</td></tr></tbody></table>",
         ]
-        out = _colocate_table_captions(parts)
+        out = _colocate_table_captions(_as_blocks(parts))
         assert out == parts  # unchanged: heading stays, table stays captionless
 
     def test_caption_separated_by_figure_folded(self) -> None:
@@ -71,7 +71,7 @@ class TestTableCaptionColocation:
             "<figure><img src='x' alt=''></figure>",
             "<table><tr><td>a</td></tr></table>",
         ]
-        out = _colocate_table_captions(parts)
+        out = _colocate_table_captions(_as_blocks(parts))
         assert out == [
             "<figure><img src='x' alt=''></figure>",
             "<table><caption>Table 3 Kinetic constants</caption>"
@@ -87,7 +87,7 @@ class TestTableCaptionColocation:
             "<p>Unrelated body sentence.</p>",
             "<table><tr><td>a</td></tr></table>",
         ]
-        assert _colocate_table_captions(parts) == parts
+        assert _colocate_table_captions(_as_blocks(parts)) == parts
 
     def test_orphan_caption_left_intact(self) -> None:
         from pdfparser.pipeline.merge import _colocate_table_captions
@@ -96,7 +96,7 @@ class TestTableCaptionColocation:
             "<p>Table 9 Orphan caption with no table near it.</p>",
             "<p>Prose.</p>",
         ]
-        assert _colocate_table_captions(parts) == parts
+        assert _colocate_table_captions(_as_blocks(parts)) == parts
 
     def test_two_tables_pair_with_own_captions(self) -> None:
         from pdfparser.pipeline.merge import _colocate_table_captions
@@ -107,7 +107,7 @@ class TestTableCaptionColocation:
             "<p>Table 2 B</p>",
             "<table><tr><td>2</td></tr></table>",
         ]
-        out = _colocate_table_captions(parts)
+        out = _colocate_table_captions(_as_blocks(parts))
         assert "<caption>Table 1 A</caption>" in out[0]
         assert "<caption>Table 2 B</caption>" in out[1]
         assert len(out) == 2
@@ -119,7 +119,7 @@ class TestTableCaptionColocation:
             "<p>Table 5 Duplicate guard</p>",
             "<table><caption>existing</caption><tr><td>1</td></tr></table>",
         ]
-        out = _colocate_table_captions(parts)
+        out = _colocate_table_captions(_as_blocks(parts))
         # The table keeps its own caption; the stray block is left, not lost.
         assert out == parts
 
@@ -131,7 +131,7 @@ class TestTableCaptionColocation:
             "<p>Table 1 Kinetics</p>",
             '<table class="data"><tbody><tr><td>1</td></tr></tbody></table>',
         ]
-        out = _colocate_table_captions(parts)
+        out = _colocate_table_captions(_as_blocks(parts))
         assert out == [
             '<table class="data"><caption>Table 1 Kinetics</caption>'
             "<tbody><tr><td>1</td></tr></tbody></table>"
@@ -147,7 +147,7 @@ class TestTableCaptionColocation:
             "<p>Table 2 Results</p>",
             "<table><tr><td>2</td></tr></table>",
         ]
-        out = _colocate_table_captions(parts)
+        out = _colocate_table_captions(_as_blocks(parts))
         assert out == [
             "<table><tr><td>1</td></tr></table>",
             "<table><caption>Table 2 Results</caption><tr><td>2</td></tr></table>",
@@ -162,7 +162,7 @@ class TestTableCaptionColocation:
             "<p>Table 1 summarizes the kinetic parameters of both enzymes.</p>",
             "<table><tr><td>1</td></tr></table>",
         ]
-        assert _colocate_table_captions(parts) == parts
+        assert _colocate_table_captions(_as_blocks(parts)) == parts
 
     def test_bare_label_rejoined_then_folded(self) -> None:
         from pdfparser.pipeline.merge import (
@@ -177,7 +177,9 @@ class TestTableCaptionColocation:
             "<p>Selected substrates and inhibitors used to investigate.</p>",
             "<table><tbody><tr><td>a</td></tr></tbody></table>",
         ]
-        out = _colocate_table_captions(_join_split_table_caption_labels(parts))
+        out = _colocate_table_captions(
+            _as_blocks(_join_split_table_caption_labels(parts))
+        )
         assert out == [
             "<table><caption>TABLE I Selected substrates and inhibitors "
             "used to investigate.</caption><tbody><tr><td>a</td></tr></tbody></table>"
@@ -197,7 +199,9 @@ class TestTableCaptionColocation:
             "<p>Comparison of rR- and rS-HPCDH kinetic parameters.</p>",
             "<table><tbody><tr><td>a</td></tr></tbody></table>",
         ]
-        out = _colocate_table_captions(_join_split_table_caption_labels(parts))
+        out = _colocate_table_captions(
+            _as_blocks(_join_split_table_caption_labels(parts))
+        )
         assert out == [
             "<table><caption>TABLE IV Comparison of rR- and rS-HPCDH kinetic "
             "parameters.</caption><tbody><tr><td>a</td></tr></tbody></table>"
@@ -299,7 +303,7 @@ class TestTableFootnoteColocation:
             "<p><sup>a</sup>Apparent K values.</p>",
             "<p><sup>b</sup>ND = not determined.</p>",
         ]
-        assert _colocate_table_footnotes(parts) == [
+        assert _colocate_table_footnotes(_as_blocks(parts)) == [
             "<table><tbody><tr><td>K<sup>a</sup></td><td>E<sup>b</sup></td></tr>"
             "</tbody></table>"
             '<p class="footnote"><sup>a</sup>Apparent K values.</p>'
@@ -316,7 +320,7 @@ class TestTableFootnoteColocation:
             "<p>Molecule structures are shown in Fig. 3.</p>",
             "<p><sup>a</sup>Apparent K values.</p>",
         ]
-        assert _colocate_table_footnotes(parts) == [
+        assert _colocate_table_footnotes(_as_blocks(parts)) == [
             "<table><tbody><tr><td>K<sup>a</sup></td></tr></tbody></table>"
             '<p class="footnote">Molecule structures are shown in Fig. 3.</p>'
             '<p class="footnote"><sup>a</sup>Apparent K values.</p>'
@@ -331,7 +335,7 @@ class TestTableFootnoteColocation:
             "<p><sup>a</sup>Apparent K values.</p>",
             "<p>with no additives present, all forms preferred re-face.</p>",
         ]
-        out = _colocate_table_footnotes(parts)
+        out = _colocate_table_footnotes(_as_blocks(parts))
         assert out == [
             "<table><tbody><tr><td>K<sup>a</sup></td></tr></tbody></table>"
             '<p class="footnote"><sup>a</sup>Apparent K values.</p>',
@@ -348,7 +352,7 @@ class TestTableFootnoteColocation:
             "<table><tbody><tr><td>K<sup>a</sup></td></tr></tbody></table>",
             "<p><sup>*</sup>Corresponding author: a@b.com.</p>",
         ]
-        assert _colocate_table_footnotes(parts) == parts
+        assert _colocate_table_footnotes(_as_blocks(parts)) == parts
 
     def test_numeric_marker_matching_table_exponent_not_absorbed(self) -> None:
         from pdfparser.pipeline.merge import _colocate_table_footnotes
@@ -360,7 +364,7 @@ class TestTableFootnoteColocation:
             "<table><tbody><tr><td>area cm<sup>2</sup></td></tr></tbody></table>",
             "<p><sup>2</sup>A numbered article footnote.</p>",
         ]
-        assert _colocate_table_footnotes(parts) == parts
+        assert _colocate_table_footnotes(_as_blocks(parts)) == parts
 
     def test_letter_marker_folded_despite_table_exponents(self) -> None:
         from pdfparser.pipeline.merge import _colocate_table_footnotes
@@ -372,7 +376,7 @@ class TestTableFootnoteColocation:
             "</tbody></table>",
             "<p><sup>a</sup>Apparent K values.</p>",
         ]
-        assert _colocate_table_footnotes(parts) == [
+        assert _colocate_table_footnotes(_as_blocks(parts)) == [
             "<table><tbody><tr><td>cm<sup>2</sup></td><td>K<sup>a</sup></td></tr>"
             "</tbody></table>"
             '<p class="footnote"><sup>a</sup>Apparent K values.</p>'
@@ -388,7 +392,7 @@ class TestTableFootnoteColocation:
             "<p>A note sentence.</p>",
             "<p><sup>*</sup>An article footnote.</p>",
         ]
-        assert _colocate_table_footnotes(parts) == parts
+        assert _colocate_table_footnotes(_as_blocks(parts)) == parts
 
     def test_note_without_markers_not_absorbed(self) -> None:
         from pdfparser.pipeline.merge import _colocate_table_footnotes
@@ -399,7 +403,7 @@ class TestTableFootnoteColocation:
             "<table><tbody><tr><td>1</td></tr></tbody></table>",
             "<p>This paragraph continues the discussion.</p>",
         ]
-        assert _colocate_table_footnotes(parts) == parts
+        assert _colocate_table_footnotes(_as_blocks(parts)) == parts
 
     def test_runaway_leading_prose_not_swallowed(self) -> None:
         from pdfparser.pipeline.merge import _colocate_table_footnotes
@@ -414,7 +418,7 @@ class TestTableFootnoteColocation:
             "<p>Third body paragraph.</p>",
             "<p><sup>a</sup>A late marker.</p>",
         ]
-        assert _colocate_table_footnotes(parts) == parts
+        assert _colocate_table_footnotes(_as_blocks(parts)) == parts
 
     def test_second_leading_line_exceeds_note_cap(self) -> None:
         from pdfparser.pipeline.merge import _colocate_table_footnotes
@@ -428,7 +432,7 @@ class TestTableFootnoteColocation:
             "<p>Second note line.</p>",
             "<p><sup>a</sup>Apparent K values.</p>",
         ]
-        assert _colocate_table_footnotes(parts) == parts
+        assert _colocate_table_footnotes(_as_blocks(parts)) == parts
 
     def test_trailing_source_note_after_markers_folded(self) -> None:
         from pdfparser.pipeline.merge import _colocate_table_footnotes
@@ -441,7 +445,7 @@ class TestTableFootnoteColocation:
             "<p><sup>a</sup>Apparent K values.</p>",
             "<p>Data adapted from Clark et al. [7].</p>",
         ]
-        assert _colocate_table_footnotes(parts) == [
+        assert _colocate_table_footnotes(_as_blocks(parts)) == [
             "<table><tbody><tr><td>K<sup>a</sup></td></tr></tbody></table>"
             '<p class="footnote"><sup>a</sup>Apparent K values.</p>'
             '<p class="footnote">Data adapted from Clark et al. [7].</p>'
@@ -457,7 +461,7 @@ class TestTableFootnoteColocation:
             "<p>Data adapted from Clark et al. [7].</p>",
             "<p>The discussion continues in ordinary prose here.</p>",
         ]
-        assert _colocate_table_footnotes(parts) == [
+        assert _colocate_table_footnotes(_as_blocks(parts)) == [
             "<table><tbody><tr><td>1</td></tr></tbody></table>"
             '<p class="footnote">Data adapted from Clark et al. [7].</p>',
             "<p>The discussion continues in ordinary prose here.</p>",
@@ -475,7 +479,7 @@ class TestTableFootnoteColocation:
             "<p>Data adapted from Clark et al. [7].</p>",
             "<p>More body prose follows here.</p>",
         ]
-        assert _colocate_table_footnotes(parts) == parts
+        assert _colocate_table_footnotes(_as_blocks(parts)) == parts
 
     def test_generic_verb_without_subject_not_a_source_note(self) -> None:
         from pdfparser.pipeline.merge import _colocate_table_footnotes
@@ -486,7 +490,7 @@ class TestTableFootnoteColocation:
             "<table><tbody><tr><td>1</td></tr></tbody></table>",
             "<p>Obtained from a commercial supplier, the reagents were used.</p>",
         ]
-        assert _colocate_table_footnotes(parts) == parts
+        assert _colocate_table_footnotes(_as_blocks(parts)) == parts
 
     def test_plain_body_after_markers_not_mistaken_for_source_note(self) -> None:
         from pdfparser.pipeline.merge import _colocate_table_footnotes
@@ -498,7 +502,7 @@ class TestTableFootnoteColocation:
             "<p><sup>a</sup>Apparent K values.</p>",
             "<p>Data presented here support the proposed mechanism in Fig. 2.</p>",
         ]
-        assert _colocate_table_footnotes(parts) == [
+        assert _colocate_table_footnotes(_as_blocks(parts)) == [
             "<table><tbody><tr><td>K<sup>a</sup></td></tr></tbody></table>"
             '<p class="footnote"><sup>a</sup>Apparent K values.</p>',
             "<p>Data presented here support the proposed mechanism in Fig. 2.</p>",

@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import re
 
+from pdfparser.pipeline.block import Block, BlockKind
 from pdfparser.pipeline.classify import (
     _LEADING_SUP_RE,
     _REF_HEADING_RE,
@@ -77,9 +78,7 @@ _FOOTNOTE_SYMBOLS = frozenset("*†‡§¶#")
 # how far floats are relocated after the joined paragraph.
 _MAX_FLOATS_TO_SKIP = 3
 
-_TABLE_OPEN_RE = re.compile(r"^<table[\s>]", re.IGNORECASE)
 _TABLE_OPEN_TAG_RE = re.compile(r"^<table\b[^>]*>", re.IGNORECASE)
-_FIGURE_OPEN_RE = re.compile(r"^<figure[\s>]", re.IGNORECASE)
 _FIRST_ROW_RE = re.compile(r"<tr\b[^>]*>(.*?)</tr>", re.IGNORECASE | re.DOTALL)
 # A row that is a single cell spanning ``colspan`` (>= 2) columns — the shape a
 # table title takes when the model bakes it into the table instead of leaving it a
@@ -459,7 +458,7 @@ def _merge_panel_tables(first: str, second: str) -> str:
     return f"{first[:open_end]}{first_inner}{second_inner}</table>"
 
 
-def _merge_split_panel_tables(parts: list[str]) -> list[str]:
+def _merge_split_panel_tables(blocks: list[Block]) -> list[str]:
     """Re-fuse a composite multi-panel table the model split into adjacent ``<table>``
     blocks (one per panel) on the blank line between panels.
 
@@ -470,13 +469,14 @@ def _merge_split_panel_tables(parts: list[str]) -> list[str]:
     headers) so two genuinely distinct adjacent tables are never fused.  Runs before
     ``_colocate_table_captions`` so the single "Table N …" caption attaches to the
     merged table, not just its first panel."""
+    parts = [b.html for b in blocks]
     out: list[str] = []
     i = 0
     while i < len(parts):
         part = parts[i]
         letter = (
             _table_panel_letter(part)
-            if _TABLE_OPEN_RE.match(part) and "<caption" not in part.lower()
+            if blocks[i].kind is BlockKind.TABLE and "<caption" not in part.lower()
             else None
         )
         if letter is not None:
@@ -485,7 +485,7 @@ def _merge_split_panel_tables(parts: list[str]) -> list[str]:
             j = i + 1
             while (
                 j < len(parts)
-                and _TABLE_OPEN_RE.match(parts[j])
+                and blocks[j].kind is BlockKind.TABLE
                 and "<caption" not in parts[j].lower()
                 and _table_panel_letter(parts[j]) == expect
             ):
@@ -500,7 +500,7 @@ def _merge_split_panel_tables(parts: list[str]) -> list[str]:
     return out
 
 
-def _colocate_table_captions(parts: list[str]) -> list[str]:
+def _colocate_table_captions(blocks: list[Block]) -> list[str]:
     """Fold a free-standing "Table N …" caption into its ``<table>`` as a
     ``<caption>`` first child so it renders with the table rather than drifting
     in the block stream.
@@ -515,13 +515,15 @@ def _colocate_table_captions(parts: list[str]) -> list[str]:
     it then reads as already-captioned here and claims no neighbouring caption.
     """
     parts = [
-        _hoist_inline_table_caption(p) if _TABLE_OPEN_RE.match(p) else p for p in parts
+        _hoist_inline_table_caption(b.html) if b.kind is BlockKind.TABLE else b.html
+        for b in blocks
     ]
     n = len(parts)
     is_caption = [_is_table_caption(p) for p in parts]
-    is_figure = [bool(_FIGURE_OPEN_RE.match(p)) for p in parts]
+    is_figure = [b.kind is BlockKind.FIGURE for b in blocks]
     needs_caption = [
-        bool(_TABLE_OPEN_RE.match(p)) and "<caption" not in p.lower() for p in parts
+        b.kind is BlockKind.TABLE and "<caption" not in p.lower()
+        for b, p in zip(blocks, parts, strict=True)
     ]
     used = [False] * n
     attached: dict[int, int] = {}
@@ -636,7 +638,7 @@ def _is_table_source_note(part: str) -> bool:
     )
 
 
-def _colocate_table_footnotes(parts: list[str]) -> list[str]:
+def _colocate_table_footnotes(blocks: list[Block]) -> list[str]:
     """Absorb a table's trailing footnote run into its ``<table>`` block.
 
     Right after ``</table>`` the model emits the table's footnotes — superscript
@@ -657,12 +659,13 @@ def _colocate_table_footnotes(parts: list[str]) -> list[str]:
     with neither a matching marker nor a source note is the body resuming and is
     left untouched.
     """
+    parts = [b.html for b in blocks]
     n = len(parts)
     out: list[str] = []
     i = 0
     while i < n:
         part = parts[i]
-        if not _TABLE_OPEN_RE.match(part):
+        if blocks[i].kind is not BlockKind.TABLE:
             out.append(part)
             i += 1
             continue

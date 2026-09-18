@@ -7,9 +7,17 @@ from pathlib import Path
 
 from PIL import Image
 
+from pdfparser.pipeline.block import Block
+
 
 def _fake_image(width: int = 800, height: int = 1000) -> Image.Image:
     return Image.new("RGB", (width, height), color="white")
+
+
+def _as_blocks(parts: list[str]) -> list[Block]:
+    """Wrap raw HTML strings into ``Block``s for a function migrated to take
+    ``list[Block]`` — the test's own inputs/assertions stay plain strings."""
+    return [Block.of(p) for p in parts]
 
 
 def _img_size(fragment: str, base_dir: Path | None) -> tuple[int, int] | None:

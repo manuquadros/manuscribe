@@ -3,6 +3,7 @@
 import re
 
 from helpers import (
+    _as_blocks,
     _body,
     _run_lighton,
 )
@@ -406,7 +407,7 @@ class TestInlineTableTitleHoist:
             "<td>13</td><td>578</td></tr>\n"
             "  </tbody>\n</table>"
         ]
-        (out,) = _colocate_table_captions(parts)
+        (out,) = _colocate_table_captions(_as_blocks(parts))
         assert "<caption>Table 1. Kinetic Analysis of CgKARI</caption>" in out
         # The title row is gone, the real header survives, no empty <thead> left.
         assert 'colspan="5">Table 1' not in out
@@ -424,7 +425,7 @@ class TestInlineTableTitleHoist:
             "<tr><td></td><td>CgKARI_NADP⁺</td></tr>\n"
             "<tr><td>PDB code</td><td>6JX2</td></tr>\n</table>"
         ]
-        (out,) = _colocate_table_captions(parts)
+        (out,) = _colocate_table_captions(_as_blocks(parts))
         assert "<caption>Table 2. Data Collection Statistics</caption>" in out
         assert 'colspan="2">Table 2' not in out
         assert "<td>CgKARI_NADP⁺</td>" in out
@@ -441,7 +442,7 @@ class TestInlineTableTitleHoist:
             "  </thead>\n  <tbody>\n"
             "    <tr><td>None</td><td>100</td><td>100</td></tr>\n  </tbody>\n</table>"
         ]
-        (out,) = _colocate_table_captions(parts)
+        (out,) = _colocate_table_captions(_as_blocks(parts))
         assert "<caption>" not in out
         assert 'colspan="3">A. Effect of EDTA' in out
 
@@ -453,7 +454,7 @@ class TestInlineTableTitleHoist:
             "<table><thead><tr><th>Gene</th><th>Length</th></tr></thead>"
             "<tbody><tr><td>xecD1</td><td>800</td></tr></tbody></table>"
         ]
-        assert _colocate_table_captions(parts) == parts
+        assert _colocate_table_captions(_as_blocks(parts)) == parts
 
 
 class TestMergeSplitPanelTables:
@@ -477,7 +478,7 @@ class TestMergeSplitPanelTables:
     def test_sequential_panel_tables_merged(self) -> None:
         from pdfparser.pipeline.merge import _merge_split_panel_tables
 
-        out = _merge_split_panel_tables([self._A, self._B])
+        out = _merge_split_panel_tables(_as_blocks([self._A, self._B]))
         assert len(out) == 1
         # one <table> wrapper, both panels' content inside it
         assert out[0].count("<table") == 1
@@ -494,8 +495,8 @@ class TestMergeSplitPanelTables:
 
         # the real pipeline order: a free-standing caption, then the two panels
         parts = ["<p>Table 2. Metal ion analysis.</p>", self._A, self._B]
-        merged = _merge_split_panel_tables(parts)
-        out = _colocate_table_captions(merged)
+        merged = _merge_split_panel_tables(_as_blocks(parts))
+        out = _colocate_table_captions(_as_blocks(merged))
         joined = "".join(out)
         assert joined.count("<caption>") == 1
         assert "<caption>Table 2. Metal ion analysis.</caption>" in joined
@@ -507,14 +508,14 @@ class TestMergeSplitPanelTables:
         # ordinary column headers (no A./B. panel labels) → left as two tables
         t1 = "<table><thead><tr><th>Gene</th><th>Length</th></tr></thead></table>"
         t2 = "<table><thead><tr><th>Metal</th><th>Conc.</th></tr></thead></table>"
-        assert _merge_split_panel_tables([t1, t2]) == [t1, t2]
+        assert _merge_split_panel_tables(_as_blocks([t1, t2])) == [t1, t2]
 
     def test_non_sequential_panel_letters_not_fused(self) -> None:
         from pdfparser.pipeline.merge import _merge_split_panel_tables
 
         # A then C (a gap) is not a contiguous panel run → not merged
         c = self._B.replace("B. ICP-MS analysis", "C. Something else")
-        assert _merge_split_panel_tables([self._A, c]) == [self._A, c]
+        assert _merge_split_panel_tables(_as_blocks([self._A, c])) == [self._A, c]
 
     def test_captioned_second_table_not_absorbed(self) -> None:
         from pdfparser.pipeline.merge import _merge_split_panel_tables
@@ -522,7 +523,7 @@ class TestMergeSplitPanelTables:
         # if the second panel-letter table already carries its own caption it is a
         # distinct table, not a panel to fuse
         b = self._B.replace("<table>", "<table><caption>Table 3. Other</caption>")
-        assert _merge_split_panel_tables([self._A, b]) == [self._A, b]
+        assert _merge_split_panel_tables(_as_blocks([self._A, b])) == [self._A, b]
 
 
 class TestReflowWrappedParagraph:

@@ -4,7 +4,7 @@ version = "0.1.0"
 description = "PDF parser used to convert PDFs for the D3 Annotation Hub"
 authors = [{ name = "Emanuel Quadros", email = "emanuel.quadros@dsmz.de" }]
 readme = "README.md"
-requires-python = "<3.14,>=3.13"
+requires-python = "<3.14,>=3.12"
 license = "GPL-3.0-or-later"
 dependencies = [
   "httpx",
@@ -69,7 +69,7 @@ max-complexity = 10
 known-first-party = ["pdfparser"]
 
 [tool.mypy]
-python_version = "3.13"
+python_version = "3.12"
 strict = true
 warn_return_any = true
 warn_unused_configs = true

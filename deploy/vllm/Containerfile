@@ -11,21 +11,19 @@ ARG VLLM_IMAGE=docker.io/vllm/vllm-openai
 ARG VLLM_TAG=v0.22.1
 FROM ${VLLM_IMAGE}:${VLLM_TAG}
 
-# pdfparser's runtime deps. httpx and pillow already ship in the vLLM image, but
-# listing them keeps the install self-contained if the base ever drops them;
-# pip no-ops anything already satisfied and does not touch torch/transformers.
-RUN pip install --no-cache-dir \
-      httpx \
-      pillow \
-      pypdfium2 \
-      "markdown-it-py>=3" \
-      "pylatexenc>=2.10"
-
-# Install pdfparser itself with --no-deps: the deps above are already present, so
-# this only adds the package and cannot disturb the image's torch/transformers.
+# Freeze the base image's already-installed packages as a constraint file, then
+# let pip resolve pdfparser's own deps from pyproject.toml against it: anything
+# pdfparser needs that the base already ships (torch/transformers/numpy/...) is
+# pinned to the base's version instead of upgraded, and anything pdfparser
+# declares that the base lacks is installed normally. This tracks
+# pyproject.toml's dependency list automatically instead of a hand-copied
+# subset that drifts.
+RUN pip freeze --all > /tmp/base-constraints.txt
 COPY pyproject.toml README.md /opt/pdfparser/
 COPY src /opt/pdfparser/src
-RUN pip install --no-cache-dir --no-deps /opt/pdfparser
+RUN pip install --no-cache-dir --constraint /tmp/base-constraints.txt /opt/pdfparser \
+    && rm /tmp/base-constraints.txt
+RUN python3 -c "import pdfparser.pipeline"
 
 # Flashinfer JIT sampler needs nvcc (absent here); fall back to the Torch sampler.
 ENV VLLM_USE_FLASHINFER_SAMPLER=0 \

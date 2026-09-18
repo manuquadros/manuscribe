@@ -3,22 +3,18 @@ numbers, per-page license/copyright footers and degenerate OCR repetition that r
 across a document's pages, so they don't break the cross-page paragraph merge or leak
 into the body.
 
-Pure string predicates over the already-OCR'd block list; depends only on ``text``.
-``_strip_running_furniture`` / ``_capture_license_footer`` (consumed by ``assemble``)
-and ``_is_degenerate_repetition`` (by ``classify``) are the public names; the rest
-support them."""
+Predicates over the already-OCR'd, typed block list; depends on ``block`` and
+``text``.  ``_strip_running_furniture`` / ``_capture_license_footer`` (consumed by
+``assemble``) and ``_is_degenerate_repetition`` (by ``classify``) are the public
+names; the rest support them."""
 
 from __future__ import annotations
 
 import re
 from collections import Counter
 
-from pdfparser.pipeline.text import (
-    _ends_sentence,
-    _heading_inner,
-    _plain_p_text,
-    _visible_text,
-)
+from pdfparser.pipeline.block import Block, BlockKind
+from pdfparser.pipeline.text import _visible_text
 
 # Running header/footer: a short, terminal-punctuation-free line that recurs
 # across pages.  Page numbers vary per page, so they are stripped before the
@@ -71,22 +67,19 @@ def _furniture_key(inner: str) -> str:
     return _WHITESPACE_RE.sub(" ", _PUNCT_RE.sub("", text)).strip().lower()
 
 
-def _furniture_inner(part: str) -> str | None:
-    """Inner text of a running-furniture candidate — a plain paragraph or a
-    heading.  OCR transcribes the same marginal line as a <p> on dense body pages
-    but promotes it to a heading on sparse pages (last page, after references), so
-    both forms must feed the recurrence count to be stripped consistently."""
-    inner = _plain_p_text(part)
-    if inner is not None:
-        return inner
-    heading = _heading_inner(part)
-    return heading[1] if heading is not None else None
+# A running-furniture candidate is a plain paragraph or a heading — the two kinds
+# Block.inner populates. OCR transcribes the same marginal line as a <p> on dense
+# body pages but promotes it to a heading on sparse pages (last page, after
+# references), so both forms must feed the recurrence count to be stripped
+# consistently; a table/figure/other block is never a candidate (block.inner is
+# None), matching the former _furniture_inner's blanket exclusion of those shapes.
+_FURNITURE_CANDIDATE_KINDS = (BlockKind.PARAGRAPH, BlockKind.HEADING)
 
 
-def _is_furniture_candidate(part: str) -> str | None:
-    inner = _furniture_inner(part)
-    if inner is None:
+def _is_furniture_candidate(block: Block) -> str | None:
+    if block.kind not in _FURNITURE_CANDIDATE_KINDS or block.inner is None:
         return None
+    inner = block.inner
     plain = _visible_text(inner)
     if len(plain) > _FURNITURE_MAX_LEN:
         return None
@@ -99,26 +92,23 @@ def _is_furniture_candidate(part: str) -> str | None:
     return key if len(key) >= min_len else None
 
 
-def _ends_like_sentence(part: str) -> bool:
-    inner = _furniture_inner(part)
-    if inner is None:
-        return False
-    # _ends_sentence, not a raw _SENTENCE_END_RE search, so a line whose terminal
-    # period hides behind a trailing citation superscript still reads as a sentence.
-    return _ends_sentence(inner)
+def _ends_like_sentence(block: Block) -> bool:
+    # block.ends_sentence is already _ends_sentence(block.inner) for these two
+    # kinds (computed once in Block.of) — a line whose terminal period hides
+    # behind a trailing citation superscript still reads as a sentence there.
+    return block.kind in _FURNITURE_CANDIDATE_KINDS and block.ends_sentence
 
 
-def _is_standalone_page_number(part: str) -> bool:
+def _is_standalone_page_number(block: Block) -> bool:
     """A folio printed alone in the margin that OCR emitted as its own block.
 
     The recurrence pass can't catch it: ``_furniture_key`` strips digits before
     keying, so a number-only block has an empty key, and each page's number is
     distinct anyway.  A block whose only content is a bare number is the folio
     itself, so it is dropped directly."""
-    inner = _furniture_inner(part)
-    return inner is not None and bool(
-        _PAGE_NUMBER_RE.fullmatch(_visible_text(inner).strip())
-    )
+    if block.kind not in _FURNITURE_CANDIDATE_KINDS or block.inner is None:
+        return False
+    return bool(_PAGE_NUMBER_RE.fullmatch(_visible_text(block.inner).strip()))
 
 
 # A copyright / open-access license footer ("© 2019 The Author(s). … (CC BY).") the
@@ -131,22 +121,23 @@ _LICENSE_FOOTER_RE = re.compile(
 )
 
 
-def _capture_license_footer(parts: list[str]) -> str | None:
+def _capture_license_footer(blocks: list[Block]) -> str | None:
     """One copy of a *recurring* copyright/open-access license footer, for the Metadata
     panel, or ``None`` when there is none.  Only a footer that repeats (≥2 blocks) is
     captured — it is the per-page furniture ``_strip_running_furniture`` then removes
     from the body, so taking one copy relocates it rather than losing it; a
     single-occurrence copyright is left in place (it is not running furniture)."""
     matches = [
-        part
-        for part in parts
-        if (inner := _plain_p_text(part)) is not None
-        and _LICENSE_FOOTER_RE.search(_visible_text(inner))
+        block.html
+        for block in blocks
+        if block.kind is BlockKind.PARAGRAPH
+        and block.inner is not None
+        and _LICENSE_FOOTER_RE.search(_visible_text(block.inner))
     ]
     return matches[0] if len(matches) > 1 else None
 
 
-def _strip_running_furniture(parts: list[str]) -> list[str]:
+def _strip_running_furniture(blocks: list[Block]) -> list[str]:
     """Drop short, recurring header/footer lines (page-number-insensitive) and
     standalone page-number blocks.
 
@@ -176,17 +167,16 @@ def _strip_running_furniture(parts: list[str]) -> list[str]:
     # which qualifies for the heading-only relaxation; distinct numbered headings
     # ("Step 1: X" / "Step 2: X") only share a digit-stripped key, not verbatim text.
     digit_bearing: list[tuple[str, str]] = []
-    for part in parts:
-        key = _is_furniture_candidate(part)
+    for block in blocks:
+        key = _is_furniture_candidate(block)
         if key is None:
             continue
         counts[key] += 1
-        if _plain_p_text(part) is not None:
+        if block.kind is BlockKind.PARAGRAPH:
             as_paragraph.add(key)
-        if not _ends_like_sentence(part):
+        if not _ends_like_sentence(block):
             not_sentence_like.add(key)
-        inner = _furniture_inner(part)
-        text = _visible_text(inner).strip() if inner is not None else ""
+        text = _visible_text(block.inner).strip() if block.inner is not None else ""
         verbatim_counts[text] += 1
         if _DIGITS_RE.search(text):
             digit_bearing.append((key, text))
@@ -199,10 +189,10 @@ def _strip_running_furniture(parts: list[str]) -> list[str]:
         and (key in not_sentence_like or n >= _SENTENCE_LIKE_FURNITURE_MIN_REPEAT)
     }
     return [
-        p
-        for p in parts
-        if _is_furniture_candidate(p) not in repeated
-        and not _is_standalone_page_number(p)
+        block.html
+        for block in blocks
+        if _is_furniture_candidate(block) not in repeated
+        and not _is_standalone_page_number(block)
     ]
 
 

@@ -1,6 +1,7 @@
 """Tests for document-structure classification and HTML assembly."""
 
 from helpers import (
+    _as_blocks,
     _body,
     _fake_image,
     _figure_sizes,
@@ -52,14 +53,14 @@ class TestRunningFurniture:
             "<p>Real body sentence one.</p>",
             "<p>Biotechnology and Applied Biochemistry 602</p>",
         ]
-        out = _strip_running_furniture(parts)
+        out = _strip_running_furniture(_as_blocks(parts))
         assert out == ["<p>Real body sentence one.</p>"]
 
     def test_repeated_real_sentence_kept(self) -> None:
         from pdfparser.pipeline.furniture import _strip_running_furniture
 
         parts = ["<p>This is a sentence.</p>", "<p>This is a sentence.</p>"]
-        assert _strip_running_furniture(parts) == parts
+        assert _strip_running_furniture(_as_blocks(parts)) == parts
 
     def test_short_enumerated_labels_kept(self) -> None:
         # "Fig 1"/"Fig 2" share a digit-stripped key but must not be removed —
@@ -67,7 +68,7 @@ class TestRunningFurniture:
         from pdfparser.pipeline.furniture import _strip_running_furniture
 
         parts = ["<p>Fig 1</p>", "<p>body</p>", "<p>Fig 2</p>"]
-        assert _strip_running_furniture(parts) == parts
+        assert _strip_running_furniture(_as_blocks(parts)) == parts
 
     def test_short_digit_free_footer_removed(self) -> None:
         # A bare author-surname running foot ("Clark" on alternating pages) is
@@ -80,7 +81,9 @@ class TestRunningFurniture:
             "<p>Real body sentence one.</p>",
             "<p>Clark</p>",
         ]
-        assert _strip_running_furniture(parts) == ["<p>Real body sentence one.</p>"]
+        assert _strip_running_furniture(_as_blocks(parts)) == [
+            "<p>Real body sentence one.</p>"
+        ]
 
     def test_heading_form_footer_removed(self) -> None:
         # OCR transcribes the running journal line as a heading on a sparse page
@@ -93,7 +96,7 @@ class TestRunningFurniture:
             "<p>Real body sentence one.</p>",
             "<h1>Biotechnology and Applied Biochemistry</h1>",
         ]
-        out = _strip_running_furniture(parts)
+        out = _strip_running_furniture(_as_blocks(parts))
         assert out == ["<p>Real body sentence one.</p>"]
 
     def test_abbreviation_terminated_running_head_removed(self) -> None:
@@ -106,7 +109,7 @@ class TestRunningFurniture:
         head = "<p>A ribitol dehydrogenase from <em>Sphingomonas</em> sp.</p>"
         parts = [head, "<p>Body one.</p>", head, "<p>Body two.</p>", head]
         body = ["<p>Body one.</p>", "<p>Body two.</p>"]
-        assert _strip_running_furniture(parts) == body
+        assert _strip_running_furniture(_as_blocks(parts)) == body
 
     def test_twice_repeated_sentence_like_line_kept(self) -> None:
         # The same abbreviation-terminated line appearing only twice stays: two
@@ -116,7 +119,7 @@ class TestRunningFurniture:
 
         head = "<p>A ribitol dehydrogenase from <em>Sphingomonas</em> sp.</p>"
         parts = [head, "<p>Body one.</p>", head]
-        assert _strip_running_furniture(parts) == parts
+        assert _strip_running_furniture(_as_blocks(parts)) == parts
 
     def test_heading_repeated_only_as_heading_kept(self) -> None:
         # A section heading the article legitimately repeats ("Purification of
@@ -130,7 +133,7 @@ class TestRunningFurniture:
             "<p>Real body sentence one.</p>",
             "<h2>Purification of SpRDH</h2>",
         ]
-        assert _strip_running_furniture(parts) == parts
+        assert _strip_running_furniture(_as_blocks(parts)) == parts
 
     def test_verbatim_digit_citation_heading_removed(self) -> None:
         # A journal-citation running head ("… (2019) … BSR20190715") the OCR emits
@@ -141,7 +144,7 @@ class TestRunningFurniture:
 
         cit = "<h2>Bioscience Reports (2019) 39 BSR20190715</h2>"
         parts = [cit, "<p>Body one.</p>", cit, "<p>Body two.</p>", cit]
-        assert _strip_running_furniture(parts) == [
+        assert _strip_running_furniture(_as_blocks(parts)) == [
             "<p>Body one.</p>",
             "<p>Body two.</p>",
         ]
@@ -158,7 +161,7 @@ class TestRunningFurniture:
             "<h2>Step 2: Purification of Xylanase</h2>",
             "<p>Body two.</p>",
         ]
-        assert _strip_running_furniture(parts) == parts
+        assert _strip_running_furniture(_as_blocks(parts)) == parts
 
     def test_standalone_page_number_removed(self) -> None:
         # OCR sometimes isolates the folio into its own block, away from the
@@ -167,14 +170,18 @@ class TestRunningFurniture:
         from pdfparser.pipeline.furniture import _strip_running_furniture
 
         parts = ["<p>601</p>", "<p>Real body sentence one.</p>", "<h2>602</h2>"]
-        assert _strip_running_furniture(parts) == ["<p>Real body sentence one.</p>"]
+        assert _strip_running_furniture(_as_blocks(parts)) == [
+            "<p>Real body sentence one.</p>"
+        ]
 
     def test_section_number_kept(self) -> None:
         # A numbered section heading ("3.4 …") is not a bare folio and stays.
         from pdfparser.pipeline.furniture import _strip_running_furniture
 
         parts = ["<h2>3.4 Enzymatic activities</h2>", "<p>4</p>"]
-        assert _strip_running_furniture(parts) == ["<h2>3.4 Enzymatic activities</h2>"]
+        assert _strip_running_furniture(_as_blocks(parts)) == [
+            "<h2>3.4 Enzymatic activities</h2>"
+        ]
 
 
 class TestCaptureLicenseFooter:
@@ -191,21 +198,21 @@ class TestCaptureLicenseFooter:
         from pdfparser.pipeline.furniture import _capture_license_footer
 
         parts = [self._CC, "<p>Body prose.</p>", self._CC, self._CC]
-        assert _capture_license_footer(parts) == self._CC
+        assert _capture_license_footer(_as_blocks(parts)) == self._CC
 
     def test_single_occurrence_not_captured(self) -> None:
         from pdfparser.pipeline.furniture import _capture_license_footer
 
         # one copy is not running furniture (the strip leaves it in the body), so it
         # must not be pulled — that would duplicate it into the panel
-        assert _capture_license_footer([self._CC, "<p>Body.</p>"]) is None
+        assert _capture_license_footer(_as_blocks([self._CC, "<p>Body.</p>"])) is None
 
     def test_non_license_prose_ignored(self) -> None:
         from pdfparser.pipeline.furniture import _capture_license_footer
 
         # a "© 2019" mention without a license phrase is not a license footer
         parts = ["<p>© 2019 someone, all rights here.</p>"] * 2
-        assert _capture_license_footer(parts) is None
+        assert _capture_license_footer(_as_blocks(parts)) is None
 
     def test_recurring_license_relocated_to_panel_end_to_end(self) -> None:
         # the furniture strip drops the per-page repeats from the body (≥3 for a
@@ -1327,7 +1334,8 @@ class TestLightonAssembly:
         # _ends_like_sentence (used for running-furniture detection) must also look
         # past a trailing citation superscript, or a recurring line ending in one is
         # judged non-sentence-like and dropped at a lower repeat threshold.
-        assert _ends_like_sentence("<p>A recurring header line here.<sup>3</sup></p>")
+        (block,) = _as_blocks(["<p>A recurring header line here.<sup>3</sup></p>"])
+        assert _ends_like_sentence(block)
 
     def test_equal_contribution_marker_derived_from_byline(self) -> None:
         from pdfparser.pipeline.classify import _byline_equal_contribution_marker

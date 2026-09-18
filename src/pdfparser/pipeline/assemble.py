@@ -824,8 +824,9 @@ def _assemble_document(
     abstract = [Block.of(s) for s in _merge_split_paragraphs_stable(meta.abstract)]
     # One copy of a recurring copyright/open-access license footer, captured before the
     # furniture strip drops the per-page repeats, so it lands in the panel not nowhere.
-    license_footer = _capture_license_footer(meta.body)
-    stripped_body = _strip_running_furniture(meta.body)
+    meta_body_blocks = [Block.of(s) for s in meta.body]
+    license_footer = _capture_license_footer(meta_body_blocks)
+    stripped_body = _strip_running_furniture(meta_body_blocks)
     # Relocate it only if the strip actually dropped it; a footer the strip kept (too
     # few repeats to count as furniture) stays in the body — capturing would duplicate.
     if license_footer is not None and license_footer in stripped_body:

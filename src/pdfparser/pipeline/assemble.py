@@ -19,11 +19,9 @@ from pathlib import Path
 import nh3
 from PIL import Image  # noqa: TC002 — beartype reads annotations at runtime
 
-from pdfparser.pipeline.block import Block
+from pdfparser.pipeline.block import Block, BlockKind
 from pdfparser.pipeline.classify import (
     _FOOTNOTE_MARKER_CHARS,
-    _REF_HEADING_RE,
-    _REF_SECTION_RE,
     _UNICODE_SUP_MARKER_RE,
     _classify_parts,
     _extract_front_matter,
@@ -595,23 +593,52 @@ def _metadata_panel(metadata: list[str]) -> str:
     )
 
 
-def _insert_footnotes_before_refs(body: list[str], footnotes: list[str]) -> list[str]:
+# Block-based equivalents of classify._REF_HEADING_RE / _REF_SECTION_RE, read from
+# a heading Block's already-derived kind/inner instead of re-matching the raw
+# "<h\d[^>]*>…" string against every block. merge._merge_split_paragraphs still
+# uses the raw-string regexes directly (a separate, larger migration — see
+# BlockKind.TABLE/FIGURE's deferred _FLOAT_RE call site in the same function).
+_REF_LABEL_RE = re.compile(
+    r"^(?:\d+\.?\s+)?(?:references|bibliography|literature\s+cited|works\s+cited)\b",
+    re.IGNORECASE,
+)
+
+
+def _is_ref_heading_block(block: Block) -> bool:
+    return block.kind is BlockKind.HEADING and bool(
+        _REF_LABEL_RE.match(block.inner or "")
+    )
+
+
+def _is_ref_section_start_block(block: Block) -> bool:
+    """The looser "References" heading or a "[1]"-led paragraph — the fallback
+    anchor for a heading-less numbered bibliography (see
+    ``_insert_footnotes_before_refs``)."""
+    if block.kind is BlockKind.HEADING:
+        return (block.inner or "").strip().lower() == "references"
+    if block.kind is BlockKind.PARAGRAPH:
+        return (block.inner or "").startswith("[1]")
+    return False
+
+
+def _insert_footnotes_before_refs(body: list[Block], footnotes: list[str]) -> list[str]:
     """Splice footnote paragraphs in just before the references section (or at the
     end, if there is none) so they read after the prose but before the bibliography.
 
     Anchors on the references *heading* first; the looser "<p>[1]" anchor
-    (``_REF_SECTION_RE``) is only the fallback for a heading-less numbered
-    bibliography, so a stray "[1]"-led body paragraph (an inline citation, a numbered
-    list) that precedes the real bibliography can't strand the footnotes mid-body."""
+    (``_is_ref_section_start_block``) is only the fallback for a heading-less
+    numbered bibliography, so a stray "[1]"-led body paragraph (an inline citation,
+    a numbered list) that precedes the real bibliography can't strand the
+    footnotes mid-body."""
     if not footnotes:
-        return body
+        return [b.html for b in body]
     heading_idx: int | None = None
     section_idx: int | None = None
-    for i, p in enumerate(body):
-        if _REF_HEADING_RE.match(p):
+    for i, block in enumerate(body):
+        if _is_ref_heading_block(block):
             heading_idx = i
             break
-        if section_idx is None and _REF_SECTION_RE.match(p):
+        if section_idx is None and _is_ref_section_start_block(block):
             section_idx = i
     if heading_idx is not None:
         ref_idx = heading_idx
@@ -619,7 +646,8 @@ def _insert_footnotes_before_refs(body: list[str], footnotes: list[str]) -> list
         ref_idx = section_idx
     else:
         ref_idx = len(body)
-    return body[:ref_idx] + footnotes + body[ref_idx:]
+    html = [b.html for b in body]
+    return html[:ref_idx] + footnotes + html[ref_idx:]
 
 
 # A bibliography entry the OCR emitted as a plain <p> because it dropped the period
@@ -643,7 +671,7 @@ def _is_reference_continuation(block: str) -> bool:
     return bool(head) and head[0].islower()
 
 
-def _consolidate_numbered_references(parts: list[str]) -> list[str]:
+def _consolidate_numbered_references(blocks: list[Block]) -> list[str]:
     """Fold period-less numbered reference entries into one ``<ol>``.
 
     Markdown turns "1. Author …" into ``<ol><li>`` but leaves "9 Author …" — the
@@ -655,7 +683,10 @@ def _consolidate_numbered_references(parts: list[str]) -> list[str]:
     Without it a bibliography split across pages renders as an ``<ol>`` for the first
     entries followed by loose numbered paragraphs for the rest.  Scoped to the
     references section so a numbered ``<p>`` run elsewhere in the body is untouched."""
-    ref_start = next((i for i, p in enumerate(parts) if _REF_HEADING_RE.match(p)), None)
+    parts = [b.html for b in blocks]
+    ref_start = next(
+        (i for i, block in enumerate(blocks) if _is_ref_heading_block(block)), None
+    )
     if ref_start is None:
         return parts
     out: list[str] = []
@@ -774,19 +805,19 @@ def _assemble_document(
         for page_idx, page in enumerate(per_page_parts)
         for part in page
     ]
-    # Uniform table-cleanup passes (each list[str] -> list[str]), in a load-bearing
-    # order: panel-fusion must precede caption colocation so the single "Table N …"
-    # caption attaches to the *merged* table; footnote colocation must precede both
-    # classify (so a table's footnotes stay with it rather than being swept into the
-    # article footnote run) and the paragraph merge (so the table is one float the
-    # cross-table merge steps over).
-    for cleanup in (
-        _join_split_table_caption_labels,
-        _merge_split_panel_tables,
-        _colocate_table_captions,
-        _colocate_table_footnotes,
-    ):
-        blocks = [Block.of(s) for s in cleanup([b.html for b in blocks])]
+    # Table-cleanup passes, in a load-bearing order: panel-fusion must precede
+    # caption colocation so the single "Table N …" caption attaches to the *merged*
+    # table; footnote colocation must precede both classify (so a table's footnotes
+    # stay with it rather than being swept into the article footnote run) and the
+    # paragraph merge (so the table is one float the cross-table merge steps over).
+    # The first pass isn't yet migrated to read Block fields, so it still takes/
+    # returns list[str]; the other three read block.kind directly.
+    blocks = [
+        Block.of(s) for s in _join_split_table_caption_labels([b.html for b in blocks])
+    ]
+    blocks = [Block.of(s) for s in _merge_split_panel_tables(blocks)]
+    blocks = [Block.of(s) for s in _colocate_table_captions(blocks)]
+    blocks = [Block.of(s) for s in _colocate_table_footnotes(blocks)]
 
     meta = _classify_parts([b.html for b in blocks])
 
@@ -800,13 +831,8 @@ def _assemble_document(
     if license_footer is not None and license_footer in stripped_body:
         license_footer = None
     body = [Block.of(s) for s in _merge_split_paragraphs_stable(stripped_body)]
-    body = [
-        Block.of(s) for s in _consolidate_numbered_references([b.html for b in body])
-    ]
-    body = [
-        Block.of(s)
-        for s in _insert_footnotes_before_refs([b.html for b in body], meta.footnotes)
-    ]
+    body = [Block.of(s) for s in _consolidate_numbered_references(body)]
+    body = [Block.of(s) for s in _insert_footnotes_before_refs(body, meta.footnotes)]
     leading_metadata_str, body_str = _extract_front_matter([b.html for b in body])
     leading_metadata = [Block.of(s) for s in leading_metadata_str]
     body = [Block.of(s) for s in body_str]

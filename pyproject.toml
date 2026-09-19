@@ -1,6 +1,6 @@
 [project]
 name = "manuscribe"
-version = "0.1.0"
+dynamic = ["version"]
 description = "PDF parser used to convert PDFs for the D3 Annotation Hub"
 authors = [{ name = "Emanuel Quadros", email = "emanuel.quadros@dsmz.de" }]
 readme = "README.md"
@@ -21,6 +21,10 @@ dependencies = [
 requires = ["pdm-backend"]
 build-backend = "pdm.backend"
 
+[tool.pdm.version]
+source = "scm"
+tag_filter = "v*"
+
 [dependency-groups]
 dev = [
   "beartype>=0.21",
@@ -37,6 +41,7 @@ dev = [
   "sphinx-autobuild>=2024",
   "ipython-autotime>=0.3.2",
   "starlette>=1.0.1",
+  "git-cliff>=2.13.1",
 ]
 
 [tool.pdm.scripts]
@@ -53,6 +58,9 @@ lock-check-python = "python scripts/check_lock_python_target.py"
 # docs-serve.
 docs-build = "sphinx-build -n -W --keep-going docs docs/_build/html"
 docs-serve = "sphinx-autobuild -n docs docs/_build/html --open-browser"
+changelog = "git-cliff --output CHANGELOG.md"
+next-version = "git-cliff --bumped-version"
+release = "python scripts/release.py"
 
 [tool.ruff]
 line-length = 88

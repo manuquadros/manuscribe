@@ -73,6 +73,18 @@ class OcrEngine(Enum):
     CHANDRA = "chandra"
 
 
+# The weights each ingestion path was written against, keyed by the repository *name*
+# vLLM reports as ``root`` (the model path it was launched with).  Keyed on the name
+# rather than the full id so a local snapshot or a mirror of the same weights
+# (``/srv/models/chandra-ocr-2``) is recognised alongside the canonical
+# ``datalab-to/chandra-ocr-2``; anything else is left to the default (see
+# ``_parse_server_engine``).
+_ENGINE_BY_WEIGHTS = {
+    "lightonocr-2-1b-bbox": OcrEngine.LIGHTONOCR,
+    "chandra-ocr-2": OcrEngine.CHANDRA,
+}
+
+
 @dataclass
 class OcrModel:
     """Open connection to a vLLM server hosting the OCR model + the served name.
@@ -96,9 +108,9 @@ class OcrModel:
     (an explicit ``load_ocr_model(timeout=…)`` would otherwise be lost on reconnect).
 
     ``engine`` selects the response ingestion path (see :class:`OcrEngine`).  It is
-    resolved once at load time from the explicit arg or ``MANUSCRIBE_OCR_ENGINE`` —
-    never inferred from the served model name, which ``run-server.sh`` fixes at
-    ``lightonocr`` whatever weights it loads.
+    resolved once at load time from the explicit arg, ``MANUSCRIBE_OCR_ENGINE``, or
+    the weights the server reports — never inferred from the served model *name*,
+    which ``run-server.sh`` fixes at ``lightonocr`` whatever weights it loads.
     """
 
     client: httpx.Client
@@ -132,7 +144,10 @@ class OcrModel:
         The new pool is built and probed first; only on success is the stale pool
         closed and its fields swapped in, so a failed reconnect leaves the existing
         bundle intact and usable.  ``base_url``/``model``/``request_timeout``/
-        ``engine`` are preserved.  Returns ``self`` so the call can be chained.
+        ``engine`` are preserved — the resolved engine is passed back through as the
+        explicit choice, so a restart cannot flip the ingestion path (and the parsed
+        shape of every document) out from under a worker that already chose it.
+        Returns ``self`` so the call can be chained.
 
         Raises:
             OcrUnavailableError: if the server is still unreachable (the freshly built
@@ -184,7 +199,8 @@ def load_ocr_model(
         timeout: Per-request timeout in seconds.  ``None`` (the default) resolves
             ``MANUSCRIBE_OCR_TIMEOUT``, then ``_DEFAULT_REQUEST_TIMEOUT_S``.
         engine: Which model's response the server returns.  ``None`` (the default)
-            resolves ``MANUSCRIBE_OCR_ENGINE``, then ``OcrEngine.LIGHTONOCR``.
+            resolves ``MANUSCRIBE_OCR_ENGINE``, then the weights the ``/models``
+            probe reports (``root``), then ``OcrEngine.LIGHTONOCR``.
 
     Raises:
         OcrUnavailableError: If the server is unreachable or unhealthy (the probe's
@@ -196,7 +212,9 @@ def load_ocr_model(
     model = model or os.environ.get("MANUSCRIBE_VLLM_MODEL", _DEFAULT_MODEL)
     concurrency = _resolve_ocr_concurrency()
     request_timeout = timeout if timeout is not None else _resolve_request_timeout()
-    engine = engine if engine is not None else _resolve_ocr_engine()
+    # Resolved before the pool exists so a rejected MANUSCRIBE_OCR_ENGINE can't leak
+    # one; the probed tier below has to wait for the probe it reads.
+    engine = engine if engine is not None else _env_ocr_engine()
     client = httpx.Client(timeout=request_timeout, limits=_client_limits(concurrency))
     try:
         response = client.get(f"{base_url}/models", timeout=_resolve_health_timeout())
@@ -206,14 +224,18 @@ def load_ocr_model(
         raise OcrUnavailableError(
             f"vLLM server at {base_url} is unreachable or unhealthy"
         ) from exc
-    # The probe doubles as the context-window query (vLLM reports max_model_len in
-    # /models), so the truncation-retry budget matches the live server with no extra
-    # round trip.  A non-JSON body (a bare-200 mock / non-vLLM endpoint) falls back.
+    # The probe doubles as the context-window and weights query (vLLM reports both
+    # max_model_len and root in /models), so the truncation-retry budget and the
+    # ingestion path match the live server with no extra round trip.  A non-JSON body
+    # (a bare-200 mock / non-vLLM endpoint) falls back.
     try:
         payload: object = response.json()
     except ValueError:
         payload = None
     context_len = _resolve_context_len(_parse_server_context_len(payload))
+    if engine is None:
+        probed = _parse_server_engine(payload)
+        engine = probed if probed is not None else OcrEngine.LIGHTONOCR
     return OcrModel(
         client=client,
         base_url=base_url,
@@ -225,13 +247,15 @@ def load_ocr_model(
     )
 
 
-def _resolve_ocr_engine() -> OcrEngine:
-    """``MANUSCRIBE_OCR_ENGINE``, else LightOnOCR.  An unknown value raises rather
-    than falling back: silently parsing a chandra server's div-tree as markdown
-    would produce a wrong document, not a crash."""
+def _env_ocr_engine() -> OcrEngine | None:
+    """``MANUSCRIBE_OCR_ENGINE``, or ``None`` when unset so the caller falls through to
+    the probed weights.  An unknown value raises rather than falling back: silently
+    parsing a chandra server's div-tree as markdown would produce a wrong document,
+    not a crash.  The probed ``root`` is the opposite case — an unrecognised one is a
+    deployment naming weights we don't know, not an instruction we can't honour."""
     raw = os.environ.get("MANUSCRIBE_OCR_ENGINE")
     if raw is None:
-        return OcrEngine.LIGHTONOCR
+        return None
     try:
         return OcrEngine(raw.strip().lower())
     except ValueError:
@@ -302,6 +326,32 @@ def _parse_server_context_len(payload: object) -> int | None:
         return None
     value = first.get("max_model_len")
     return value if isinstance(value, int) and value > 0 else None
+
+
+def _parse_server_engine(payload: object) -> OcrEngine | None:
+    """Infer the ingestion path from the weights a vLLM ``/models`` response names in
+    ``data[0].root`` (the model path the server was launched with), or ``None`` when
+    the body carries no ``root`` or names weights outside ``_ENGINE_BY_WEIGHTS``.
+
+    Returning ``None`` rather than raising is deliberate: a fine-tune, a mirror or a
+    locally staged checkpoint legitimately names nothing known, and such a deployment
+    must keep working on the default (``MANUSCRIBE_OCR_ENGINE`` is its override).
+    ``id`` is not consulted: ``run-server.sh`` pins the served name to ``lightonocr``
+    whatever weights it loads, and a live server restarted onto chandra weights was
+    observed still reporting ``id: lightonocr`` with only ``root`` moved.
+    """
+    if not isinstance(payload, dict):
+        return None
+    data = payload.get("data")
+    if not isinstance(data, list) or not data:
+        return None
+    first = data[0]
+    if not isinstance(first, dict):
+        return None
+    root = first.get("root")
+    if not isinstance(root, str):
+        return None
+    return _ENGINE_BY_WEIGHTS.get(root.strip().rstrip("/").rsplit("/", 1)[-1].lower())
 
 
 def _resolve_context_len(reported: int | None) -> int:

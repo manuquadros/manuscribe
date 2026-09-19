@@ -277,17 +277,22 @@ PORT=8001 GPU_MEM_UTIL=0.80 ./deploy/vllm/run-server.sh
 
 ### Serving a different OCR model (chandra-ocr-2)
 
-`MODEL=` swaps the weights, but the served name stays `lightonocr` whatever is
-loaded, so the client cannot tell from the `/models` probe which model answers.
-The pipeline therefore never infers the engine from the served name: the
-client-side signal is `MANUSCRIBE_OCR_ENGINE` (`lightonocr`, the default, or
-`chandra`), which selects how each page's response is parsed — an unknown value
-is rejected at `load_ocr_model()` rather than silently defaulted.
+`MODEL=` swaps the weights, and the client picks the matching response parser on
+its own: the `/models` probe reports the model path the server was launched with
+as `root`, which `load_ocr_model()` matches against the weights it knows. The
+served *name* is no signal — it stays `lightonocr` whatever is loaded — so it is
+never consulted.
 
 ```
 MODEL=datalab-to/chandra-ocr-2 ./deploy/vllm/run-server.sh
-MANUSCRIBE_OCR_ENGINE=chandra pdm run python -m manuscribe in.pdf out.html
+pdm run python -m manuscribe in.pdf out.html
 ```
+
+`MANUSCRIBE_OCR_ENGINE` (`lightonocr` or `chandra`) overrides that detection, for
+a deployment whose `root` names no known repository — a fine-tune, a mirror, or a
+locally staged checkpoint under an unrelated name. An unrecognised `root` falls
+back to `lightonocr`; an unrecognised env var is rejected at `load_ocr_model()`
+rather than silently defaulted.
 
 The request is identical for both models; only the ingestion differs.
 

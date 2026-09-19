@@ -12,6 +12,78 @@ from PIL import Image
 
 from manuscribe.pipeline.errors import OcrResponseError, OcrUnavailableError
 
+# Verbatim ``/v1/models`` entry from a live LightOnOCR vLLM server: ``id`` is the name
+# run-server.sh pins whatever loads, ``root`` the weights actually served.
+_LIGHTONOCR_MODEL_ENTRY: dict[str, object] = {
+    "id": "lightonocr",
+    "object": "model",
+    "created": 1789821814,
+    "owned_by": "vllm",
+    "root": "lightonai/LightOnOCR-2-1B-bbox",
+    "parent": None,
+    "max_model_len": 8192,
+    "permission": [
+        {
+            "id": "modelperm-a512f8e6e6918075",
+            "object": "model_permission",
+            "created": 1789821814,
+            "allow_create_engine": False,
+            "allow_sampling": True,
+            "allow_logprobs": True,
+            "allow_search_indices": False,
+            "allow_view": True,
+            "allow_fine_tuning": False,
+            "organization": "*",
+            "group": None,
+            "is_blocking": False,
+        }
+    ],
+}
+_LIGHTONOCR_MODELS_BODY: dict[str, object] = {
+    "object": "list",
+    "data": [_LIGHTONOCR_MODEL_ENTRY],
+}
+# The same live server restarted onto chandra weights: ``id`` is unchanged, so the
+# served name really does carry no signal; only ``root`` moved.
+_CHANDRA_MODEL_ENTRY: dict[str, object] = {
+    "id": "lightonocr",
+    "object": "model",
+    "created": 1789822306,
+    "owned_by": "vllm",
+    "root": "datalab-to/chandra-ocr-2",
+    "parent": None,
+    "max_model_len": 8192,
+    "permission": [
+        {
+            "id": "modelperm-b0eed2e89d15a46a",
+            "object": "model_permission",
+            "created": 1789822306,
+            "allow_create_engine": False,
+            "allow_sampling": True,
+            "allow_logprobs": True,
+            "allow_search_indices": False,
+            "allow_view": True,
+            "allow_fine_tuning": False,
+            "organization": "*",
+            "group": None,
+            "is_blocking": False,
+        }
+    ],
+}
+_CHANDRA_MODELS_BODY: dict[str, object] = {
+    "object": "list",
+    "data": [_CHANDRA_MODEL_ENTRY],
+}
+
+
+def _models_body_with_root(root: str | None) -> dict[str, object]:
+    """The live capture with its ``root`` swapped for other weights — or dropped, as
+    an older or non-vLLM OpenAI-compatible endpoint reports it."""
+    entry = {k: v for k, v in _LIGHTONOCR_MODEL_ENTRY.items() if k != "root"}
+    if root is not None:
+        entry["root"] = root
+    return {**_LIGHTONOCR_MODELS_BODY, "data": [entry]}
+
 
 class TestOcrSeam:
     """The model seam is now an HTTP client to the vLLM server, so it is
@@ -544,6 +616,136 @@ class TestOcrSeam:
             lambda r: httpx.Response(200, json={"data": [{"id": "chandra"}]}),
         )
         with load_ocr_model(base_url="http://srv/v1", model="chandra") as ocr:
+            assert ocr.engine is OcrEngine.LIGHTONOCR
+
+    def test_engine_probed_from_lightonocr_root(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        import httpx
+
+        from manuscribe.pipeline.model import OcrEngine, load_ocr_model
+
+        monkeypatch.delenv("MANUSCRIBE_OCR_ENGINE", raising=False)
+        self._patch_client(
+            monkeypatch, lambda r: httpx.Response(200, json=_LIGHTONOCR_MODELS_BODY)
+        )
+        with load_ocr_model(base_url="http://srv/v1") as ocr:
+            assert ocr.engine is OcrEngine.LIGHTONOCR
+
+    def test_engine_probed_from_chandra_root(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        import httpx
+
+        from manuscribe.pipeline.model import OcrEngine, load_ocr_model
+
+        # Observed on the live server restarted onto chandra weights: id is still
+        # "lightonocr", so root is the only signal — and it rides the probe the
+        # context window already needs.
+        monkeypatch.delenv("MANUSCRIBE_OCR_ENGINE", raising=False)
+        probes = {"n": 0}
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            probes["n"] += 1
+            return httpx.Response(200, json=_CHANDRA_MODELS_BODY)
+
+        self._patch_client(monkeypatch, handler)
+        with load_ocr_model(base_url="http://srv/v1") as ocr:
+            assert ocr.engine is OcrEngine.CHANDRA
+            assert ocr.context_len == 8192  # same body, one round trip
+        assert probes["n"] == 1
+
+    def test_engine_probed_from_local_weights_directory(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        import httpx
+
+        from manuscribe.pipeline.model import OcrEngine, load_ocr_model
+
+        # vLLM reports whatever path it was launched with, so a locally staged
+        # snapshot of the same weights must be recognised by its directory name.
+        monkeypatch.delenv("MANUSCRIBE_OCR_ENGINE", raising=False)
+        self._patch_client(
+            monkeypatch,
+            lambda r: httpx.Response(
+                200, json=_models_body_with_root("/srv/models/chandra-ocr-2/")
+            ),
+        )
+        with load_ocr_model(base_url="http://srv/v1") as ocr:
+            assert ocr.engine is OcrEngine.CHANDRA
+
+    def test_explicit_engine_wins_over_probed_root(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        import httpx
+
+        from manuscribe.pipeline.model import OcrEngine, load_ocr_model
+
+        monkeypatch.delenv("MANUSCRIBE_OCR_ENGINE", raising=False)
+        self._patch_client(
+            monkeypatch, lambda r: httpx.Response(200, json=_CHANDRA_MODELS_BODY)
+        )
+        with load_ocr_model(
+            base_url="http://srv/v1", engine=OcrEngine.LIGHTONOCR
+        ) as ocr:
+            assert ocr.engine is OcrEngine.LIGHTONOCR
+
+    def test_env_engine_wins_over_probed_root(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        import httpx
+
+        from manuscribe.pipeline.model import OcrEngine, load_ocr_model
+
+        monkeypatch.setenv("MANUSCRIBE_OCR_ENGINE", "lightonocr")
+        self._patch_client(
+            monkeypatch, lambda r: httpx.Response(200, json=_CHANDRA_MODELS_BODY)
+        )
+        with load_ocr_model(base_url="http://srv/v1") as ocr:
+            assert ocr.engine is OcrEngine.LIGHTONOCR
+
+    def test_unknown_root_falls_back_without_raising(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        import httpx
+
+        from manuscribe.pipeline.model import OcrEngine, load_ocr_model
+
+        # A fine-tune or a mirror names weights we don't know; unlike a bad env var
+        # that is not a wrong instruction, so it defaults rather than raising.
+        monkeypatch.delenv("MANUSCRIBE_OCR_ENGINE", raising=False)
+        self._patch_client(
+            monkeypatch,
+            lambda r: httpx.Response(
+                200, json=_models_body_with_root("/local/weights/some-finetune")
+            ),
+        )
+        with load_ocr_model(base_url="http://srv/v1") as ocr:
+            assert ocr.engine is OcrEngine.LIGHTONOCR
+
+    def test_missing_root_falls_back(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        import httpx
+
+        from manuscribe.pipeline.model import OcrEngine, load_ocr_model
+
+        monkeypatch.delenv("MANUSCRIBE_OCR_ENGINE", raising=False)
+        self._patch_client(
+            monkeypatch,
+            lambda r: httpx.Response(200, json=_models_body_with_root(None)),
+        )
+        with load_ocr_model(base_url="http://srv/v1") as ocr:
+            assert ocr.engine is OcrEngine.LIGHTONOCR
+
+    def test_non_json_probe_body_falls_back(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        import httpx
+
+        from manuscribe.pipeline.model import OcrEngine, load_ocr_model
+
+        monkeypatch.delenv("MANUSCRIBE_OCR_ENGINE", raising=False)
+        self._patch_client(monkeypatch, lambda r: httpx.Response(200, text="OK"))
+        with load_ocr_model(base_url="http://srv/v1") as ocr:
             assert ocr.engine is OcrEngine.LIGHTONOCR
 
     def test_reconnect_preserves_engine(self, monkeypatch: pytest.MonkeyPatch) -> None:

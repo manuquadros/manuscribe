@@ -59,8 +59,10 @@ geometry and one deterministic table-content rebuild.
 
 That single reader need not be LightOnOCR.  The same request also serves
 ``datalab-to/chandra-ocr-2``, selected per
-:class:`~manuscribe.pipeline.model.OcrModel` by ``MANUSCRIBE_OCR_ENGINE=chandra``
-(never inferred from the served model name, which the server script fixes).  chandra
+:class:`~manuscribe.pipeline.model.OcrModel` from the weights the server reports as
+``root`` on the ``/models`` probe, with ``MANUSCRIBE_OCR_ENGINE`` as the override for
+weights that name no known repository (never inferred from the served model name,
+which the server script fixes).  chandra
 answers with a pre-labeled div-tree instead of markdown, so
 :mod:`~manuscribe.pipeline.chandra` parses each page straight into blocks and
 :func:`~manuscribe.pipeline.assemble._assemble_chandra_document` enters the flow at the

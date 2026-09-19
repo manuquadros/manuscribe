@@ -19,7 +19,7 @@ deterministic clean-up, and the entry point returns a
 :class:`~manuscribe.pipeline.assemble.ParsedDocument` — the HTML plus the plain-text
 title, byline and best-effort DOI a consumer would otherwise re-parse out of it.
 
-The flow (design *B-prime*)::
+The flow::
 
     PDF
      │  render.py           rasterize each page to a PIL image (at the OCR budget)
@@ -46,6 +46,16 @@ The flow (design *B-prime*)::
      │  classify.py         split title / byline / abstract / front matter / body
      ▼
     assemble.py             document shell → ParsedDocument(html, title, byline, doi)
+
+The alternative considered was reinstating a full text-layer hybrid on top of the
+bbox model — mapping every OCR span's bbox to a PDF-point rect and replacing OCR
+text with the text-layer extraction wholesale, for deterministic glyphs,
+superscripts and emphasis.  Rejected: the model's base OCR is already correct on
+born-digital text, so that hybrid would re-add a whole parallel extraction stack
+for a correction the model doesn't need.  This single-model design keeps the
+model as the sole reader of page content and falls back to the text layer only
+in the narrow spots below where OCR is provably, repeatably wrong — table
+geometry and one deterministic table-content rebuild.
 
 The single most important structural decision is the **purity seam**.  The GPU work
 — the LightOnOCR model itself — runs *out of process* in a vLLM server (see
@@ -344,7 +354,7 @@ to crop: the model boxes figures but not *upright* tables (it does box a sideway
 one — see below), and ignores any prompt asking it to, so the geometry has to come
 from elsewhere.  The choice (Option 3) is to
 use the **PDF text layer for geometry only** — a deliberately narrow carve-out of
-B-prime's "OCR reads, nothing else does" rule.  The cells the full-page pass
+the "OCR reads, nothing else does" rule.  The cells the full-page pass
 *did* capture are matched against the text layer (after an NFKD-plus-alphanumeric
 fold that closes the encoding gap — superscripts, the micro sign, the assorted
 dashes — between OCR'd cell and text-layer glyph) to seed a bounding box, which
@@ -389,7 +399,7 @@ cannot be repaired by re-OCR, because a tighter crop just re-rolls the identical
 error (measured 5/5 runs on one fixture).  The only fix is deterministic, so
 :func:`~manuscribe.pipeline.tables.rebuild._repair_tables_from_text_layer` rebuilds
 that table's *content* straight from the PDF text layer — reading the layer's words,
-not just its coordinates, one of the two places B-prime's "OCR is the sole reader"
+not just its coordinates, one of the two places the "OCR is the sole reader"
 rule is broken on purpose (the other is the truncated-tail reconciliation below), and
 a wider carve-out than the geometry-only localization above.
 It is fenced in tightly: only a two-column table qualifies; the rebuild replaces the

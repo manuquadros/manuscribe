@@ -225,12 +225,39 @@ def _has_place_like_tail(plain: str) -> bool:
     return all(w[:1].isupper() or w.lower() in _PLACE_TAIL_CONNECTORS for w in words)
 
 
+# A comma-separated address reads as a list of place/institution names: at most a
+# short connector word ("of", "für", "der", ...) interrupts two capitalised names,
+# so a lone non-English common noun stands alone between them ("Ústav organické
+# chemie" has a run of two lowercase-led words). A body sentence that merely
+# *closes* on a place name is still a finite-verb clause beforehand, and reads as a
+# much longer run of lowercase-led words ("were collected from farms near").
+_PROSE_RUN_MIN = 3
+
+
+def _has_prose_clause(plain: str) -> bool:
+    """True when ``plain`` contains a run of ``_PROSE_RUN_MIN`` or more consecutive
+    lowercase-led words — the shape of a finite-verb clause, as opposed to a
+    comma-separated list of place/institution names (see above)."""
+    run = 0
+    for word in plain.split():
+        if word[:1].islower():
+            run += 1
+            if run >= _PROSE_RUN_MIN:
+                return True
+        else:
+            run = 0
+    return False
+
+
 def _ends_with_country(plain: str) -> bool:
     """True when the final comma-segment is a recognised country/region — the
-    language-independent affiliation cue (see ``_AFFILIATION_COUNTRIES``).  Any
+    language-independent affiliation cue (see ``_AFFILIATION_COUNTRIES``) — and the
+    line is not itself a prose clause that merely happens to close on a place name
+    (see ``_has_prose_clause``: a column-split Methods/Results sentence can end
+    "…, City, City2, Country" with no institution word to reject it on).  Any
     postal digits sharing the segment ("South Korea 08826") are stripped first."""
     tail = _POSTAL_DIGITS_RE.sub("", plain.rsplit(",", 1)[-1]).strip()
-    return tail.lower() in _AFFILIATION_COUNTRIES
+    return tail.lower() in _AFFILIATION_COUNTRIES and not _has_prose_clause(plain)
 
 
 def _is_affiliation_line(plain: str) -> bool:

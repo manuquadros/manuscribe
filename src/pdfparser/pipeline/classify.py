@@ -155,23 +155,34 @@ _METADATA_TOKEN_RE = re.compile(
     """,
     re.IGNORECASE | re.VERBOSE,
 )
+# The subset of _METADATA_TOKEN_RE that is unambiguous on its own: an e-mail/DOI
+# address or an explicit phone/fax label never appears in ordinary body prose.  A
+# bare URL or calendar date does — a Methods sentence routinely cites a database
+# URL and a date ("...downloaded from https://... on March 3, 2019."), which would
+# otherwise clear the two-token bar on a URL+date pair alone.  Requiring at least
+# one strong token keeps such a sentence in the body while still catching a footer
+# whose two tokens are e-mail/DOI/phone (a URL or date may still supply the *other*
+# token towards the two-token count below).
+_STRONG_METADATA_TOKEN_RE = re.compile(
+    r"""
+      \S+@\S+\.\S                                # e-mail address
+    | doi:\s*10\.\d{4,}                          # DOI
+    | \b(?:tel|fax|phone)\b                      # phone / fax label
+    """,
+    re.IGNORECASE | re.VERBOSE,
+)
 # Footer-metadata line shapes that carry fewer than two countable tokens yet are
 # unambiguous on their own: a supporting-information note, a "DOI 10.…" line, a
-# "Published online …" line, a "Volume N, … Pages N" journal citation, or an
-# author-contribution footnote ("These authors contributed equally to this work").
-# The OCR often splits a journal's page-bottom block into such one-line pieces, so
-# none reaches the two-token bar alone.  The DOI, "Published online" and journal
-# alternatives are anchored at the block *start* (and supporting-info is a fixed
-# phrase), so body prose that merely mentions a volume/DOI/"published online"
-# mid-sentence ("See volume 3, pages 45-67, …") does not match — only a line that
-# opens as the citation/DOI/publication line does.  The author-contribution
-# alternative is the one phrase not anchored at the block start — an author
-# footnote reads "X and Y contributed equally [to this work]" mid-line — so it is
-# instead anchored at its *end*: the clause must close the block (optionally with a
-# trailing "to this/the work/study/…"), which a body sentence that merely runs
-# "contributed equally to substrate binding …" past it does not.  The author-
-# contribution clause is shared with the marker-restoration gate below
-# (``_EQUAL_CONTRIBUTION_RE``), so both agree on what *is* such a footnote.
+# "Published online …" line, or a "Volume N, … Pages N" journal citation.  The OCR
+# often splits a journal's page-bottom block into such one-line pieces, so none
+# reaches the two-token bar alone.  Each alternative is anchored at the block
+# *start* (and supporting-info is a fixed phrase), so body prose that merely
+# mentions a volume/DOI/"published online" mid-sentence ("See volume 3, pages
+# 45-67, …") does not match — only a line that opens as the citation/DOI/
+# publication line does.  The author-contribution shape ("X and Y contributed
+# equally [to this work]") is checked separately by ``_is_equal_contribution_note``
+# — its clause is not anchored at the block start, so it needs its own subject
+# discriminator rather than joining this position-independent set.
 _EQUAL_CONTRIBUTION_PATTERN = (
     r"contributed\s+equally(?:\s+to\s+(?:this|the)\s+"
     r"(?:work|study|manuscript|article|paper|research|publication|project))?"
@@ -192,9 +203,7 @@ _STRAY_METADATA_PHRASE_RE = re.compile(
     # none of those three terminators follows, so it stays in the body.
     r"|^\s*(?:received|revised|accepted|published|submitted)\b\s*:?\s*"
     + _DATE_RE
-    + r"[ \t]*(?:\n|;|$)"
-    + r"|"
-    + _EQUAL_CONTRIBUTION_PATTERN,
+    + r"[ \t]*(?:\n|;|$)",
     re.IGNORECASE,
 )
 # The footnote symbols a journal tags authors with (never numeric affiliation
@@ -1040,8 +1049,9 @@ def _is_stray_metadata(part: str) -> bool:
     """A self-contained footer-metadata line OCR'd into the body (see
     ``_STRAY_METADATA_MAX_LEN``).  Unlike ``_is_frontmatter_text`` it is judged
     position-independently, so it must stand on its own strong evidence: a
-    recognised publishing-process label, a short block with two or more metadata
-    tokens, or the fixed boilerplate phrase."""
+    recognised publishing-process label, an affiliation, an author-contribution
+    note, a short block with two or more metadata tokens (at least one strong), or
+    the fixed boilerplate phrase."""
     inner = _plain_p_text(part)
     if inner is None:
         return False
@@ -1053,12 +1063,16 @@ def _is_stray_metadata(part: str) -> bool:
     # heading pushed the title, byline and affiliation down into the body).
     if _is_affiliation_line(plain):
         return True
+    if _is_equal_contribution_note(inner):
+        return True
     if len(plain) > _STRAY_METADATA_MAX_LEN:
         return False
     if _STRAY_METADATA_PHRASE_RE.search(plain):
         return True
     tokens = _METADATA_TOKEN_RE.findall(plain)
     if len(tokens) < _STRAY_METADATA_MIN_TOKENS:
+        return False
+    if not _STRONG_METADATA_TOKEN_RE.search(plain):
         return False
     # A calendar date is weak evidence when judged position-independently: body
     # prose routinely cites date ranges ("between March 3, 2001 and December 12,
@@ -1080,6 +1094,52 @@ def _is_stray_metadata(part: str) -> bool:
 # each on ≥2 authors — e.g. "*" corresponding, "†" equal-contribution — the note's
 # own marker is unrecoverable, so the choice is a best-effort, not exact.)
 _EQUAL_CONTRIBUTION_RE = re.compile(_EQUAL_CONTRIBUTION_PATTERN, re.IGNORECASE)
+# The clause's *subject* is what tells a genuine author-contribution note ("D.L.
+# and J.H. contributed equally.", "All authors contributed equally to the study")
+# from a body sentence sharing the same closing clause but naming something else
+# ("both substitutions", "the two catalytic domains"): the byline's authors
+# ("these/all/both authors") or an explicit two-initial pair joined by "and"/",".
+_EQUAL_CONTRIBUTION_SUBJECT_WORDS_RE = re.compile(
+    r"\b(?:these|all|both)\s+authors\b", re.IGNORECASE
+)
+_EQUAL_CONTRIBUTION_INITIALS_RE = re.compile(
+    r"[A-Z]\.[A-Z]?\.\s*(?:,|and)\s*[A-Z]\.[A-Z]?\."
+)
+
+
+def _has_author_identifying_subject(plain: str) -> bool:
+    return bool(
+        _EQUAL_CONTRIBUTION_SUBJECT_WORDS_RE.search(plain)
+        or _EQUAL_CONTRIBUTION_INITIALS_RE.search(plain)
+    )
+
+
+# An unmarked note whose superscript symbol the OCR swallowed into emphasis reads
+# as the *whole* block italicised ("*These authors …*" -> "<em>These authors
+# …</em>", no visible marker) — the shape ``_restore_equal_contribution_marker``
+# repairs.  A body sentence merely containing an italicised phrase mid-text is not
+# wrapped end to end, so this stays a reliable alternative signal alongside the
+# subject check (not the sole gate — see the rejected attempt this replaces).
+_WRAPPED_EM_RE = re.compile(r"^<em>.*</em>$", re.DOTALL)
+
+
+def _is_equal_contribution_note(inner: str) -> bool:
+    """A standalone equal-contribution footnote: the clause closes the block (see
+    ``_EQUAL_CONTRIBUTION_RE``) *and* either names its subject as the authors
+    (``_has_author_identifying_subject``) or is marked as a footnote — a leading
+    footnote-marker character, or the whole note italicised (the unmarked-symbol
+    shape above).  A generic-subject sentence that merely runs the phrase onto a
+    non-author object ("both substitutions contributed equally to …") matches
+    neither and stays in the body."""
+    plain = _visible_text(inner)
+    if not _EQUAL_CONTRIBUTION_RE.search(plain):
+        return False
+    if _has_author_identifying_subject(plain):
+        return True
+    stripped = plain.lstrip()
+    if stripped and stripped[0] in _FOOTNOTE_MARKER_CHARS:
+        return True
+    return bool(_WRAPPED_EM_RE.match(inner.strip()))
 
 
 def _byline_equal_contribution_marker(parts: list[str]) -> str | None:

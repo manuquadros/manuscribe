@@ -1581,6 +1581,38 @@ class TestLightonAssembly:
             "c@d.edu.</p>"
         )
 
+    def test_stray_metadata_position_independent_false_positives(self) -> None:
+        # Three shapes a page-0, position-independent sweep can mistake for
+        # footer/affiliation/footnote metadata, each a normal Methods/Results
+        # sentence that must stay in the body.
+        from pdfparser.pipeline.classify import _is_stray_metadata
+
+        # A URL and a date both clear the two-token bar, but neither is the
+        # e-mail/DOI/phone shape a genuine footer carries — a Methods sentence
+        # citing a database URL and a download date is not metadata.
+        assert not _is_stray_metadata(
+            "<p>Genome sequences were downloaded from "
+            "https://www.ncbi.nlm.nih.gov/genome on March 3, 2019.</p>"
+        )
+        # A column-split fragment ending "…, City, City2, Country" has no
+        # institution word, but it is still a finite-verb clause ("were collected
+        # from farms near"), not an address noun phrase.
+        assert not _is_stray_metadata(
+            "<p>Soil samples were collected from farms near Lahore, Faisalabad, "
+            "Multan, Pakistan</p>"
+        )
+        # The clause closes the block exactly like a genuine equal-contribution
+        # footnote, but its subject ("both substitutions") does not identify the
+        # authors.
+        assert not _is_stray_metadata(
+            "<p>In the double mutant, both substitutions contributed equally.</p>"
+        )
+        # The two known-correct equal-contribution notes (unmarked, author-
+        # identifying subject) must still be relocated — not weakened by the fix
+        # above.
+        assert _is_stray_metadata("<p>D.L. and J.H. contributed equally.</p>")
+        assert _is_stray_metadata("<p>All authors contributed equally to the study</p>")
+
     def test_bare_affiliation_line_pulled_into_panel(self) -> None:
         # An author+affiliation line OCR'd between the title and the abstract,
         # without its author's superscript marker ("Name From the Department …,

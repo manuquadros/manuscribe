@@ -25,7 +25,12 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from manuscribe.pipeline.model import OcrModel, _ocr_pages, load_ocr_model
+from manuscribe.pipeline.model import (
+    OcrModel,
+    _first_pass_new_tokens,
+    _ocr_pages,
+    load_ocr_model,
+)
 from manuscribe.pipeline.render import _render_page_images
 
 # Annotation-only: beartype's import hook does not cover this script.
@@ -188,6 +193,10 @@ def main() -> None:
             "model": ocr.model,
             "engine": ocr.engine.value,
             "window": str(ocr.context_len),
+            # Derived from the window today, but recorded rather than left to be
+            # recomputed: it sets how long a dense page decodes in one request,
+            # so a row whose budget differs is not comparable on time.
+            "first_pass_tokens": str(_first_pass_new_tokens(ocr.context_len)),
             "concurrency": str(concurrency),
             "pages": str(timing.pages),
             "best_s": f"{timing.best:.2f}",

@@ -39,9 +39,12 @@ _DEFAULT_MODEL_CONTEXT_LEN = 8192
 _CONTEXT_SAFETY_MARGIN = 64
 # Pages OCR independently, so the client issues several requests at once to let
 # the vLLM server's continuous batching engage — a serial caller pins
-# ``num_requests_running`` at 1, leaving most of the GPU idle.  Bounded because
-# the card is small and shared; override with ``MANUSCRIBE_OCR_CONCURRENCY``.
-_DEFAULT_OCR_CONCURRENCY = 4
+# ``num_requests_running`` at 1, leaving most of the GPU idle.  Sized for the
+# GB10 deployment target; a small or shared card wants
+# ``MANUSCRIBE_OCR_CONCURRENCY`` lower.  Overshooting degrades rather than
+# fails — vLLM admits what its KV cache holds and queues the rest — so this
+# errs high, where an idle GPU is the cost of being wrong the other way.
+_DEFAULT_OCR_CONCURRENCY = 16
 # A cold page can take tens of seconds on a small GPU; httpx's 5 s default would
 # abort mid-decode, so OCR requests use a generous per-request budget.  Override
 # per-deployment with ``MANUSCRIBE_OCR_TIMEOUT`` — a slow cold-start GPU may need

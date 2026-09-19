@@ -429,7 +429,7 @@ MANUSCRIBE_VLLM_URL=http://<vm-host>:8000/v1 pdm run python -m manuscribe in.pdf
 ```
 
 A remote server makes the round-trip latency per page visible; raise
-`MANUSCRIBE_OCR_CONCURRENCY` (default 4) if the link is slow but the GPU is idle.
+`MANUSCRIBE_OCR_CONCURRENCY` (default 16) if the link is slow but the GPU is idle.
 
 ## Calling it from the pipeline
 

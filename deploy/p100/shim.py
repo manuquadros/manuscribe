@@ -54,7 +54,7 @@ _DATA_URI_RE = re.compile(r"^data:[\w/+.\-]*;base64,(?P<b64>.+)$", re.DOTALL)
 
 _state: dict[str, Any] = {}
 # generate() is not concurrency-safe and there is one GPU; the client issues
-# pages in parallel (default 4), so serialize decoding here.  Also set
+# pages in parallel (default 16), so serialize decoding here.  Also set
 # MANUSCRIBE_OCR_CONCURRENCY=1 client-side to avoid pointless queueing.
 _gpu_lock = threading.Lock()
 

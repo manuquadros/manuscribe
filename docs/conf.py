@@ -9,8 +9,11 @@ functions they will edit.
 """
 
 import datetime
+import inspect
 import sys
 from pathlib import Path
+
+from sphinx.application import Sphinx
 
 # Make the package importable without installation.
 sys.path.insert(0, str(Path(__file__).parents[1] / "src"))
@@ -48,9 +51,34 @@ apidoc_modules = [
         # it off, only members carrying a docstring are documented, so the page
         # stays a tour of the reasoning rather than a wall of constants.
         "automodule_options": {"members", "private-members", "show-inheritance"},
+        # apidoc applies ``automodule_options`` only to per-module stubs; a
+        # package stub always gets apidoc's own defaults (``undoc-members`` on).
+        # Without this, every module is inlined into the package stub and the
+        # options above are silently ignored.
+        "separate_modules": True,
         "module_first": True,
     },
 ]
+
+
+def _skip_reexports(
+    app: Sphinx, what: str, name: str, obj: object, skip: bool, options: object
+) -> bool:
+    """Keep a re-exported class/function out of the package page.
+
+    ``pdfparser`` and ``pdfparser.pipeline`` re-export their public surface via
+    ``__all__``; documenting it there as well as in the owning module makes every
+    ``:class:`` reference ambiguous and every entry a duplicate.
+    """
+    if what != "module" or not (inspect.isclass(obj) or inspect.isfunction(obj)):
+        return skip
+    owner = getattr(obj, "__module__", None)
+    return skip or owner != app.env.temp_data.get("autodoc:module")
+
+
+def setup(app: Sphinx) -> None:
+    app.connect("autodoc-skip-member", _skip_reexports)
+
 
 # Read top-to-bottom, a module's functions tell a story (parse → denormalize →
 # crop → merge); alphabetical order would scramble it.
@@ -71,6 +99,15 @@ intersphinx_mapping = {
     "python": ("https://docs.python.org/3", None),
     "PIL": ("https://pillow.readthedocs.io/en/stable", None),
 }
+
+# Targets no inventory can resolve, so ``-n -W`` stays green: httpx and
+# pyspellchecker publish no Sphinx inventory, and Python 3.13 reports ``Path``'s
+# module as ``pathlib._local`` (a private alias the python inventory doesn't list).
+nitpick_ignore_regex = [
+    ("py:class", r"httpx\..*"),
+    ("py:class", r"spellchecker\..*"),
+    ("py:class", r"pathlib\._local\..*"),
+]
 
 html_theme = "pydata_sphinx_theme"
 html_theme_options = {

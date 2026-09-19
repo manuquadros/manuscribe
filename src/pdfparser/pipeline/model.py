@@ -108,7 +108,8 @@ class OcrModel:
         For a long-lived worker (the annotation-hub batch ingester holds one
         ``OcrModel`` across many documents): if the vLLM server restarts, the pooled
         connections go stale and its config (the context window) may change.  Calling
-        this on a persistent :class:`OcrUnavailableError` swaps in a fresh pool and
+        this on a persistent :class:`~pdfparser.pipeline.errors.OcrUnavailableError`
+        swaps in a fresh pool and
         re-reads ``context_len``/``concurrency`` from the new server *without* dropping
         the bundle the worker threads around — every existing reference stays valid.
 

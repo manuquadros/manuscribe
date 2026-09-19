@@ -1,7 +1,7 @@
 """Document assembly: per-page block parts → cleaned, classified HTML shell.
 
-Design B-prime (see plans/replace-falcon-with-lightonocr.md):
-render → per-page markdown → block HTML → cleanup/merge → document shell.
+Single-model design: render → per-page markdown → block HTML → cleanup/merge →
+document shell.
 
 ``_assemble_html`` is the pure (no-GPU) core — render-free, model-free — so it is
 unit-testable by feeding synthetic markdown + images.  ``lightonocr_pdf_to_html``
@@ -372,8 +372,9 @@ def _dedup_table_figures(blocks: list[_Block]) -> list[_Block]:
     placeholder line — held on the ``_FigBlock`` — or as its own following block).
 
     The image is dropped; the caption is preserved as a standalone block so
-    :func:`_colocate_table_captions` folds it into the real table as its
-    ``<caption>``.  When the caption already stands as its own block it is left in
+    :func:`~pdfparser.pipeline.merge._colocate_table_captions` folds it into the
+    real table as its ``<caption>``.  When the caption already stands as its own
+    block it is left in
     place; only when it rode on the placeholder is it re-emitted."""
     out: list[_Block] = []
     i = 0

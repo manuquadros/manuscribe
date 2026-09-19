@@ -189,7 +189,7 @@ def _opens_with_panel_label(block: str) -> bool:
 # crop→PNG encode happens once at the call site (:func:`_figure_html`), so a sink
 # never touches Pillow.
 ImageSink = Callable[[bytes, str], str]
-"""Image-delivery seam: ``(png_bytes, mime) -> src``.
+"""The image-delivery seam — ``(png_bytes, mime) -> src``.
 
 Given a figure crop's encoded PNG bytes and its MIME type, returns the string written
 into the figure's ``<img src>`` — an inline ``data:`` URI (:func:`_base64_src`), a
@@ -628,6 +628,7 @@ def _safe_crop(
 
 
 def _union_box(boxes: list[tuple[int, int, int, int]]) -> tuple[int, int, int, int]:
+    """Smallest box enclosing every box — how over-segmented crops are merged."""
     return (
         min(b[0] for b in boxes),
         min(b[1] for b in boxes),

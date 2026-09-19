@@ -256,6 +256,12 @@ _UNIT_RUN_RE = re.compile(
 
 
 def _italicize_math_variables(content: str) -> str:
+    """Wrap each standalone single-letter variable in ``<em>``, top level only.
+
+    ``<sub>``/``<sup>`` spans are split out first so an affiliation or footnote
+    marker (``<sup>a</sup>``) is never italicised; a letter in unit position
+    (``_UNIT_RUN_RE``) stays upright.
+    """
     parts = _SCRIPT_SPAN_RE.split(content)
     parts[::2] = [_italicize_segment(segment) for segment in parts[::2]]
     return "".join(parts)

@@ -1,11 +1,11 @@
 """Public exception hierarchy raised at the pipeline's boundary.
 
 A leaf module (it imports nothing else from the package) so the seam modules
-(:mod:`model`, :mod:`render`) and the entry point can raise typed errors that a
-caller — e.g. a batch-ingest worker — classifies for *retry* vs. *permanent failure*
+(:mod:`~pdfparser.pipeline.model`, :mod:`~pdfparser.pipeline.render`) and the
+entry point can raise typed errors that a caller — e.g. a batch-ingest worker —
+classifies for *retry* vs. *permanent failure*
 without reaching into ``httpx``/``pypdfium2`` internals.  The original library
-exception is always preserved as ``__cause__`` (``raise … from``).  See
-``plans/annotation-hub-integration.md`` (Tasks A).
+exception is always preserved as ``__cause__`` (``raise … from``).
 """
 
 from __future__ import annotations

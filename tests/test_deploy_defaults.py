@@ -182,11 +182,14 @@ def _with_stub_nvidia_smi(
 
 # What the real tool prints when the driver is unreachable, and what a card that
 # does not report a figure prints. Neither yields a number.
+# The real tool prints this on *stdout*, not stderr, which is why only the exact
+# "[N/A]" marker may be read as a unified-memory card.
 _SMI_NO_DRIVER = (
-    "#!/bin/sh\necho 'NVIDIA-SMI has failed to communicate with the driver' >&2\n"
-    "exit 9\n"
+    "#!/bin/sh\necho 'NVIDIA-SMI has failed to communicate with the driver'\nexit 9\n"
 )
 _SMI_NOT_APPLICABLE = "#!/bin/sh\necho '[N/A]'\n"
+_SMI_DISCRETE = "#!/bin/sh\necho 6144\n"
+_SMI_TWO_CARDS = "#!/bin/sh\nprintf '24576\\n6144\\n'\n"
 
 
 def test_an_unanswerable_probe_does_not_kill_the_caller() -> None:
@@ -196,11 +199,47 @@ def test_an_unanswerable_probe_does_not_kill_the_caller() -> None:
     for stub in (_SMI_NO_DRIVER, _SMI_NOT_APPLICABLE):
         done = _with_stub_nvidia_smi(
             stub,
-            'mib="$(_gpu_total_mem_mib)"; cap="$(_gpu_compute_cap)"; '
-            'printf "reached:[%s][%s]" "$mib" "$cap"',
+            '_resolve_gpu_memory; cap="$(_gpu_compute_cap)"; '
+            'printf "reached:[%s]" "$cap"',
         )
         assert done.returncode == 0, done.stderr
-        assert done.stdout == "reached:[][]"
+        assert done.stdout == "reached:[]"
+
+
+def _memory_source(stub: str) -> tuple[str, str]:
+    """``(GPU_TOTAL_MEM_MIB, GPU_MEM_SOURCE)`` for a card answering like ``stub``."""
+    done = _with_stub_nvidia_smi(
+        stub,
+        '_resolve_gpu_memory; printf "%s\\n%s" "$GPU_TOTAL_MEM_MIB" "$GPU_MEM_SOURCE"',
+    )
+    assert done.returncode == 0, done.stderr
+    mib, _, source = done.stdout.partition("\n")
+    return mib, source
+
+
+def test_a_discrete_card_is_sized_by_its_own_memory() -> None:
+    assert _memory_source(_SMI_DISCRETE) == ("6144", "device")
+
+
+def test_several_cards_are_sized_by_the_smallest() -> None:
+    """Numerically, not lexically -- the server has to fit on each of them."""
+    assert _memory_source(_SMI_TWO_CARDS) == ("6144", "device")
+
+
+def test_a_card_with_no_dedicated_pool_is_sized_by_host_memory() -> None:
+    """GB10 answers "[N/A]": its memory *is* the host's, so MemTotal is the
+    figure, and without this the large-card branch can never fire on the one
+    card that most needs it."""
+    mib, source = _memory_source(_SMI_NOT_APPLICABLE)
+    assert source == "host"
+    assert int(mib) > 0
+
+
+def test_a_failing_nvidia_smi_is_unknown_rather_than_unified() -> None:
+    """It prints its error on stdout, so a looser "non-numeric means unified"
+    rule would size a discrete card by its host's RAM and pick settings that
+    OOM it."""
+    assert _memory_source(_SMI_NO_DRIVER) == ("", "unknown")
 
 
 def test_an_undetectable_card_reaches_the_documented_fallback() -> None:

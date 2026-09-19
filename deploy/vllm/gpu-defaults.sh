@@ -41,14 +41,43 @@ _gpu_compute_cap() {
     head -1 || true
 }
 
-# Smallest visible GPU's total MiB -- the one the server has to fit on -- or
-# empty when nvidia-smi cannot answer.
-_gpu_total_mem_mib() {
+# Every visible GPU's memory.total, verbatim -- a number per card, or "[N/A]"
+# from a part with no dedicated pool. Empty when nvidia-smi cannot answer.
+_gpu_memory_total_raw() {
   nvidia-smi --query-gpu=memory.total --format=csv,noheader,nounits 2>/dev/null |
-    tr -d '[:blank:]' |
-    grep -E '^[0-9]+$' |
-    sort -n |
-    head -1 || true
+    tr -d '[:blank:]' || true
+}
+
+_host_total_mem_mib() {
+  awk '/^MemTotal:/ { print int($2 / 1024) }' /proc/meminfo 2>/dev/null || true
+}
+
+# Sets GPU_TOTAL_MEM_MIB (empty when it cannot be established) and
+# GPU_MEM_SOURCE, which only the report line reads. Assigns rather than prints:
+# a command substitution would run the case in a subshell and lose both.
+#
+# A discrete card answers with a number. An integrated part with no dedicated
+# pool answers exactly "[N/A]" -- GB10 does -- and there the host's MemTotal *is*
+# the figure, since the two share one physical memory. Only that marker is read
+# as unified: a failing nvidia-smi prints its error on *stdout*, so treating any
+# non-numeric answer that way would size a card by its host's RAM, and settings
+# picked for 128 GiB OOM a 6 GiB GPU.
+_resolve_gpu_memory() {
+  local raw smallest
+  raw="$(_gpu_memory_total_raw)"
+  # Smallest of the cards that named a figure: the server has to fit on each.
+  smallest="$(printf '%s\n' "$raw" | grep -E '^[0-9]+$' | sort -n | head -1 || true)"
+
+  if [ -n "$smallest" ]; then
+    GPU_TOTAL_MEM_MIB="$smallest"
+    GPU_MEM_SOURCE=device
+  elif printf '%s\n' "$raw" | grep -qE '^\[?N/A\]?$'; then
+    GPU_TOTAL_MEM_MIB="$(_host_total_mem_mib)"
+    GPU_MEM_SOURCE=host
+  else
+    GPU_TOTAL_MEM_MIB=""
+    GPU_MEM_SOURCE=unknown
+  fi
 }
 
 # Memory-dependent, hence separate from the capability branches below.  Both
@@ -95,13 +124,13 @@ _report_blackwell_caveat() {
 # Fill in DTYPE and ATTENTION_BACKEND to match the detected card.  An empty
 # ATTENTION_BACKEND means "let vLLM choose", which is right on Ampere and newer.
 apply_gpu_defaults() {
-  local cap major mib
+  local cap major
   cap="$(_gpu_compute_cap)"
   major="${cap%%.*}"
 
-  mib="$(_gpu_total_mem_mib)"
-  _apply_memory_defaults "$mib"
-  echo "gpu-defaults: ${mib:-unknown} MiB ->" \
+  _resolve_gpu_memory
+  _apply_memory_defaults "$GPU_TOTAL_MEM_MIB"
+  echo "gpu-defaults: ${GPU_TOTAL_MEM_MIB:-unknown} MiB ($GPU_MEM_SOURCE) ->" \
        "--gpu-memory-utilization $GPU_MEM_UTIL," \
        "${ENFORCE_EAGER:-CUDA graphs enabled}" >&2
 

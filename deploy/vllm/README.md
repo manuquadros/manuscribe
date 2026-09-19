@@ -162,7 +162,11 @@ rather than the defaults above:
   exactly where the fraction over-reserves. `gpu-defaults.sh` already drops to
   `0.35` (and turns CUDA graphs back on) at 64 GiB and above, so the defaults
   need no adjustment here — but watch `free -h` / `nvidia-smi` before raising
-  `GPU_MEM_UTIL` past it. The startup log states what it reserved and what
+  `GPU_MEM_UTIL` past it. It reaches that figure via `/proc/meminfo`, because
+  `nvidia-smi --query-gpu=memory.total` answers `[N/A]` on this part — there is
+  no dedicated pool to report. The startup line names the source it used
+  (`… MiB (host)` here, `(device)` on a discrete card, `(unknown)` when neither
+  answered and the conservative pair is in force). The startup log states what it reserved and what
   reached the KV cache: `GPU KV cache size: N tokens` divided by
   `MANUSCRIBE_OCR_CONCURRENCY` × `--max-model-len` is how many times more
   cache was reserved than this pipeline can put to work.

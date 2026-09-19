@@ -695,6 +695,73 @@ class TestLightonAssembly:
         # Nothing was relocated, so no Metadata panel is created at all.
         assert "<details class='metadata'>" not in html
 
+    def test_structured_abstract_labels_kept_in_abstract_with_heading(self) -> None:
+        # A structured abstract's own section labels (Background/Methods/Results/
+        # Conclusions) must not be mistaken for a front-matter label ("Keywords:")
+        # that ends the abstract — all four paragraphs stay in the abstract.
+        md = (
+            "# T\n\n## Abstract\n\n"
+            "**Background:** The background paragraph of the structured abstract.\n\n"
+            "**Methods:** The methods paragraph of the structured abstract.\n\n"
+            "**Results:** The results paragraph of the structured abstract.\n\n"
+            "**Conclusions:** The conclusions paragraph of the structured abstract.\n\n"
+            "## Introduction\n\nThe body begins here."
+        )
+        html = _run_lighton([md])
+        start = html.find("<section class='abstract'>")
+        abstract = html[start : html.find("</section>", start)]
+        assert "The background paragraph of the structured abstract" in abstract
+        assert "The conclusions paragraph of the structured abstract" in abstract
+        assert "<details class='metadata'>" not in html
+        assert "The body begins here." in _body(html)
+
+    def test_structured_abstract_labels_kept_in_abstract_without_heading(self) -> None:
+        # The same structured labels, with neither an "Abstract" heading nor an
+        # inline "ABSTRACT:" label: the classifier leaves them atop the body, and
+        # the headingless-abstract fallback must still recover them as the abstract
+        # rather than the front-matter sweep hiding them in the Metadata panel.
+        md = (
+            "# A Study\n\n"
+            "**Background:** This structured abstract's background paragraph is "
+            "long enough to read as genuine prose, easily.\n\n"
+            "**Methods:** This methods paragraph is also long enough to describe "
+            "what was done in some detail.\n\n"
+            "**Results:** This results paragraph reports the findings at "
+            "sufficient length to count as real prose.\n\n"
+            "**Conclusions:** This concluding paragraph draws out the "
+            "implications at length, as real prose would.\n\n"
+            "## Introduction\n\nThe body begins here."
+        )
+        html = _run_lighton([md])
+        start = html.find("<section class='abstract'>")
+        abstract = html[start : html.find("</section>", start)]
+        assert "This structured abstract's background paragraph" in abstract
+        assert "This concluding paragraph draws out the implications" in abstract
+        assert "<details class='metadata'>" not in html
+        assert "The body begins here." in _body(html)
+
+    def test_structured_abstract_labels_kept_in_abstract_colon_outside_bold(
+        self,
+    ) -> None:
+        # The colon-outside-bold shape ("**Background**:") must keep the abstract
+        # open the same way the colon-inside shape does, rather than closing it
+        # after the first label and leaving an empty abstract with loose paragraphs.
+        md = (
+            "# T\n\n## Abstract\n\n"
+            "**Background**: The background paragraph, colon outside the bold.\n\n"
+            "**Methods**: The methods paragraph, colon outside the bold.\n\n"
+            "**Results**: The results paragraph, colon outside the bold.\n\n"
+            "**Conclusions**: The conclusions paragraph, colon outside the bold.\n\n"
+            "## Introduction\n\nThe body begins here."
+        )
+        html = _run_lighton([md])
+        start = html.find("<section class='abstract'>")
+        abstract = html[start : html.find("</section>", start)]
+        assert "The background paragraph, colon outside the bold" in abstract
+        assert "The conclusions paragraph, colon outside the bold" in abstract
+        assert "<details class='metadata'>" not in html
+        assert "The body begins here." in _body(html)
+
     def test_leading_superscript_routed_to_footnote_before_refs(self) -> None:
         md = (
             "# T\n\n## Abstract\n\nAbstract.\n\n## Body\n\n"

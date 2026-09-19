@@ -289,6 +289,26 @@ _ABSTRACT_HEADING_RE = re.compile(r"^\s*abstract\b", re.IGNORECASE)
 _INLINE_ABSTRACT_RE = re.compile(
     r"^<strong>\s*abstract\s*(?::\s*</strong>|</strong>\s*:)\s*", re.IGNORECASE
 )
+# Structured-abstract section labels (BMC, PLOS Medicine, JAMA and much of clinical/
+# biomedical publishing): a bold "**Background:**"/"**Methods:**"/… paragraph is part
+# of the abstract itself, not a front-matter label that should end it — unlike
+# "**Keywords:**" or a publication-sidebar label, which genuinely do.
+_STRUCTURED_ABSTRACT_LABELS = frozenset(
+    {
+        "background",
+        "objective",
+        "objectives",
+        "aim",
+        "aims",
+        "methods",
+        "method",
+        "results",
+        "findings",
+        "conclusion",
+        "conclusions",
+        "interpretation",
+    }
+)
 # Some journals run the article's copyright + journal citation onto the end of the
 # abstract ("… University-Chico. © 2018 …, 47(2):124–132, 2019.").  That tail is front
 # matter, not abstract prose; it is split off to the Metadata panel.  Anchored on the
@@ -571,7 +591,10 @@ def _classify_paragraph(state: _ClassifyState, part: str) -> None:
         _open_inline_abstract(state, inner_p[m.end() :].lstrip())
         return
     if state.in_abstract:
-        if inner_p is not None and not _BOLD_LABEL_CAPTURE_RE.match(inner_p):
+        if inner_p is not None and (
+            not _BOLD_LABEL_CAPTURE_RE.match(inner_p)
+            or _is_structured_abstract_label(inner_p)
+        ):
             state.abstract.append(part)
             return
         state.in_abstract = False
@@ -747,7 +770,7 @@ def _is_frontmatter_text(part: str, *, strict: bool = True) -> bool:
     inner = _plain_p_text(part)
     if inner is None:
         return False
-    if _BOLD_LABEL_RE.match(inner):
+    if _BOLD_LABEL_RE.match(inner) and not _is_structured_abstract_label(inner):
         return True
     plain = _visible_text(inner).lstrip()
     if _LEADING_SUP_RE.match(plain):
@@ -1031,6 +1054,13 @@ def _is_glossary_metadata_label(inner: str) -> bool:
     see ``_GLOSSARY_METADATA_LABELS``).  Decisive regardless of the entry list's
     length, so it is matched before the stray-metadata length cap."""
     return _bold_label_in(inner, _GLOSSARY_METADATA_LABELS)
+
+
+def _is_structured_abstract_label(inner: str) -> bool:
+    """A structured-abstract section label ("**Background:**", "**Methods:**" —
+    see ``_STRUCTURED_ABSTRACT_LABELS``): part of the abstract itself, not a
+    front-matter label that should end it."""
+    return _bold_label_in(inner, _STRUCTURED_ABSTRACT_LABELS)
 
 
 def _is_inline_frontmatter_label(inner: str) -> bool:

@@ -167,11 +167,25 @@ the repository, not just the tag, since a sm_121-capable build may not live unde
 `docker.io/vllm/vllm-openai` at all:
 
 ```
-GPU_MEM_UTIL=0.4 IMAGE=nvcr.io/nvidia/vllm:25.09-py3 ./deploy/vllm/run-server.sh
+GPU_MEM_UTIL=0.4 IMAGE=nvcr.io/nvidia/vllm:26.06-py3 ./deploy/vllm/run-server.sh
 # or, building the unified image:
-podman build --from nvcr.io/nvidia/vllm:25.09-py3 \
+podman build --from nvcr.io/nvidia/vllm:26.06-py3 \
   -f deploy/vllm/Containerfile -t lighton-manuscribe .
 ```
+
+Use NGC 26.06 or newer. NGC 25.09 contains vLLM 0.10.1, which does not support
+`LightOnOCRForConditionalGeneration`; NGC 26.06 contains the vLLM 0.22.1
+version used by this deployment.
+
+**Prefer `docker.io/vllm/vllm-openai:v0.29.0` over the NGC route above when it
+publishes an arm64 manifest** (confirm per step 1 below): measured on a DGX
+Spark (GB10, `GPU_MEM_UTIL=0.4`), the same document went from 6:38 wall-clock
+on v0.22.1 to 3:03 on v0.29.0 — roughly 2x, consistent across a full document
+not a single page. Output was byte-identical apart from one figure crop's PNG
+encode. Likely a Blackwell attention-kernel improvement between the two
+releases, not confirmed further than that. Still unverified per the caveat
+below — this only replaces which pre-0.22.1-vs-0.29.0 image to reach for, not
+the "smoke-test before trusting a document" rule.
 
 `run-server.sh` accounts for the image entrypoint difference: the official
 vLLM image already runs `vllm serve`, while the NGC image requires that full
@@ -354,17 +368,26 @@ from openai import OpenAI
 # 127.0.0.1, not localhost — rootless podman forwards the port on IPv4 only.
 client = OpenAI(base_url="http://127.0.0.1:8000/v1", api_key="EMPTY")
 
+
 def ocr_image(img) -> str:  # img: PIL.Image
-    buf = io.BytesIO(); img.save(buf, format="PNG")
+    buf = io.BytesIO()
+    img.save(buf, format="PNG")
     b64 = base64.b64encode(buf.getvalue()).decode()
     resp = client.chat.completions.create(
         model="lightonocr",
         temperature=0.0,
         max_tokens=2048,
-        messages=[{"role": "user", "content": [
-            {"type": "image_url",
-             "image_url": {"url": f"data:image/png;base64,{b64}"}},
-        ]}],
+        messages=[
+            {
+                "role": "user",
+                "content": [
+                    {
+                        "type": "image_url",
+                        "image_url": {"url": f"data:image/png;base64,{b64}"},
+                    },
+                ],
+            }
+        ],
     )
     return resp.choices[0].message.content
 ```

@@ -41,8 +41,9 @@ pdm run docs-serve
 
 ## Documentation
 
-API documentation is auto-generated from docstrings via Sphinx. Run `pdm run docs-build`
-to produce HTML output in `docs/_build/html/`.
+Published at <https://manuquadros.github.io/pdfparser/> on every push to `main`
+(`.github/workflows/docs.yml`). Locally, `pdm run docs-build` writes the same site
+to `docs/_build/html/`; the build fails on any unresolved cross-reference.
 
 ## License
 

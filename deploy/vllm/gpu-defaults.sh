@@ -26,14 +26,19 @@
 # Whatever the caller already exported wins; this only fills blanks.
 
 # Lowest compute capability among the visible GPUs -- the server has to run on
-# every one of them -- as "<major>.<minor>", or empty when nvidia-smi is absent
-# or predates the compute_cap query.
+# every one of them -- as "<major>.<minor>", or empty when nvidia-smi is absent,
+# cannot reach the driver, or answers something unparseable.
+#
+# Both probes end in `|| true`: grep exits 1 when it matches nothing, and under
+# the callers' `set -e -o pipefail` that status propagates out of the command
+# substitution and kills the script with no output at all. Empty is a real
+# answer here -- it selects the documented no-card-detected fallback.
 _gpu_compute_cap() {
   nvidia-smi --query-gpu=compute_cap --format=csv,noheader 2>/dev/null |
     tr -d '[:blank:]' |
     grep -E '^[0-9]+\.[0-9]+$' |
     sort -t. -k1,1n -k2,2n |
-    head -1
+    head -1 || true
 }
 
 # Smallest visible GPU's total MiB -- the one the server has to fit on -- or
@@ -43,7 +48,7 @@ _gpu_total_mem_mib() {
     tr -d '[:blank:]' |
     grep -E '^[0-9]+$' |
     sort -n |
-    head -1
+    head -1 || true
 }
 
 # Memory-dependent, hence separate from the capability branches below.  Both

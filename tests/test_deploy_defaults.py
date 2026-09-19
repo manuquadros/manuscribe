@@ -160,3 +160,57 @@ def test_the_bench_gate_catches_the_repeated_glyph_failure() -> None:
 def test_the_bench_gate_catches_a_response_too_short_to_be_a_page() -> None:
     assert _BENCH._degenerate_reason("## Results\n") is not None
     assert _BENCH._degenerate_reason("") is not None
+
+
+def _with_stub_nvidia_smi(
+    stub_body: str, snippet: str
+) -> subprocess.CompletedProcess[str]:
+    """Run ``snippet`` against gpu-defaults.sh with a fake ``nvidia-smi`` in front
+    of the real one on PATH."""
+    stub_dir = Path(os.environ.get("TMPDIR", "/tmp")) / f"ns-{abs(hash(stub_body))}"
+    stub_dir.mkdir(parents=True, exist_ok=True)
+    stub = stub_dir / "nvidia-smi"
+    stub.write_text(stub_body)
+    stub.chmod(0o755)
+    return subprocess.run(
+        ["bash", "-c", f'set -euo pipefail; . "$1"; {snippet}', "_", str(_GPU_SCRIPT)],
+        capture_output=True,
+        text=True,
+        env={**os.environ, "PATH": f"{stub_dir}:{os.environ['PATH']}"},
+    )
+
+
+# What the real tool prints when the driver is unreachable, and what a card that
+# does not report a figure prints. Neither yields a number.
+_SMI_NO_DRIVER = (
+    "#!/bin/sh\necho 'NVIDIA-SMI has failed to communicate with the driver' >&2\n"
+    "exit 9\n"
+)
+_SMI_NOT_APPLICABLE = "#!/bin/sh\necho '[N/A]'\n"
+
+
+def test_an_unanswerable_probe_does_not_kill_the_caller() -> None:
+    """grep exits 1 on no match, and under the callers' `set -e -o pipefail` that
+    status leaves the command substitution and aborts the script with no output
+    whatsoever -- the worst failure available. Empty must be a normal answer."""
+    for stub in (_SMI_NO_DRIVER, _SMI_NOT_APPLICABLE):
+        done = _with_stub_nvidia_smi(
+            stub,
+            'mib="$(_gpu_total_mem_mib)"; cap="$(_gpu_compute_cap)"; '
+            'printf "reached:[%s][%s]" "$mib" "$cap"',
+        )
+        assert done.returncode == 0, done.stderr
+        assert done.stdout == "reached:[][]"
+
+
+def test_an_undetectable_card_reaches_the_documented_fallback() -> None:
+    """The README's "Undetectable (no nvidia-smi)" row promises float32 +
+    TRITON_ATTN with a warning, which a silent abort never delivers."""
+    done = _with_stub_nvidia_smi(
+        _SMI_NO_DRIVER,
+        "apply_gpu_defaults; "
+        'printf "%s %s %s" "$DTYPE" "$ATTENTION_BACKEND" "$GPU_MEM_UTIL"',
+    )
+    assert done.returncode == 0, done.stderr
+    assert done.stdout == "float32 TRITON_ATTN 0.85"
+    assert "no compute capability readable" in done.stderr

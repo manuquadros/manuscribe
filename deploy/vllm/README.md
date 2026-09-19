@@ -367,13 +367,30 @@ chat endpoint; prints the first ~1200 chars of markdown.
 ### Comparing attention backends
 
 On a card where more than one backend is viable, which one vLLM auto-selects is
-not necessarily the fastest — on Blackwell it picks `FLASH_ATTN` and reports
-`Using FlashAttention version 2`, out of a candidate list that also holds
-`FLASHINFER`. The backend is a launch flag, so comparing them means restarting
-the server, not switching at runtime:
+not necessarily the fastest. It names the alternatives it rejected at startup:
 
 ```
-# terminal 1, once per backend
+Using FLASH_ATTN attention backend out of potential backends:
+['FLASH_ATTN', 'FLASHINFER', 'TRITON_ATTN', 'FLEX_ATTENTION']
+```
+
+That list is the card's own shortlist and a better guide than the full enum.
+Three of the four are worth a row on Blackwell:
+
+| backend | why measure it |
+|---|---|
+| `FLASH_ATTN` | the auto-choice, and the baseline everything else is judged against — note it reports `Using FlashAttention version 2`, which is not Blackwell-tuned |
+| `FLASHINFER` | the plausible winner, and the reason to run this at all |
+| `TRITON_ATTN` | what `gpu-defaults.sh` forces on every pre-Ampere card, so its cost here is the only measurement of what that fallback charges |
+
+`FLEX_ATTENTION` is left out: it is the least likely of the four to beat a
+tuned kernel, and it is worth a run only if the other three come out close.
+
+The backend is a launch flag, so comparing them means restarting the server,
+not switching at runtime — once per backend:
+
+```
+# terminal 1
 ATTENTION_BACKEND=FLASHINFER ./deploy/vllm/run-server.sh
 
 # terminal 2, after each restart — the label is yours to supply, since
@@ -382,9 +399,24 @@ pdm run python deploy/vllm/bench_attention.py FLASHINFER
 ```
 
 Each run appends a row to `spike_results/attention-backend-bench.tsv`: pages/s
-plus the model, window, concurrency and a digest of the transcription. It
-renders before starting the clock, and discards one warm-up pass — FlashInfer
-JIT-compiles its kernels on first use, so a cold pass times the compiler.
+plus the model, window, first-pass token budget, concurrency and a digest of the
+transcription. It renders before starting the clock, and discards one warm-up
+pass — FlashInfer JIT-compiles its kernels on first use, so a cold pass times
+the compiler.
+
+**Expect a narrow spread, and be suspicious of no spread at all.** This model is
+a hybrid: its Gated DeltaNet layers run their own kernels (`Using Triton/FLA GDN
+prefill kernel`, `GDN decode kernel: cuda`), so `--attention-backend` governs
+only the full-attention layers. The vision encoder also selects separately
+(`Using backend AttentionBackendEnum.FLASH_ATTN for vit attention`), and whether
+this flag reaches it is **unverified** — if the rows come out near-identical,
+check `vllm serve --help` for a multimodal-encoder backend option before
+concluding the choice does not matter.
+
+A backend outside the auto-choice can also pass vLLM's own support gate and then
+kill the engine on the first request (`EngineDeadError`; see the T4 case under
+[compute capability](#gpu-compute-capability-dtype-and-attention-backend)). That
+costs a restart rather than a row, and it is a result worth recording too.
 
 **Read the digest column, not just the times.** A backend whose kernels do not
 suit the card can return HTTP 200 and a page of `!` (see

@@ -5,7 +5,10 @@ run each.  The label is passed in because ``/v1/models`` does not report the
 backend -- only the startup log does.
 
     ATTENTION_BACKEND=FLASHINFER ./run-server.sh          # terminal 1
-    pdm run python deploy/vllm/bench_attention.py flashinfer
+    pdm run python deploy/vllm/bench_attention.py FLASHINFER
+
+Which backends are worth a run is in README.md's "Comparing attention backends";
+the server's own startup log names the shortlist for the card in front of you.
 
 Times the pipeline's own seam rather than a synthetic loop.  Speed alone would
 mislead: a backend whose kernels do not suit the card returns HTTP 200 and a page

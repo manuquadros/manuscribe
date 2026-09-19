@@ -44,9 +44,9 @@ Two deployment shapes, both covered below:
 
 ## GPU compute capability (dtype and attention backend)
 
-Two of the server's settings depend on the card. Both `run-server.sh` and the
-unified image derive them at start time from the GPU's compute capability
-(`gpu-defaults.sh`), so neither has to be edited per machine:
+Four of the server's settings depend on the card, and `gpu-defaults.sh` derives
+all of them at start time for both `run-server.sh` and the unified image, so
+neither has to be edited per machine. Two follow the GPU's compute capability:
 
 | Card | Example | `--dtype` | `--attention-backend` |
 |---|---|---|---|
@@ -55,7 +55,11 @@ unified image derive them at start time from the GPU's compute capability
 | Turing (sm_75) | Tesla T4 | `float32` | `TRITON_ATTN` |
 | Undetectable (no `nvidia-smi`) | — | `float32` | `TRITON_ATTN`, with a warning |
 
-An explicit value always wins, so either can be forced:
+The other two follow how much memory the card has — `--enforce-eager` and
+`--gpu-memory-utilization`, covered under
+[Notes / caveats](#notes--caveats).
+
+An explicit value always wins, so any of them can be forced:
 
 ```
 DTYPE=float16 ATTENTION_BACKEND=FLEX_ATTENTION ./deploy/vllm/run-server.sh
@@ -153,11 +157,15 @@ rather than the defaults above:
   arrived well after the x86_64/Ampere images this repo was validated against.
 - **128 GB of memory coherently shared between the CPU and the GPU** (not a
   dedicated VRAM pool). `--gpu-memory-utilization` here reserves a fraction of
-  memory the host OS also needs to run in, unlike on a discrete card — the
-  README's usual "bigger card → raise `GPU_MEM_UTIL`, drop `--enforce-eager`"
-  advice does not apply. Start well below the `0.85` tuned for a dedicated
-  6 GiB card (e.g. `GPU_MEM_UTIL=0.4`) and watch `free -h` / `nvidia-smi`
-  before raising it.
+  memory the host OS also needs to run in, unlike on a discrete card, so the
+  naive "bigger card → raise it" reflex is backwards: a card this size is
+  exactly where the fraction over-reserves. `gpu-defaults.sh` already drops to
+  `0.35` (and turns CUDA graphs back on) at 64 GiB and above, so the defaults
+  need no adjustment here — but watch `free -h` / `nvidia-smi` before raising
+  `GPU_MEM_UTIL` past it. The startup log states what it reserved and what
+  reached the KV cache: `GPU KV cache size: N tokens` divided by
+  `MANUSCRIBE_OCR_CONCURRENCY` × `--max-model-len` is how many times more
+  cache was reserved than this pipeline can put to work.
 
 ### Picking an image
 
@@ -287,6 +295,16 @@ never consulted.
 MODEL=datalab-to/chandra-ocr-2 ./deploy/vllm/run-server.sh
 pdm run python -m manuscribe in.pdf out.html
 ```
+
+`--max-model-len` follows the weights too, from `model-defaults.sh`: chandra gets
+32 k (its native window is 262 144), LightOnOCR keeps the 8 k the spike
+validated. That is the one server flag worth getting right per model — the
+client derives its truncation-retry budget from whatever the server reports, and
+gives up on the retry entirely once the remaining budget no longer covers a
+generation, so a window too small for the model does not slow a dense page down,
+it silently drops its tail. `MAX_MODEL_LEN=` overrides. The table is keyed on the
+model basename, the same key `model.py` uses to pick the parser, and
+`tests/test_deploy_defaults.py` fails if the two drift apart.
 
 `MANUSCRIBE_OCR_ENGINE` (`lightonocr` or `chandra`) overrides that detection, for
 a deployment whose `root` names no known repository — a fine-tune, a mirror, or a
@@ -433,12 +451,21 @@ podman **quadlet** (systemd user unit) — ask and I'll generate the
 
 - **Disk:** the host is at ~95 % (53 G free). The image is ~16 G; it fits, but
   prune old images (`podman image prune`) if a pull fails for space.
-- **6 GiB card:** `--enforce-eager` (no CUDA-graph capture) and
-  `--gpu-memory-utilization 0.85` are what fit on this GPU in the spike. On a
-  bigger *dedicated-VRAM* card, drop `--enforce-eager` for CUDA graphs
-  (`ENFORCE_EAGER=""`) and raise utilization — but this does not apply to a
-  unified-memory box (GB10 and similar): see the
+- **Card memory:** `--enforce-eager` (no CUDA-graph capture) and
+  `--gpu-memory-utilization 0.85` are what fit the 6 GiB GPU in the spike, and
+  `gpu-defaults.sh` still picks them below 64 GiB. At or above that it enables
+  CUDA graphs and drops to `0.35` — CUDA graphs cost a couple of GiB and buy
+  decode throughput, which is most of an OCR run, and the high fraction only
+  ever existed to fit weights on a small card. `ENFORCE_EAGER` / `GPU_MEM_UTIL`
+  override either. On a unified-memory box the lower fraction matters for a
+  second reason: see the
   [GB10 section](#gb10--dgx-spark-class-unified-memory-arm64-workstations).
+- **Context window** comes from `model-defaults.sh`, keyed on the model, so
+  `MODEL=datalab-to/chandra-ocr-2 ./run-server.sh` serves a 32 k window while
+  LightOnOCR keeps 8 k. Too small a window is not a slowdown but silent data
+  loss — the client gives up on its truncation retry when the remaining budget
+  no longer covers a generation, so a dense page's tail is simply gone.
+  `MAX_MODEL_LEN` overrides.
 - **Image tag** is pinned to `v0.22.1` to match the validated spike. Bumping it
   re-opens the determinism/fidelity question — re-run the spike against the new
   tag before trusting it.

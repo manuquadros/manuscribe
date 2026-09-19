@@ -3,17 +3,19 @@
 # container. Keeps the model warm across documents so the pipeline pays the
 # ~35 s load once, not per run.
 #
-# Settings are the ones the §4 determinism spike validated on this 6 GiB card
-# (see spike_results/vllm_determinism.md): enforce-eager (no CUDA-graph VRAM),
-# util 0.85, 8 k ctx, one image per prompt, and the flashinfer JIT sampler
-# disabled (the box has no nvcc — VLLM_USE_FLASHINFER_SAMPLER=0 falls back to
-# the Torch-native sampler, exactly as the spike ran).
+# Card-dependent settings (dtype, attention backend, CUDA graphs, memory
+# fraction) come from gpu-defaults.sh, the weights-dependent one (context
+# window) from model-defaults.sh, so this runs unedited on a 6 GiB card, a T4
+# and a GB10, under either engine.
 #
-# The two card-dependent settings — the dtype and the attention backend — are
-# derived from the GPU's compute capability by gpu-defaults.sh, so this runs
-# unchanged on an Ampere+ card and on a T4.
+# The flashinfer JIT sampler stays off: the 6 GiB box has no nvcc, and decoding
+# is greedy, so the Torch-native fallback costs nothing measurable.
+# VLLM_USE_FLASHINFER_SAMPLER=1 re-enables it.
 #
-# Override any value via env, e.g.  PORT=8001 ./run-server.sh
+# Override any value via env:
+#   PORT=8001 ./run-server.sh
+#   MODEL=datalab-to/chandra-ocr-2 ./run-server.sh
+#   GPU_MEM_UTIL=0.6 ENFORCE_EAGER= ./run-server.sh
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -33,9 +35,6 @@ PORT="${PORT:-8000}"
 BIND_ADDR="${BIND_ADDR:-127.0.0.1}"
 HF_CACHE="${HF_CACHE:-$HOME/.cache/huggingface}"
 
-GPU_MEM_UTIL="${GPU_MEM_UTIL:-0.85}"
-MAX_MODEL_LEN="${MAX_MODEL_LEN:-8192}"
-
 # DTYPE and ATTENTION_BACKEND default to whatever the card supports; an explicit
 # value here or in the environment wins.  See gpu-defaults.sh for why the backend
 # cannot be left to vLLM's own selection on a pre-Ampere card — and why it is a
@@ -44,13 +43,16 @@ MAX_MODEL_LEN="${MAX_MODEL_LEN:-8192}"
 . "$SCRIPT_DIR/gpu-defaults.sh"
 apply_gpu_defaults
 
+# MAX_MODEL_LEN follows the weights; see model-defaults.sh on why too small a
+# window drops a truncated page's tail outright.
+# shellcheck source=deploy/vllm/model-defaults.sh
+. "$SCRIPT_DIR/model-defaults.sh"
+apply_model_defaults "$MODEL"
+
 if [ -z "$_image_overridden" ] && [ "$(uname -m)" = "aarch64" ]; then
   echo "run-server.sh: $IMAGE is validated on x86_64 only; on aarch64" \
        "see deploy/vllm/README.md's GB10 section." >&2
 fi
-
-# Unset -> --enforce-eager; ENFORCE_EAGER="" explicitly re-enables CUDA graphs.
-ENFORCE_EAGER="${ENFORCE_EAGER---enforce-eager}"
 
 # Mount the host HF cache at a fixed path and point HF_HOME at it explicitly,
 # rather than guessing the image's home dir — the cache is reused (no re-pull of
@@ -92,7 +94,7 @@ podman_args=(
   -p "$publish"
   -v "${HF_CACHE}:/hf-cache:rw"
   -e HF_HOME=/hf-cache
-  -e VLLM_USE_FLASHINFER_SAMPLER=0
+  -e VLLM_USE_FLASHINFER_SAMPLER="${VLLM_USE_FLASHINFER_SAMPLER:-0}"
   -e HF_HUB_OFFLINE="${HF_HUB_OFFLINE:-0}"
 )
 

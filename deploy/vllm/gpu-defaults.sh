@@ -3,7 +3,8 @@
 # (run-server.sh on the host, entrypoint.sh inside the unified image) so the same
 # invocation serves an Ada card and a T4.
 #
-# Two of the server's settings depend on the card, and they fail very differently:
+# Four settings depend on the card. The two capability-derived ones fail very
+# differently from each other:
 #
 #   --dtype bfloat16        vLLM refuses it below sm_80 and says so at startup
 #                           ("Bfloat16 is only supported on GPUs with compute
@@ -35,6 +36,38 @@ _gpu_compute_cap() {
     head -1
 }
 
+# Smallest visible GPU's total MiB -- the one the server has to fit on -- or
+# empty when nvidia-smi cannot answer.
+_gpu_total_mem_mib() {
+  nvidia-smi --query-gpu=memory.total --format=csv,noheader,nounits 2>/dev/null |
+    tr -d '[:blank:]' |
+    grep -E '^[0-9]+$' |
+    sort -n |
+    head -1
+}
+
+# Memory-dependent, hence separate from the capability branches below.  Both
+# high settings buy the same thing -- room for the weights on a small card -- and
+# both cost on a large one: CUDA graphs' couple of GiB is free speed once it is
+# not the margin that fits, and a high fraction reserves KV cache far past
+# MANUSCRIBE_OCR_CONCURRENCY x the window, on a unified-memory part out of the
+# pool the host renders from.
+#
+# ENFORCE_EAGER takes ${VAR=...}, not ${VAR:=...}: an explicit empty value means
+# "CUDA graphs on" and := would refill it.
+_apply_memory_defaults() {
+  local mib="$1"
+
+  if [ -n "$mib" ] && [ "$mib" -ge 65536 ]; then
+    : "${ENFORCE_EAGER=}"
+    : "${GPU_MEM_UTIL:=0.35}"
+    return 0
+  fi
+
+  : "${ENFORCE_EAGER=--enforce-eager}"
+  : "${GPU_MEM_UTIL:=0.85}"
+}
+
 # Report the flags that will actually be used, which is not always the branch's
 # own preference: an explicit override reaches here already set.
 _report_gpu_defaults() {
@@ -57,9 +90,15 @@ _report_blackwell_caveat() {
 # Fill in DTYPE and ATTENTION_BACKEND to match the detected card.  An empty
 # ATTENTION_BACKEND means "let vLLM choose", which is right on Ampere and newer.
 apply_gpu_defaults() {
-  local cap major
+  local cap major mib
   cap="$(_gpu_compute_cap)"
   major="${cap%%.*}"
+
+  mib="$(_gpu_total_mem_mib)"
+  _apply_memory_defaults "$mib"
+  echo "gpu-defaults: ${mib:-unknown} MiB ->" \
+       "--gpu-memory-utilization $GPU_MEM_UTIL," \
+       "${ENFORCE_EAGER:-CUDA graphs enabled}" >&2
 
   if [ -n "$cap" ] && [ "$major" -ge 8 ]; then
     # Ampere or newer: the configuration the determinism spike validated, with

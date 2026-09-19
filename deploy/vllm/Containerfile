@@ -30,22 +30,22 @@ ENV VLLM_USE_FLASHINFER_SAMPLER=0 \
     MANUSCRIBE_VLLM_URL=http://127.0.0.1:8000/v1 \
     MANUSCRIBE_VLLM_MODEL=lightonocr
 
-# The dtype and the attention backend depend on the card, which is invisible at
-# build time, so the entrypoint resolves them per container start (see
-# gpu-defaults.sh) before exec'ing the base image's `vllm serve`.
-COPY deploy/vllm/gpu-defaults.sh deploy/vllm/entrypoint.sh /usr/local/bin/
-RUN chmod +x /usr/local/bin/gpu-defaults.sh /usr/local/bin/entrypoint.sh
+# The card is invisible at build time and `podman run` can replace the model, so
+# the entrypoint resolves what either determines at container start (see
+# gpu-defaults.sh, model-defaults.sh) before exec'ing the base `vllm serve`.
+COPY deploy/vllm/gpu-defaults.sh deploy/vllm/model-defaults.sh \
+     deploy/vllm/entrypoint.sh /usr/local/bin/
+RUN chmod +x /usr/local/bin/gpu-defaults.sh /usr/local/bin/model-defaults.sh \
+             /usr/local/bin/entrypoint.sh
 ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
 
-# Arguments for `vllm serve`, tuned for the 6 GiB card (see
-# spike_results/vllm_determinism.md).  --dtype is deliberately absent: the
-# entrypoint supplies the one the card supports, and an explicit --dtype appended
-# here or on `podman run` overrides it. Running the image starts the warm server;
-# convert PDFs against it with `podman exec`:
+# Arguments for `vllm serve`.  Dtype, attention backend, context window, memory
+# fraction and CUDA graphs are absent on purpose: the entrypoint supplies each,
+# and skips any the run command already carries, so an explicit flag here or on
+# `podman run` wins.
+# Running the image starts the warm server; convert PDFs against it with
+# `podman exec`:
 #   podman exec <name> python3 -m manuscribe /data/in.pdf /data/out.html
 CMD ["lightonai/LightOnOCR-2-1B-bbox", \
      "--served-model-name", "lightonocr", \
-     "--gpu-memory-utilization", "0.85", \
-     "--max-model-len", "8192", \
-     "--limit-mm-per-prompt", "{\"image\": 1}", \
-     "--enforce-eager"]
+     "--limit-mm-per-prompt", "{\"image\": 1}"]

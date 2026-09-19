@@ -250,6 +250,29 @@ class TestNumberedReferenceConsolidation:
         assert "J Biosci Bioeng. dehydrogenase is independent" in out[1]
         assert out[1].count("<li>") == 1
 
+    def test_stranded_tail_survives_a_tight_ol(self) -> None:
+        from manuscribe.pipeline.assemble import (
+            _consolidate_numbered_references,
+            _sanitize_content_html,
+        )
+        from manuscribe.pipeline.markdown import _md_to_html_blocks
+
+        # Adjacent numbered lines (a densely set bibliography) render as a *tight*
+        # <ol> — <li> with no inner <p> — so a fold point looked up as the last </p>
+        # does not exist; splicing there anyway hides the tail inside </ol>, which
+        # the sanitizer then drops without error.
+        ol = _md_to_html_blocks("1. Smith, A. Title one.\n2. Jones, B. Title two.")[0]
+        assert "<p>" not in ol
+        parts = [
+            "<h2>References</h2>",
+            ol,
+            "<p>continued tail of the entry.</p>",
+        ]
+        out = _consolidate_numbered_references(_as_blocks(parts))
+        assert len(out) == 2
+        assert "</ol " not in out[1]
+        assert "continued tail of the entry." in _sanitize_content_html(out[1])
+
     def test_capital_led_entry_after_ol_not_folded(self) -> None:
         from manuscribe.pipeline.assemble import _consolidate_numbered_references
 

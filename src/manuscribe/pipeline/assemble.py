@@ -744,8 +744,19 @@ def _consolidate_numbered_references(blocks: list[Block]) -> list[str]:
             and _OL_BLOCK_RE.match(out[-1])
             and _is_reference_continuation(parts[i])
         ):
-            inner = _plain_p_text(parts[i])
+            # markdown-it only wraps an <li>'s text in a <p> for a *loose* list
+            # (blank-line-separated entries); adjacent numbered lines render tight,
+            # with no <p> at all.  Fall back to the </li>, and splice only at a real
+            # index: rfind's -1 lands the text inside the closing tag, where
+            # _sanitize_content_html drops it silently along with the recovery.
             cut = out[-1].rfind("</p>")
+            if cut < 0:
+                cut = out[-1].rfind("</li>")
+            if cut < 0:
+                out.append(parts[i])
+                i += 1
+                continue
+            inner = _plain_p_text(parts[i])
             out[-1] = f"{out[-1][:cut]} {inner}{out[-1][cut:]}"
             i += 1
             continue

@@ -6,7 +6,7 @@ from __future__ import annotations
 
 import re
 
-from manuscribe.pipeline.text import _visible_text
+from manuscribe.pipeline.text import _collapse_repeated_elements, _visible_text
 
 _TABLE_RE = re.compile(r"<table\b.*?</table>", re.DOTALL | re.IGNORECASE)
 _OPEN_TABLE_RE = re.compile(r"<table\b", re.IGNORECASE)
@@ -22,10 +22,6 @@ _TABLE_OPEN_RE = re.compile(r"\s*<table\b[^>]*>", re.IGNORECASE)
 # out as level-2+ markdown headings; level-1 is the table's overall caption, which
 # the pipeline already carries as its own block, so it is left out here.
 _SUBHEADING_RE = re.compile(r"^#{2,6}\s+(.*\S)\s*$", re.MULTILINE)
-
-# More than this many byte-identical consecutive rows is a decode repetition loop,
-# not real data — a genuine table never repeats one row this many times in a row.
-_MAX_IDENTICAL_ROW_RUN = 3
 
 
 def _close_unclosed_tables(md: str) -> str:
@@ -102,33 +98,11 @@ def _collapse_repeated_rows(table_html: str) -> str:
     A tight table crop sometimes drives the model into a decode repetition loop:
     it emits one row over and over (the "RAMS Deviations" explosion — dozens of
     identical rows trailing a real table).  A run of more than
-    ``_MAX_IDENTICAL_ROW_RUN`` byte-identical adjacent rows is that pathology, never
-    real tabular data, so it is reduced to its first occurrence.  Left in, the loop's
-    cell count also beats the truncated original and wins the substitution gate."""
-    matches = list(_ROW_RE.finditer(table_html))
-    drop = [False] * len(matches)
-    i = 0
-    while i < len(matches):
-        key = matches[i].group()
-        j = i + 1
-        while j < len(matches) and matches[j].group() == key:
-            j += 1
-        if j - i > _MAX_IDENTICAL_ROW_RUN:
-            for k in range(i + 1, j):
-                drop[k] = True
-        i = j
-    if not any(drop):
-        return table_html
-    out: list[str] = []
-    cursor = 0
-    for m, dropped in zip(matches, drop, strict=True):
-        if dropped:
-            gap = table_html[cursor : m.start()]
-            if gap.strip():
-                out.append(gap)
-            cursor = m.end()
-    out.append(table_html[cursor:])
-    return "".join(out)
+    ``_MAX_IDENTICAL_ELEMENT_RUN`` byte-identical adjacent rows is that pathology,
+    never real tabular data, so it is reduced to its first occurrence.  Left in, the
+    loop's cell count also beats the truncated original and wins the substitution
+    gate."""
+    return _collapse_repeated_elements(table_html, _ROW_RE)
 
 
 def _collapse_repeated_rows_md(md: str) -> str:

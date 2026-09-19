@@ -10,6 +10,11 @@ from __future__ import annotations
 import re
 
 _STRIP_TAGS_RE = re.compile(r"<[^>]+>")
+# More than this many byte-identical consecutive sibling elements is a decode
+# repetition loop, not real content — no document repeats one row, paragraph or
+# list item this many times in a row.  Shared by every decode-loop guard
+# (``_collapse_repeated_elements``) so the bar can't drift between them.
+_MAX_IDENTICAL_ELEMENT_RUN = 3
 _SENTENCE_END_RE = re.compile(r"[.!?;:]\s*$")
 # The canonical superscript-digit class *content* (to interpolate inside ``[…]`` and
 # ``(?!…)``): ``¹²³`` are Latin-1 (U+00B9/B2/B3), ``⁰⁴-⁹`` are U+2070/2074-2079.
@@ -149,3 +154,39 @@ def _opens_with_table_label(text: str) -> bool:
     """True when text's visible content opens with a *table* caption label
     ("Table 2 …", "TABLE 2 | …") — the figure-caption case excluded."""
     return bool(_TABLE_CAPTION_RE.match(_visible_text(text).lstrip()))
+
+
+def _collapse_repeated_elements(html: str, element_re: re.Pattern[str]) -> str:
+    """Collapse each run of more than ``_MAX_IDENTICAL_ELEMENT_RUN`` byte-identical
+    adjacent ``element_re`` matches down to its first occurrence.
+
+    The shared mechanism behind every decode-loop guard: the caller supplies the
+    element the loop repeats — table rows for a looped table crop
+    (``tables.markup._collapse_repeated_rows``), any element for chandra's div inner
+    HTML (``chandra._iter_divs``) — and everything between kept matches (whitespace,
+    surrounding tags) is preserved, so a document with no degenerate run comes back
+    byte-for-byte and the pass is idempotent."""
+    matches = list(element_re.finditer(html))
+    drop = [False] * len(matches)
+    i = 0
+    while i < len(matches):
+        key = matches[i].group()
+        j = i + 1
+        while j < len(matches) and matches[j].group() == key:
+            j += 1
+        if j - i > _MAX_IDENTICAL_ELEMENT_RUN:
+            for k in range(i + 1, j):
+                drop[k] = True
+        i = j
+    if not any(drop):
+        return html
+    out: list[str] = []
+    cursor = 0
+    for m, dropped in zip(matches, drop, strict=True):
+        if dropped:
+            gap = html[cursor : m.start()]
+            if gap.strip():
+                out.append(gap)
+            cursor = m.end()
+    out.append(html[cursor:])
+    return "".join(out)

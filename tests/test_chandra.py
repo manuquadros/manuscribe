@@ -13,15 +13,10 @@ from manuscribe.pipeline.assemble import (
     lightonocr_pdf_to_document,
 )
 from manuscribe.pipeline.block import BlockKind
-from manuscribe.pipeline.chandra import (
-    _MAX_IDENTICAL_BLOCK_RUN,
-    _collapse_repeated_divs,
-    _iter_divs,
-    _RawDiv,
-    parse_chandra_response,
-)
+from manuscribe.pipeline.chandra import _iter_divs, parse_chandra_response
 from manuscribe.pipeline.classify import _leading_pages_to_skip_html
 from manuscribe.pipeline.model import OcrEngine, OcrModel
+from manuscribe.pipeline.text import _MAX_IDENTICAL_ELEMENT_RUN
 
 _FIXTURES = Path(__file__).parent / "fixtures"
 
@@ -60,34 +55,40 @@ class TestIterDivs:
         assert _iter_divs(raw) == []
 
 
-class TestCollapseRepeatedDivs:
-    def _run(self, n: int) -> list[_RawDiv]:
-        return [_RawDiv(label="Text", bbox=(0, 0, 1, 1), inner_html="<p>Loop.</p>")] * n
+class TestCollapseDecodeLoop:
+    """The confirmed hallucination repeats one element *inside* a single div — a
+    figure's ``<p>`` label emitted 342 times until the token budget ran out (the
+    phase-1 spike dumps hold runs of 336 and 491) — so the run to collapse is
+    between an element and its siblings, not between whole divs."""
 
-    def test_short_run_left_alone(self) -> None:
-        divs = self._run(_MAX_IDENTICAL_BLOCK_RUN)
-        assert _collapse_repeated_divs(divs) == divs
+    def _looped(self, label: str, element: str, n: int) -> str:
+        return f'<div data-bbox="0 0 500 500" data-label="{label}">{element * n}</div>'
 
-    def test_long_run_collapsed_to_one(self) -> None:
-        # Mirrors the real decode-loop hallucination found in the phase-1 spike
-        # (a caption line repeated 342x), at a fraction of the size.
-        divs = self._run(_MAX_IDENTICAL_BLOCK_RUN + 5)
-        collapsed = _collapse_repeated_divs(divs)
-        assert collapsed == [divs[0]]
+    def test_long_identical_element_run_inside_one_div_collapsed(self) -> None:
+        raw = self._looped("Figure", "<p>His-tagged PtTRI</p>", 342)
+        (div,) = _iter_divs(raw)
+        assert div.inner_html.count("His-tagged PtTRI") == 1
 
-    def test_run_broken_by_a_different_div_is_not_collapsed_across_it(self) -> None:
-        loop = self._run(_MAX_IDENTICAL_BLOCK_RUN + 5)
-        other = _RawDiv(label="Text", bbox=(0, 0, 1, 1), inner_html="<p>Other.</p>")
-        divs = loop + [other] + loop
-        collapsed = _collapse_repeated_divs(divs)
-        assert collapsed == [loop[0], other, loop[0]]
+    def test_short_run_inside_a_div_left_alone(self) -> None:
+        # Three identical short labels ("kDa M" over two gel panels) can coincide.
+        raw = self._looped("Figure", "<p>kDa M</p>", _MAX_IDENTICAL_ELEMENT_RUN)
+        (div,) = _iter_divs(raw)
+        assert div.inner_html.count("<p>kDa M</p>") == _MAX_IDENTICAL_ELEMENT_RUN
 
-    def test_different_labels_are_not_collapsed_together(self) -> None:
-        divs = [
-            _RawDiv(label="Text", bbox=(0, 0, 1, 1), inner_html="<p>x</p>"),
-            _RawDiv(label="Caption", bbox=(0, 0, 1, 1), inner_html="<p>x</p>"),
-        ]
-        assert _collapse_repeated_divs(divs) == divs
+    def test_content_around_the_loop_survives(self) -> None:
+        raw = (
+            '<div data-bbox="0 0 500 500" data-label="Figure">'
+            '<img alt="gel">' + "<p>Loop.</p>" * 9 + "<p>Figure 1. Real.</p></div>"
+        )
+        (div,) = _iter_divs(raw)
+        assert div.inner_html.count("<p>Loop.</p>") == 1
+        assert '<img alt="gel">' in div.inner_html
+        assert "<p>Figure 1. Real.</p>" in div.inner_html
+
+    def test_loop_does_not_reach_the_blocks(self) -> None:
+        raw = self._looped("Text", "<p>His-tagged PtTRI</p>", 342)
+        blocks = parse_chandra_response(raw, _page())
+        assert sum(b.html.count("His-tagged PtTRI") for b in blocks) == 1
 
 
 class TestParseChandraResponse:
@@ -122,13 +123,6 @@ class TestParseChandraResponse:
         assert len(blocks) == 2
         assert blocks[0].kind is BlockKind.PARAGRAPH
         assert blocks[1].kind is BlockKind.FIGURE
-
-    def test_decode_loop_collapsed_before_becoming_blocks(self) -> None:
-        looped_div = (
-            '<div data-bbox="0 0 10 10" data-label="Text"><p>Loop.</p></div>'
-        ) * (_MAX_IDENTICAL_BLOCK_RUN + 5)
-        blocks = parse_chandra_response(looped_div, _page())
-        assert len(blocks) == 1
 
     def test_source_page_threaded_through(self) -> None:
         raw = '<div data-bbox="0 0 10 10" data-label="Text"><p>x</p></div>'

@@ -11,7 +11,7 @@ choices are based on: the ``[0, 1000]``-normalized bbox convention (shared with
 LightOnOCR — ``figures._denormalize_bbox`` is reused as-is), the ``data-bbox=``/
 ``data=`` attribute-name split (fixed per page, not per document — both must be
 accepted unconditionally), and the one confirmed decode-loop hallucination that
-motivates ``_collapse_repeated_divs``.
+motivates the ``_ELEMENT_RE`` collapse in ``_iter_divs``.
 """
 
 from __future__ import annotations
@@ -28,6 +28,7 @@ from manuscribe.pipeline.figures import (
     _denormalize_bbox,
     _figure_html,
 )
+from manuscribe.pipeline.text import _collapse_repeated_elements
 
 # Matches both attribute-name variants chandra emits for the same bbox convention
 # (see the module docstring) — a parser that accepts only one silently drops every
@@ -38,11 +39,16 @@ _DIV_RE = re.compile(
     re.DOTALL,
 )
 _IMG_TAG_RE = re.compile(r"<img\b")
-
-# A run of more than this many byte-identical adjacent divs (same label + content)
-# is a decode-loop hallucination, never real repeated content — same bar
-# tables.markup._MAX_IDENTICAL_ROW_RUN uses for the table-row-specific case.
-_MAX_IDENTICAL_BLOCK_RUN = 3
+# Any element together with its matching close tag.  The observed decode loop
+# repeats a <p>, but the model gets stuck on whatever element it was emitting, so
+# the tag is captured and back-referenced rather than listed: the run comparison
+# then stays tag-for-tag whichever element looped.  Non-greedy and outermost-first,
+# so a <table> or <ol> is one match and its rows/items are not mistaken for
+# siblings of the surrounding text.
+_ELEMENT_RE = re.compile(
+    r"<(?P<tag>[a-zA-Z][\w-]*)\b[^>]*>.*?</(?P=tag)\s*>",
+    re.DOTALL,
+)
 
 _FIGURE_LABELS = frozenset({"Figure", "Image", "Chemical-Block", "Diagram"})
 
@@ -57,7 +63,15 @@ class _RawDiv:
 def _iter_divs(raw: str) -> list[_RawDiv]:
     """Parse chandra's flat div sequence, skipping a block whose bbox attribute
     doesn't parse as four numbers rather than raising — a response is untyped
-    model output, not a trusted format."""
+    model output, not a trusted format.
+
+    Each div's inner HTML passes through the decode-loop guard here, where every
+    consumer of a ``_RawDiv`` gets it: the confirmed hallucination (see the module
+    docstring) repeats one element *inside* a single div — a figure's ``<p>`` label
+    emitted 342 times until the token budget ran out — so the run to collapse is
+    between an element and its siblings, not between whole divs. A short run (at or
+    below ``_MAX_IDENTICAL_ELEMENT_RUN``) is left alone; nothing here claims three
+    identical short labels can't genuinely coincide."""
     divs: list[_RawDiv] = []
     for m in _DIV_RE.finditer(raw):
         coords = [round(float(x)) for x in m.group("bbox").split()]
@@ -68,37 +82,10 @@ def _iter_divs(raw: str) -> list[_RawDiv]:
             _RawDiv(
                 label=m.group("label"),
                 bbox=(x0, y0, x1, y1),
-                inner_html=m.group("inner"),
+                inner_html=_collapse_repeated_elements(m.group("inner"), _ELEMENT_RE),
             )
         )
     return divs
-
-
-def _collapse_repeated_divs(divs: list[_RawDiv]) -> list[_RawDiv]:
-    """Collapse a decode-loop run of more than ``_MAX_IDENTICAL_BLOCK_RUN``
-    byte-identical adjacent divs to the first occurrence.
-
-    Generalizes ``tables.markup._collapse_repeated_rows``'s table-row guard to any
-    block type: the confirmed loop (see module docstring) was a repeated ``<p>``
-    caption, not a table row, so the row-specific collapse doesn't see it. A short
-    run (at or below the bar) is left alone — nothing here claims two or three
-    genuinely identical short captions can't coincide."""
-    out: list[_RawDiv] = []
-    i = 0
-    while i < len(divs):
-        j = i + 1
-        while (
-            j < len(divs)
-            and divs[j].label == divs[i].label
-            and divs[j].inner_html == divs[i].inner_html
-        ):
-            j += 1
-        if j - i > _MAX_IDENTICAL_BLOCK_RUN:
-            out.append(divs[i])
-        else:
-            out.extend(divs[i:j])
-        i = j
-    return out
 
 
 def _split_leading_text(inner_html: str) -> str | None:
@@ -133,7 +120,7 @@ def parse_chandra_response(
     document order.
     """
     blocks: list[Block] = []
-    for div in _collapse_repeated_divs(_iter_divs(raw)):
+    for div in _iter_divs(raw):
         if div.label in _FIGURE_LABELS:
             leading_text = _split_leading_text(div.inner_html)
             if leading_text is not None:

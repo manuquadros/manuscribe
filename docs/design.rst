@@ -433,7 +433,7 @@ core so it runs whether or not the re-OCR pass did.
 One more shape pathology is deterministic too: a *decode loop*.  On a dense table
 either OCR path can repeat a single row dozens of times (one fixture's table
 ballooned to ~110 rows).  :func:`~manuscribe.pipeline.tables.markup._collapse_repeated_rows_md`
-collapses any run of more than ``_MAX_IDENTICAL_ROW_RUN`` byte-identical adjacent
+collapses any run of more than ``_MAX_IDENTICAL_ELEMENT_RUN`` byte-identical adjacent
 rows to one; like the tag-balancing it lives in the pure core and runs over every
 page table, so it covers both the page-level length-retry and the crop re-OCR paths.
 The lesson worth keeping: a table test has to bound *over*-generation, not just

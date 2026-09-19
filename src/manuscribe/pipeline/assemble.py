@@ -780,9 +780,15 @@ def _consolidate_numbered_references(blocks: list[Block]) -> list[str]:
 
 
 def _document_shell(
-    *, title_html: str, byline_html: str, abstract: str, metadata: str, body: str
+    *,
+    title_html: str,
+    title_text: str,
+    byline_html: str,
+    abstract: str,
+    metadata: str,
+    body: str,
 ) -> str:
-    title_safe = _html.escape(_visible_text(title_html))
+    title_safe = _html.escape(title_text)
     return f"""<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -962,8 +968,17 @@ def _assemble_pages(pages: list[list[Block]]) -> tuple[str, str, str]:
 
     title_html = _sanitize_content_html(meta.title_html) or "Untitled"
     byline_html = _sanitize_content_html(meta.byline_html)
+    # markdown-it entity-escapes the header HTML (`&` → `&amp;`), so unescape the
+    # tag-stripped text back to the reader-visible title/byline a consumer stores.
+    # Derived from the sanitized HTML so a stripped <script>'s inner text can't leak
+    # into the plain-text title/byline the Hub stores even though the rendered HTML
+    # dropped it.  The shell re-escapes this same string for <title>, so the tab and
+    # the returned title cannot spell one title two ways.
+    title = _html.unescape(_visible_text(title_html)).strip()
+    byline = _html.unescape(_visible_text(byline_html)).strip()
     html = _document_shell(
         title_html=title_html,
+        title_text=title,
         byline_html=byline_html,
         abstract=_abstract_section(
             [_sanitize_content_html(part.html) for part in abstract]
@@ -973,13 +988,6 @@ def _assemble_pages(pages: list[list[Block]]) -> tuple[str, str, str]:
         ),
         body="\n".join(_sanitize_content_html(part.html) for part in body),
     )
-    # markdown-it entity-escapes the header HTML (`&` → `&amp;`), so unescape the
-    # tag-stripped text back to the reader-visible title/byline a consumer stores.
-    # Derived from the sanitized HTML so a stripped <script>'s inner text can't leak
-    # into the plain-text title/byline the Hub stores even though the rendered HTML
-    # dropped it.
-    title = _html.unescape(_visible_text(title_html)).strip()
-    byline = _html.unescape(_visible_text(byline_html)).strip()
     return html, title, byline
 
 

@@ -8,9 +8,12 @@ carry verbatim into the document HTML the D3 Annotation Hub stores and serves.
 of OCR-sourced content HTML goes through before reaching the shell.
 """
 
+import html as _html
+import re
+
 from helpers import _body, _byline, _fake_image, _header_h1, _run_lighton
 
-from manuscribe.pipeline.assemble import _sanitize_content_html
+from manuscribe.pipeline.assemble import _assemble_document, _sanitize_content_html
 
 
 class TestSanitizeContentHtml:
@@ -133,3 +136,22 @@ class TestSanitizeEndToEnd:
         assert "alert(1)" not in html
         assert "Real Title" in _header_h1(html)
         assert "Jane Doe" in _byline(html)
+
+
+class TestDocumentTitleEscaping:
+    """The browser-tab <title>, the <h1> and the plain-text title a consumer stores
+    are three views of one string; only the <h1> keeps markup."""
+
+    def test_ampersand_title_spelled_once_across_the_three_views(self) -> None:
+        md = (
+            "# Tea & Coffee *Biosynthesis*\n\n"
+            "Jane Doe\n\n## Abstract\n\nA.\n\n## Body\n\nSome body text.\n"
+        )
+        html, title, _ = _assemble_document([md], [_fake_image(1190, 1540)])
+
+        assert title == "Tea & Coffee Biosynthesis"
+        tab = re.search(r"<title>(.*?)</title>", html)
+        assert tab, "<title> not found"
+        assert tab.group(1) == "Tea &amp; Coffee Biosynthesis"
+        assert _html.unescape(tab.group(1)) == title
+        assert _header_h1(html) == "Tea &amp; Coffee <em>Biosynthesis</em>"

@@ -478,6 +478,87 @@ class TestOcrSeam:
         assert not ocr.client.is_closed and ocr.client is not first_client
         ocr.close()
 
+    def test_engine_defaults_to_lightonocr(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        import httpx
+
+        from manuscribe.pipeline.model import OcrEngine, load_ocr_model
+
+        monkeypatch.delenv("MANUSCRIBE_OCR_ENGINE", raising=False)
+        self._patch_client(monkeypatch, lambda r: httpx.Response(200, json={}))
+        with load_ocr_model(base_url="http://srv/v1") as ocr:
+            assert ocr.engine is OcrEngine.LIGHTONOCR
+
+    def test_engine_from_env(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        import httpx
+
+        from manuscribe.pipeline.model import OcrEngine, load_ocr_model
+
+        monkeypatch.setenv("MANUSCRIBE_OCR_ENGINE", "chandra")
+        self._patch_client(monkeypatch, lambda r: httpx.Response(200, json={}))
+        with load_ocr_model(base_url="http://srv/v1") as ocr:
+            assert ocr.engine is OcrEngine.CHANDRA
+
+    def test_explicit_engine_wins_over_env(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        import httpx
+
+        from manuscribe.pipeline.model import OcrEngine, load_ocr_model
+
+        monkeypatch.setenv("MANUSCRIBE_OCR_ENGINE", "chandra")
+        self._patch_client(monkeypatch, lambda r: httpx.Response(200, json={}))
+        with load_ocr_model(
+            base_url="http://srv/v1", engine=OcrEngine.LIGHTONOCR
+        ) as ocr:
+            assert ocr.engine is OcrEngine.LIGHTONOCR
+
+    def test_unknown_engine_env_raises_naming_accepted_values(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        import httpx
+
+        from manuscribe.pipeline.model import load_ocr_model
+
+        # A silent fallback would run a chandra server's div-tree through the
+        # markdown parser and produce a wrong document, not a crash.
+        monkeypatch.setenv("MANUSCRIBE_OCR_ENGINE", "tesseract")
+        built = self._patch_client(monkeypatch, lambda r: httpx.Response(200))
+        with pytest.raises(ValueError, match="lightonocr.*chandra"):
+            load_ocr_model(base_url="http://srv/v1")
+        assert built == []  # rejected before any pool is built
+
+    def test_engine_is_not_inferred_from_served_name(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        import httpx
+
+        from manuscribe.pipeline.model import OcrEngine, load_ocr_model
+
+        # run-server.sh serves every model under the fixed name "lightonocr", so
+        # the served name carries no engine signal; only the knob does.
+        monkeypatch.delenv("MANUSCRIBE_OCR_ENGINE", raising=False)
+        self._patch_client(
+            monkeypatch,
+            lambda r: httpx.Response(200, json={"data": [{"id": "chandra"}]}),
+        )
+        with load_ocr_model(base_url="http://srv/v1", model="chandra") as ocr:
+            assert ocr.engine is OcrEngine.LIGHTONOCR
+
+    def test_reconnect_preserves_engine(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        import httpx
+
+        from manuscribe.pipeline.model import OcrEngine, load_ocr_model
+
+        monkeypatch.delenv("MANUSCRIBE_OCR_ENGINE", raising=False)
+        self._patch_client(monkeypatch, lambda r: httpx.Response(200, json={}))
+        ocr = load_ocr_model(base_url="http://srv/v1", engine=OcrEngine.CHANDRA)
+        # The env is unset at reconnect time, so only an explicit pass-through
+        # can keep the bundle on chandra.
+        assert ocr.reconnect().engine is OcrEngine.CHANDRA
+        ocr.close()
+
     def test_reconnect_keeps_old_bundle_when_reprobe_fails(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:

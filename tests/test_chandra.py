@@ -2,8 +2,16 @@
 list[Block]. Synthetic div-tree strings only, no server/GPU — see the ingestion
 adapter design ticket and spike_results/chandra_ocr2_phase1_fidelity.md."""
 
+from pathlib import Path
+
+import httpx
+from helpers import _abstract, _body, _header_h1
 from PIL import Image
 
+from manuscribe.pipeline.assemble import (
+    _assemble_chandra_document,
+    lightonocr_pdf_to_document,
+)
 from manuscribe.pipeline.block import BlockKind
 from manuscribe.pipeline.chandra import (
     _MAX_IDENTICAL_BLOCK_RUN,
@@ -12,6 +20,10 @@ from manuscribe.pipeline.chandra import (
     _RawDiv,
     parse_chandra_response,
 )
+from manuscribe.pipeline.classify import _leading_pages_to_skip_html
+from manuscribe.pipeline.model import OcrEngine, OcrModel
+
+_FIXTURES = Path(__file__).parent / "fixtures"
 
 
 def _page() -> Image.Image:
@@ -122,3 +134,93 @@ class TestParseChandraResponse:
         raw = '<div data-bbox="0 0 10 10" data-label="Text"><p>x</p></div>'
         blocks = parse_chandra_response(raw, _page(), source_page=7)
         assert blocks[0].source_page == 7
+
+
+def _div(label: str, inner: str, y0: int, y1: int) -> str:
+    return f'<div data-bbox="0 {y0} 1000 {y1}" data-label="{label}">{inner}</div>'
+
+
+_ARTICLE_PAGE = (
+    _div("Page-Header", "<p>Journal of X</p>", 0, 30)
+    + _div("Section-Header", "<h1>A Chandra Title</h1>", 30, 80)
+    + _div("Text", "<p>Ann Author<sup>1</sup>, Bob Writer<sup>2</sup></p>", 80, 100)
+    + _div("Section-Header", "<h2>Abstract</h2>", 100, 120)
+    + _div("Text", "<p>We study things.</p>", 120, 200)
+    + _div("Section-Header", "<h2>Introduction</h2>", 200, 220)
+    + _div("Text", "<p>Body prose here.</p>", 220, 400)
+    + _div("Figure", '<img alt="x">', 400, 700)
+    + _div("Caption", "<p>Figure 1. A caption.</p>", 700, 740)
+    + _div("Page-Footer", "<p>1</p>", 960, 1000)
+)
+_AD_PAGE = _div("Text", "<p>Buy our product.</p>", 0, 1000)
+
+
+def _assert_article_rendered(html: str) -> None:
+    assert _header_h1(html) == "A Chandra Title"
+    assert "We study things." in _abstract(html)
+    body = _body(html)
+    assert "<h2>Introduction</h2>" in body
+    assert "Body prose here." in body
+    assert '<figure><img src="data:image/png;base64,' in body
+    assert "Figure 1. A caption." in body
+    assert "Journal of X" not in html
+
+
+class TestAssembleChandraDocument:
+    """The chandra path enters the shared assembly tail (title/abstract/body
+    classification, the document shell) with blocks parsed straight from the
+    div-tree — no markdown stage, no server."""
+
+    def test_synthetic_page_renders_title_abstract_body_figure(self) -> None:
+        html, title, byline = _assemble_chandra_document([_ARTICLE_PAGE], [_page()])
+        _assert_article_rendered(html)
+        assert title == "A Chandra Title"
+        assert byline == "Ann Author1, Bob Writer2"
+
+    def test_leading_cover_page_without_article_heading_dropped(self) -> None:
+        html, _, _ = _assemble_chandra_document(
+            [_AD_PAGE, _ARTICLE_PAGE], [_page(), _page()]
+        )
+        assert "Buy our product." not in html
+        _assert_article_rendered(html)
+
+    def test_leading_pages_to_skip_reads_html_headings(self) -> None:
+        assert _leading_pages_to_skip_html([_AD_PAGE, _ARTICLE_PAGE]) == 1
+        assert _leading_pages_to_skip_html([_ARTICLE_PAGE]) == 0
+        assert _leading_pages_to_skip_html([_AD_PAGE]) == 0
+
+
+class TestEngineDispatch:
+    """``lightonocr_pdf_to_document`` routes a chandra bundle's responses through
+    the div-tree parser, not the markdown path, end to end (real render, real
+    text layer, mocked server)."""
+
+    def test_chandra_bundle_parses_div_tree(self) -> None:
+        # The article on the first request only (serial, so that is page 0): the
+        # same page returned for every request would (correctly) read as running
+        # furniture and be stripped.
+        served = {"n": 0}
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            if request.url.path.endswith("/models"):
+                return httpx.Response(200, json={"data": []})
+            served["n"] += 1
+            content = _ARTICLE_PAGE if served["n"] == 1 else ""
+            return httpx.Response(
+                200, json={"choices": [{"message": {"content": content}}]}
+            )
+
+        client = httpx.Client(transport=httpx.MockTransport(handler))
+        ocr = OcrModel(
+            client=client,
+            base_url="http://srv/v1",
+            model="lightonocr",
+            concurrency=1,
+            engine=OcrEngine.CHANDRA,
+        )
+        with ocr:
+            doc = lightonocr_pdf_to_document(_FIXTURES / "30592559.pdf", ocr=ocr)
+        _assert_article_rendered(doc.html)
+        assert doc.title == "A Chandra Title"
+        # The DOI scan is engine-agnostic: it reads the fixture's text layer.
+        assert doc.doi is not None

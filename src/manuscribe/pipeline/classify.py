@@ -88,6 +88,8 @@ _ARTICLE_HEADING_RE = re.compile(
 )
 # A markdown ATX heading line ("## Title"), capturing the heading text.
 _MD_HEADING_LINE_RE = re.compile(r"^#{1,6}\s+(.*)")
+# The same, for an HTML heading anywhere in a raw chandra page response.
+_HTML_HEADING_RE = re.compile(r"<h([1-6])\b[^>]*>(.*?)</h\1>", re.DOTALL)
 # Headings that may legitimately sit *inside* the front matter (between the
 # abstract and the article body).  Everything up to the first heading that is
 # neither one of these nor a document-type label is treated as front matter,
@@ -480,6 +482,26 @@ def _leading_pages_to_skip_md(pages_md: list[str]) -> int:
             i
             for i, md in enumerate(pages_md[:_MAX_LEADING_SKIP_PAGES])
             if _is_article_page_md(md)
+        ),
+        0,
+    )
+
+
+def _is_article_page_html(raw: str) -> bool:
+    """:func:`_is_article_page_md` for a chandra response, whose headings are
+    ``<h*>`` elements inside labeled divs rather than ``#`` lines."""
+    return any(
+        _ARTICLE_HEADING_RE.match(_visible_text(m.group(2)).strip())
+        for m in _HTML_HEADING_RE.finditer(raw)
+    )
+
+
+def _leading_pages_to_skip_html(pages_raw: list[str]) -> int:
+    return next(
+        (
+            i
+            for i, raw in enumerate(pages_raw[:_MAX_LEADING_SKIP_PAGES])
+            if _is_article_page_html(raw)
         ),
         0,
     )

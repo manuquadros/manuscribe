@@ -275,6 +275,22 @@ Tunables are env overrides, e.g.:
 PORT=8001 GPU_MEM_UTIL=0.80 ./deploy/vllm/run-server.sh
 ```
 
+### Serving a different OCR model (chandra-ocr-2)
+
+`MODEL=` swaps the weights, but the served name stays `lightonocr` whatever is
+loaded, so the client cannot tell from the `/models` probe which model answers.
+The pipeline therefore never infers the engine from the served name: the
+client-side signal is `MANUSCRIBE_OCR_ENGINE` (`lightonocr`, the default, or
+`chandra`), which selects how each page's response is parsed — an unknown value
+is rejected at `load_ocr_model()` rather than silently defaulted.
+
+```
+MODEL=datalab-to/chandra-ocr-2 ./deploy/vllm/run-server.sh
+MANUSCRIBE_OCR_ENGINE=chandra pdm run python -m manuscribe in.pdf out.html
+```
+
+The request is identical for both models; only the ingestion differs.
+
 ### Which interface the port lands on
 
 **The default is `127.0.0.1`** — the server is unreachable from other machines

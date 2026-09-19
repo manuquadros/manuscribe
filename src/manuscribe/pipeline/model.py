@@ -1,4 +1,4 @@
-"""LightOnOCR seam: OCR one page image to markdown via a vLLM server.
+"""OCR seam: OCR one page image to the model's raw response via a vLLM server.
 
 The GPU work runs in a vLLM OpenAI-compatible server (see ``deploy/vllm/``), so
 this module is a thin HTTP client rather than an in-process model load.  It keeps
@@ -17,6 +17,7 @@ import time
 import warnings
 from concurrent.futures import FIRST_EXCEPTION, ThreadPoolExecutor, wait
 from dataclasses import dataclass
+from enum import Enum
 
 import httpx
 from PIL import Image  # noqa: TC002 — beartype reads annotations at runtime
@@ -63,9 +64,18 @@ _RETRYABLE_STATUS = frozenset({429, 502, 503, 504})
 _MAX_RETRY_AFTER_S = 30.0
 
 
+class OcrEngine(Enum):
+    """Which model the server is running, i.e. which response *ingestion* path
+    applies: LightOnOCR's markdown-with-inline-bbox or chandra-ocr-2's labeled
+    div-tree (``pipeline.chandra``).  The request itself is identical for both."""
+
+    LIGHTONOCR = "lightonocr"
+    CHANDRA = "chandra"
+
+
 @dataclass
 class OcrModel:
-    """Open connection to a vLLM server hosting LightOnOCR + the served name.
+    """Open connection to a vLLM server hosting the OCR model + the served name.
 
     Holds an ``httpx.Client`` (a connection pool), so close it when done — or use
     it as a context manager.  ``lightonocr_pdf_to_html`` closes the bundle it
@@ -84,6 +94,11 @@ class OcrModel:
     ``request_timeout`` is the resolved per-request budget, retained so
     :meth:`reconnect` can rebuild the pool with the *same* timeout the caller chose
     (an explicit ``load_ocr_model(timeout=…)`` would otherwise be lost on reconnect).
+
+    ``engine`` selects the response ingestion path (see :class:`OcrEngine`).  It is
+    resolved once at load time from the explicit arg or ``MANUSCRIBE_OCR_ENGINE`` —
+    never inferred from the served model name, which ``run-server.sh`` fixes at
+    ``lightonocr`` whatever weights it loads.
     """
 
     client: httpx.Client
@@ -92,6 +107,7 @@ class OcrModel:
     context_len: int = _DEFAULT_MODEL_CONTEXT_LEN
     concurrency: int = _DEFAULT_OCR_CONCURRENCY
     request_timeout: float = _DEFAULT_REQUEST_TIMEOUT_S
+    engine: OcrEngine = OcrEngine.LIGHTONOCR
 
     def close(self) -> None:
         self.client.close()
@@ -115,15 +131,17 @@ class OcrModel:
 
         The new pool is built and probed first; only on success is the stale pool
         closed and its fields swapped in, so a failed reconnect leaves the existing
-        bundle intact and usable.  ``base_url``/``model``/``request_timeout`` are
-        preserved.  Returns ``self`` so the call can be chained.
+        bundle intact and usable.  ``base_url``/``model``/``request_timeout``/
+        ``engine`` are preserved.  Returns ``self`` so the call can be chained.
 
         Raises:
             OcrUnavailableError: if the server is still unreachable (the freshly built
                 pool is closed on that path by ``load_ocr_model``; ``self`` is left
                 untouched).
         """
-        fresh = load_ocr_model(self.base_url, self.model, self.request_timeout)
+        fresh = load_ocr_model(
+            self.base_url, self.model, self.request_timeout, self.engine
+        )
         self.close()  # tear down the stale pool only once the new one is up
         self.client = fresh.client
         self.context_len = fresh.context_len
@@ -154,6 +172,7 @@ def load_ocr_model(
     base_url: str | None = None,
     model: str | None = None,
     timeout: float | None = None,
+    engine: OcrEngine | None = None,
 ) -> OcrModel:
     """Open a client to the vLLM server and verify it is reachable.
 
@@ -164,16 +183,20 @@ def load_ocr_model(
             ``lightonocr``.
         timeout: Per-request timeout in seconds.  ``None`` (the default) resolves
             ``MANUSCRIBE_OCR_TIMEOUT``, then ``_DEFAULT_REQUEST_TIMEOUT_S``.
+        engine: Which model's response the server returns.  ``None`` (the default)
+            resolves ``MANUSCRIBE_OCR_ENGINE``, then ``OcrEngine.LIGHTONOCR``.
 
     Raises:
         OcrUnavailableError: If the server is unreachable or unhealthy (the probe's
             ``httpx.HTTPError`` is preserved as ``__cause__``).  Callers that want to
             degrade gracefully (e.g. the integration fixture) catch this.
+        ValueError: If ``MANUSCRIBE_OCR_ENGINE`` names no known engine.
     """
     base_url = _resolve_base_url(base_url)
     model = model or os.environ.get("MANUSCRIBE_VLLM_MODEL", _DEFAULT_MODEL)
     concurrency = _resolve_ocr_concurrency()
     request_timeout = timeout if timeout is not None else _resolve_request_timeout()
+    engine = engine if engine is not None else _resolve_ocr_engine()
     client = httpx.Client(timeout=request_timeout, limits=_client_limits(concurrency))
     try:
         response = client.get(f"{base_url}/models", timeout=_resolve_health_timeout())
@@ -198,7 +221,25 @@ def load_ocr_model(
         context_len=context_len,
         concurrency=concurrency,
         request_timeout=request_timeout,
+        engine=engine,
     )
+
+
+def _resolve_ocr_engine() -> OcrEngine:
+    """``MANUSCRIBE_OCR_ENGINE``, else LightOnOCR.  An unknown value raises rather
+    than falling back: silently parsing a chandra server's div-tree as markdown
+    would produce a wrong document, not a crash."""
+    raw = os.environ.get("MANUSCRIBE_OCR_ENGINE")
+    if raw is None:
+        return OcrEngine.LIGHTONOCR
+    try:
+        return OcrEngine(raw.strip().lower())
+    except ValueError:
+        accepted = ", ".join(e.value for e in OcrEngine)
+        raise ValueError(
+            f"MANUSCRIBE_OCR_ENGINE={raw!r} is not an OCR engine; expected one of: "
+            f"{accepted}"
+        ) from None
 
 
 def _env_int(name: str, default: int) -> int:
@@ -396,7 +437,9 @@ def _post_ocr_page(
 def _ocr_page(
     image: Image.Image, ocr: OcrModel, max_new_tokens: int = _OCR_MAX_NEW_TOKENS
 ) -> str:
-    """OCR a single page image to markdown via the vLLM chat endpoint.
+    """OCR a single page image via the vLLM chat endpoint, returning the model's
+    raw response text (LightOnOCR markdown, or chandra's div-tree — see
+    ``OcrModel.engine``; the request is the same for both).
 
     Greedy (``temperature=0``) so the result is the most-likely transcription and
     reproducible run-to-run, matching the former in-process decode.  The model
@@ -448,7 +491,8 @@ def _ocr_pages(
     max_new_tokens: int = _OCR_MAX_NEW_TOKENS,
     concurrency: int | None = None,
 ) -> list[str]:
-    """OCR page images via the vLLM server, returning their markdown in page order.
+    """OCR page images via the vLLM server, returning their raw responses in page
+    order.
 
     Requests are issued with up to ``concurrency`` in flight at once (``None`` ->
     ``ocr.concurrency``, the value resolved once at ``load_ocr_model`` time and used to

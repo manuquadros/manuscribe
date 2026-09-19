@@ -20,6 +20,7 @@ import nh3
 from PIL import Image  # noqa: TC002 — beartype reads annotations at runtime
 
 from manuscribe.pipeline.block import Block, BlockKind
+from manuscribe.pipeline.chandra import parse_chandra_response
 from manuscribe.pipeline.classify import (
     _FOOTNOTE_MARKER_CHARS,
     _UNICODE_SUP_MARKER_RE,
@@ -27,6 +28,7 @@ from manuscribe.pipeline.classify import (
     _extract_front_matter,
     _extract_named_metadata_sections,
     _extract_stray_metadata,
+    _leading_pages_to_skip_html,
     _leading_pages_to_skip_md,
     _normalize_heading_levels,
     _recover_headingless_abstract,
@@ -63,7 +65,13 @@ from manuscribe.pipeline.merge import (
     _merge_split_panel_tables,
     _merge_split_paragraphs_stable,
 )
-from manuscribe.pipeline.model import OcrModel, _ocr_page, _ocr_pages, load_ocr_model
+from manuscribe.pipeline.model import (
+    OcrEngine,
+    OcrModel,
+    _ocr_page,
+    _ocr_pages,
+    load_ocr_model,
+)
 from manuscribe.pipeline.reconcile import _reconcile_text_layer
 from manuscribe.pipeline.recover_figures import _recover_dropped_figures
 from manuscribe.pipeline.render import _render_page_images
@@ -799,8 +807,8 @@ def _assemble_document(
 
     ``start`` is the leading-page skip count; ``None`` (the default, used by every
     standalone caller and test) computes it here.  ``lightonocr_pdf_to_document``
-    instead passes the value :func:`_recover_from_text_layer` already computed for
-    the DOI scan, so the two decisions can't drift apart on the same document."""
+    instead passes the value :func:`_recover_from_text_layer` already computed and
+    the DOI scan used, so the two decisions can't drift apart on the same document."""
     if start is None:
         start = _leading_pages_to_skip_md(pages_md)
     pages_md = pages_md[start:]
@@ -819,6 +827,51 @@ def _assemble_document(
         )
         for md, img in zip(pages_md, images, strict=True)
     ]
+    # From here on, a block is the typed post-flatten `Block` (see block.py), not a
+    # bare str. source_page is exact on construction here and best-effort (None) on
+    # any block a shim in _assemble_pages creates by merging/splitting — nothing
+    # downstream reads it yet, so an approximate value is behavior-neutral.
+    return _assemble_pages(
+        [
+            [Block.of(part, source_page=page_idx) for part in page]
+            for page_idx, page in enumerate(per_page_parts)
+        ]
+    )
+
+
+def _assemble_chandra_document(
+    pages_raw: list[str],
+    images: list[Image.Image],
+    encode_image: ImageSink = _base64_src,
+    start: int | None = None,
+) -> tuple[str, str, str]:
+    """:func:`_assemble_document` for chandra-ocr-2 responses: each page's labeled
+    div-tree is parsed straight into blocks (``pipeline.chandra``) and handed to the
+    same engine-agnostic tail.  None of the markdown-shaped page passes or text-layer
+    recovery passes apply — chandra pre-labels tables and figures itself."""
+    if start is None:
+        start = _leading_pages_to_skip_html(pages_raw)
+    return _assemble_pages(
+        [
+            parse_chandra_response(
+                raw, img, source_page=page_idx, encode_src=encode_image
+            )
+            for page_idx, (raw, img) in enumerate(
+                zip(pages_raw[start:], images[start:], strict=True)
+            )
+        ]
+    )
+
+
+def _assemble_pages(pages: list[list[Block]]) -> tuple[str, str, str]:
+    """The engine-agnostic assembly tail: per-page block lists (leading ad/cover
+    pages already dropped) → cleaned, classified document HTML + plain-text title and
+    byline.  Both :func:`_assemble_document` (LightOnOCR) and
+    :func:`_assemble_chandra_document` end here.
+
+    Every pass below still takes/returns list[str] (they are migrated to read Block
+    fields directly in later, separate changes) so each call is wrapped with a thin
+    unwrap-to-html / rewrap-to-Block shim at its boundary."""
     # Front matter the OCR scattered into the article's first page — a glossary
     # section (Abbreviations / Nomenclature) past the leading-run scan, and
     # self-contained footer lines (correspondence, submission/DOI, supporting-info
@@ -827,26 +880,14 @@ def _assemble_document(
     # the merge can glue following body prose onto it.
     named_metadata: list[str] = []
     stray_metadata: list[str] = []
-    if per_page_parts:
-        named_metadata, per_page_parts[0] = _extract_named_metadata_sections(
-            per_page_parts[0]
+    if pages:
+        named_metadata, page0 = _extract_named_metadata_sections(
+            [b.html for b in pages[0]]
         )
-        stray_metadata, per_page_parts[0] = _extract_stray_metadata(per_page_parts[0])
+        stray_metadata, page0 = _extract_stray_metadata(page0)
+        pages = [[Block.of(s, source_page=0) for s in page0], *pages[1:]]
 
-    # From here on, a block is the typed post-flatten `Block` (see block.py), not a
-    # bare str. Every pass below this point still takes/returns list[str] (they are
-    # migrated to read Block fields directly in later, separate changes — see
-    # pdfparser-tickets/tickets/typed-block-model-design.md) so each call is wrapped
-    # with a thin unwrap-to-html / rewrap-to-Block shim at its boundary. This proves
-    # list[Block] can flow end to end with zero behavior change before any pass's
-    # internals are touched. source_page is exact on construction here and
-    # best-effort (None) on any block a shim below creates by merging/splitting —
-    # nothing downstream reads it yet, so an approximate value is behavior-neutral.
-    blocks: list[Block] = [
-        Block.of(part, source_page=page_idx)
-        for page_idx, page in enumerate(per_page_parts)
-        for part in page
-    ]
+    blocks: list[Block] = [block for page in pages for block in page]
     # Table-cleanup passes, in a load-bearing order: panel-fusion must precede
     # caption colocation so the single "Table N …" caption attaches to the *merged*
     # table; footnote colocation must precede both classify (so a table's footnotes
@@ -960,17 +1001,17 @@ def _recover_from_text_layer(
     pages_md: list[str],
     ocr_region: Callable[[Image.Image], str],
     ocr_regions: Callable[[list[Image.Image]], list[str]],
-) -> tuple[list[str], str | None, int]:
+) -> tuple[list[str], int]:
     """Run the post-OCR PDF-text-layer passes over the page markdown, returning the
-    recovered markdown, the best-effort DOI, and the leading-page skip count computed
-    for the DOI scan — the caller passes it on to :func:`_assemble_document` so the
-    page-drop and the DOI's first-page choice can't disagree on the same document.
+    recovered markdown and the leading-page skip count — the caller uses it for both
+    the DOI scan and :func:`_assemble_document`, so the page-drop and the DOI's
+    first-page choice can't disagree on the same document.
 
-    Every pass here — plus the DOI scan — reads the PDF text layer via the shared
-    ``layers`` (a lazy per-page ``_PageLayer`` cache), which the orchestrator opens
-    **once** for the whole pre-OCR-skip → recover span and closes; a page several passes
-    localize against is walked char-by-char only once.  The pass order is load-bearing
-    (each step's own docstring explains why), so move steps only with that in mind."""
+    Every pass here reads the PDF text layer via the shared ``layers`` (a lazy
+    per-page ``_PageLayer`` cache), which the orchestrator opens **once** for the
+    whole pre-OCR-skip → recover span and closes; a page several passes localize
+    against is walked char-by-char only once.  The pass order is load-bearing (each
+    step's own docstring explains why), so move steps only with that in mind."""
     pages_md = _recover_dropped_tables(layers, pages_md, ocr_regions)
     # Rebuild a two-column table the OCR mangled (off-by-one header, dropped
     # cells) from the deterministic PDF text layer, keeping the OCR's cell
@@ -986,15 +1027,7 @@ def _recover_from_text_layer(
     # table coverage gate's adjacent-token check nor make a figure number look
     # already-emitted.  No-op on a PDF without a usable text layer.
     pages_md = _reconcile_text_layer(layers, pages_md)
-    # DOI from the article's first-page text layer (deterministic), else that
-    # page's OCR text — both keyed on the same leading-ad skip the assembly uses,
-    # so an ad-prefixed PDF's empty page 0 is stepped over.
-    start = _leading_pages_to_skip_md(pages_md)
-    doi = _extract_doi(
-        layers.page_raw_text(start),
-        pages_md[start] if start < len(pages_md) else "",
-    )
-    return pages_md, doi, start
+    return pages_md, _leading_pages_to_skip_md(pages_md)
 
 
 def _ocr_document_pages(
@@ -1027,7 +1060,8 @@ def lightonocr_pdf_to_document(
     image_dir: Path | None = None,
     encode_image: ImageSink | None = None,
 ) -> ParsedDocument:
-    """Parse a PDF with LightOnOCR-2-1B-bbox into HTML plus structured metadata.
+    """Parse a PDF into HTML plus structured metadata with the OCR engine the
+    connection bundle names (``ocr.engine``: LightOnOCR-2-1B-bbox or chandra-ocr-2).
 
     Args:
         pdf_path: Path to the input PDF.
@@ -1068,17 +1102,32 @@ def lightonocr_pdf_to_document(
         # (opened once, not once each); assembly needs no text layer, so it closes
         # before assembly runs.
         with _DocumentLayers.open(pdf_path) as layers:
-            pages_md = _ocr_document_pages(images, layers, ocr)
-            pages_md, doi, start = _recover_from_text_layer(
-                layers, pages_md, ocr_region, ocr_regions
+            pages_raw = _ocr_document_pages(images, layers, ocr)
+            if ocr.engine is OcrEngine.CHANDRA:
+                start = _leading_pages_to_skip_html(pages_raw)
+            else:
+                pages_raw, start = _recover_from_text_layer(
+                    layers, pages_raw, ocr_region, ocr_regions
+                )
+            # DOI from the article's first-page text layer (deterministic), else that
+            # page's OCR text — both keyed on the same leading-ad skip the assembly
+            # uses, so an ad-prefixed PDF's empty page 0 is stepped over.
+            doi = _extract_doi(
+                layers.page_raw_text(start),
+                pages_raw[start] if start < len(pages_raw) else "",
             )
         if encode_image is None:
             encode_image = (
                 _file_image_writer(image_dir) if image_dir is not None else _base64_src
             )
-        html, title, byline = _assemble_document(
-            pages_md, images, ocr_region, encode_image, start=start
-        )
+        if ocr.engine is OcrEngine.CHANDRA:
+            html, title, byline = _assemble_chandra_document(
+                pages_raw, images, encode_image, start=start
+            )
+        else:
+            html, title, byline = _assemble_document(
+                pages_raw, images, ocr_region, encode_image, start=start
+            )
         return ParsedDocument(html=html, title=title, byline=byline, doi=doi)
     finally:
         if owns_ocr:
@@ -1094,7 +1143,7 @@ def lightonocr_pdf_to_html(
     image_dir: Path | None = None,
     encode_image: ImageSink | None = None,
 ) -> str:
-    """Parse a PDF to HTML with LightOnOCR-2-1B-bbox — the ``.html`` of
+    """Parse a PDF to HTML with the engine ``ocr.engine`` names — the ``.html`` of
     :func:`lightonocr_pdf_to_document` (which see for the arguments).  Kept as the
     thin string entry point for the CLI and existing callers."""
     return lightonocr_pdf_to_document(

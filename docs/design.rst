@@ -57,6 +57,17 @@ model as the sole reader of page content and falls back to the text layer only
 in the narrow spots below where OCR is provably, repeatably wrong — table
 geometry and one deterministic table-content rebuild.
 
+That single reader need not be LightOnOCR.  The same request also serves
+``datalab-to/chandra-ocr-2``, selected per
+:class:`~manuscribe.pipeline.model.OcrModel` by ``MANUSCRIBE_OCR_ENGINE=chandra``
+(never inferred from the served model name, which the server script fixes).  chandra
+answers with a pre-labeled div-tree instead of markdown, so
+:mod:`~manuscribe.pipeline.chandra` parses each page straight into blocks and
+:func:`~manuscribe.pipeline.assemble._assemble_chandra_document` enters the flow at the
+**flat block stream** — the markdown stage and the text-layer recovery passes (which
+read LightOnOCR's markdown shapes) are bypassed; everything from the block stream on is
+shared.
+
 The single most important structural decision is the **purity seam**.  The GPU work
 — the LightOnOCR model itself — runs *out of process* in a vLLM server (see
 ``deploy/vllm/``), so :mod:`manuscribe.pipeline.model` is a thin HTTP client rather

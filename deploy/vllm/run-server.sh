@@ -111,7 +111,10 @@ case "$IMAGE" in
 esac
 
 # ENFORCE_EAGER is deliberately unquoted below: empty must expand to *no*
-# argument, which a quoted "" would not do.
+# argument, which a quoted "" would not do. "$@" passes through any of this
+# script's own positional args as extra vLLM flags (e.g. --trust-remote-code
+# for a model that ships custom modeling code, like dots.ocr) — appended last
+# so they can override anything above if vLLM's own last-flag-wins applies.
 # shellcheck disable=SC2086
 exec podman run "${podman_args[@]}" \
   "$IMAGE" \
@@ -123,4 +126,5 @@ exec podman run "${podman_args[@]}" \
     --max-model-len "$MAX_MODEL_LEN" \
     --limit-mm-per-prompt '{"image": 1}' \
     "${backend_args[@]}" \
-    $ENFORCE_EAGER
+    $ENFORCE_EAGER \
+    "$@"

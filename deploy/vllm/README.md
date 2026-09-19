@@ -360,6 +360,37 @@ Renders fixture page 1 with the project's own renderer and OCRs it through the
 chat endpoint; prints the first ~1200 chars of markdown.
 `PDF=… ./deploy/vllm/smoke-test.sh` selects another file.
 
+### Comparing attention backends
+
+On a card where more than one backend is viable, which one vLLM auto-selects is
+not necessarily the fastest — on Blackwell it picks `FLASH_ATTN` and reports
+`Using FlashAttention version 2`, out of a candidate list that also holds
+`FLASHINFER`. The backend is a launch flag, so comparing them means restarting
+the server, not switching at runtime:
+
+```
+# terminal 1, once per backend
+ATTENTION_BACKEND=FLASHINFER ./deploy/vllm/run-server.sh
+
+# terminal 2, after each restart — the label is yours to supply, since
+# /v1/models does not report the backend; read it off the server's startup log
+pdm run python deploy/vllm/bench_attention.py FLASHINFER
+```
+
+Each run appends a row to `spike_results/attention-backend-bench.tsv`: pages/s
+plus the model, window, concurrency and a digest of the transcription. It
+renders before starting the clock, and discards one warm-up pass — FlashInfer
+JIT-compiles its kernels on first use, so a cold pass times the compiler.
+
+**Read the digest column, not just the times.** A backend whose kernels do not
+suit the card can return HTTP 200 and a page of `!` (see
+[float16](#float16-is-not-an-option-for-this-model) for the same shape from a
+different cause); the script refuses to report a timing for output like that,
+but a subtler disagreement between two backends shows up only as differing
+digests. Those are comparable at `--concurrency 1` — above it vLLM's batch
+composition varies with request arrival and the digest changes run to run on one
+backend.
+
 ### Against a server on another host
 
 The GPU box and the machine holding the PDFs need not be the same: the script

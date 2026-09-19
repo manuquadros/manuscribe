@@ -1,13 +1,15 @@
-"""The flags ``deploy/vllm/{model,gpu}-defaults.sh`` derive from the weights
-and from the card.
+"""The parts of ``deploy/vllm/`` that decide something on their own.
 
-Both fail silently rather than loudly, which is why they are pinned here: too
-small a window drops a truncated page's tail, and a 6 GiB card's memory
-fraction reserves tens of GiB of unusable KV cache on a large one.
+All of them fail silently rather than loudly, which is why they are pinned here:
+too small a window drops a truncated page's tail, a 6 GiB card's memory fraction
+reserves tens of GiB of unusable KV cache on a large one, and a garbage
+transcription still arrives as HTTP 200.
 """
 
+import importlib.util
 import os
 import subprocess
+import sys
 from pathlib import Path
 
 from manuscribe.pipeline.model import _ENGINE_BY_WEIGHTS
@@ -15,6 +17,23 @@ from manuscribe.pipeline.model import _ENGINE_BY_WEIGHTS
 _DEPLOY = Path(__file__).resolve().parents[1] / "deploy" / "vllm"
 _SCRIPT = _DEPLOY / "model-defaults.sh"
 _GPU_SCRIPT = _DEPLOY / "gpu-defaults.sh"
+
+
+def _load_bench() -> object:
+    """``bench_attention.py`` -- a script, not a module of the package."""
+    spec = importlib.util.spec_from_file_location(
+        "bench_attention", _DEPLOY / "bench_attention.py"
+    )
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    # Registered before exec: dataclasses resolves the module's string annotations
+    # through sys.modules[cls.__module__].
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+_BENCH = _load_bench()
 
 
 def _run(model: str, **env: str) -> str:
@@ -117,3 +136,27 @@ def test_exported_memory_settings_win_on_a_large_card() -> None:
         "124416", GPU_MEM_UTIL="0.9", ENFORCE_EAGER="--enforce-eager"
     )
     assert (util, eager) == ("0.9", "--enforce-eager")
+
+
+def test_a_real_transcription_passes_the_bench_gate() -> None:
+    page = (
+        "## Results\n\nThe reductase activity of PtTRI was assayed against "
+        "NAD⁺ at 25 °C in 50 mM phosphate buffer, and the specific "
+        "activity of the purified enzyme reached 4.2 U/mg after the final "
+        "chromatography step. Table 2 lists the kinetic constants for each "
+        "substrate tested in this work.\n"
+    )
+    assert _BENCH._degenerate_reason(page) is None
+
+
+def test_the_bench_gate_catches_the_repeated_glyph_failure() -> None:
+    """The fp16/wrong-kernel shape: HTTP 200, finish_reason stop, and a page of
+    one character.  It has to fail here or a broken backend gets a timing."""
+    reason = _BENCH._degenerate_reason("!" * 5000)
+    assert reason is not None
+    assert "!" in reason
+
+
+def test_the_bench_gate_catches_a_response_too_short_to_be_a_page() -> None:
+    assert _BENCH._degenerate_reason("## Results\n") is not None
+    assert _BENCH._degenerate_reason("") is not None

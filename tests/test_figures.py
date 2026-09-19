@@ -135,6 +135,54 @@ class TestSplitFigureCaption:
         # the genuine body sentence after the panels stays in the body
         assert "taurine is imported by a transporter" in _body(html)
 
+    @pytest.mark.parametrize("marker", ["#", "##", "###"])
+    @pytest.mark.parametrize("position", ["after", "before"])
+    def test_heading_form_caption_attached_and_panels_folded(
+        self, marker: str, position: str
+    ) -> None:
+        # The OCR sometimes emits the caption label as a markdown heading rather than
+        # a plain/bold block, adjacent to the placeholder on either side.  It is the
+        # figure's caption: it must not be promoted to a body heading, and the split
+        # "(A) … (B) …" panel paragraph must fold onto it as with the plain form.
+        img = _fake_image(1190, 1540)
+        heading = f"{marker} Figure 1. Gene clusters and metabolic pathways"
+        placeholder = "![image](i.png)100,100,900,600"
+        first, second = (
+            (placeholder, heading) if position == "after" else (heading, placeholder)
+        )
+        md = (
+            "# T\n\n## Abstract\n\nA.\n\n## Body\n\nIntro prose.\n\n"
+            f"{first}\n\n{second}\n\n"
+            "(A) Gene clusters containing IsfD. (B) Pathways relying on the"
+            " isozymes. (C) The dissimilation pathway.\n\n"
+            "In this pathway, taurine is imported by a transporter."
+        )
+        html = _run_lighton([md], image=img)
+        cap = re.search(r"<figcaption>(.*?)</figcaption>", html, re.DOTALL).group(1)
+        assert cap.startswith("Figure 1. Gene clusters and metabolic pathways")
+        assert "(A) Gene clusters containing IsfD." in cap
+        assert "(C) The dissimilation pathway." in cap
+        body = _body(html)
+        assert not re.search(r"<h[1-6]>Figure 1\.", body)
+        assert "<p>(A) Gene clusters containing IsfD" not in body
+        assert "taurine is imported by a transporter" in body
+
+    def test_section_heading_beside_placeholder_stays_a_heading(self) -> None:
+        # Only a heading that opens with the figure label is a caption; a real
+        # section heading abutting a caption-less placeholder keeps its <h2>.
+        img = _fake_image(1190, 1540)
+        md = (
+            "# T\n\n## Abstract\n\nA.\n\n## Body\n\nIntro prose.\n\n"
+            "## Results\n\n"
+            "![image](i.png)100,100,900,600\n\n"
+            "## Discussion\n\n"
+            "Body prose continues."
+        )
+        html = _run_lighton([md], image=img)
+        assert "<figcaption>" not in html
+        assert "<h2>Results</h2>" in html
+        assert "<h2>Discussion</h2>" in html
+
     def test_lowercase_roman_enumeration_not_folded(self) -> None:
         # A body paragraph after a caption that opens with a lowercase roman
         # enumeration "(i) …" is not a panel block (capital-only) and stays in body.

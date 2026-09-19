@@ -261,6 +261,44 @@ def _opens_panel_continuation(block: str) -> bool:
     return _opens_with_panel_label(block) and _is_caption_continuation(block)
 
 
+def _heading_figure_caption(block: str) -> str | None:
+    """The caption text of a figure caption the OCR emitted as a markdown heading
+    (``## Figure 1. Gene clusters …``), or ``None`` for any other block.
+
+    Only a heading opening with the figure label qualifies — a section heading is
+    left alone even when it abuts a placeholder — and the ``#`` marker is dropped so
+    the text is a plain caption rather than a body ``<h2>``."""
+    lines = block.strip().splitlines()
+    if len(lines) != 1:
+        return None
+    heading = _MD_HEADING_RE.match(lines[0])
+    if heading is None or not _looks_like_figure_caption(heading.group(1)):
+        return None
+    return heading.group(1).strip()
+
+
+def _claim_adjacent_caption(
+    raw_blocks: list[str], k: int, blocks: list[_Block]
+) -> tuple[int, str | None]:
+    """The caption block adjacent to the placeholder at ``k``, with the cursor
+    advanced past it when it is the *following* block (a caption-like block or a
+    caption heading); a caption heading the OCR emitted *above* the figure is
+    instead popped off ``blocks`` so it isn't also promoted to a body ``<h2>``."""
+    if k + 1 < len(raw_blocks):
+        following = raw_blocks[k + 1]
+        if _looks_like_figure_caption(following):
+            return k + 1, following.strip()
+        heading_caption = _heading_figure_caption(following)
+        if heading_caption is not None:
+            return k + 1, heading_caption
+    if blocks and isinstance(blocks[-1], _MdBlock):
+        preceding = _heading_figure_caption(blocks[-1].text)
+        if preceding is not None:
+            blocks.pop()
+            return k, preceding
+    return k, None
+
+
 def _fold_next(
     raw_blocks: list[str],
     k: int,
@@ -278,8 +316,9 @@ def _parse_page_blocks(md: str) -> list[_Block]:
     """Split a page's markdown into an ordered stream of prose and figure blocks.
 
     Pure: no image needed.  A figure's caption is taken from the placeholder's
-    own trailing text, else the following caption-like block (which is then
-    consumed); a bare ``FIG. N`` label has its following descriptive block
+    own trailing text, else the following caption-like block, else a ``## Figure
+    N …`` heading directly after or before it (the source block is consumed
+    either way); a bare ``FIG. N`` label has its following descriptive block
     rejoined onto it.  Lone single-letter panel labels the model split out of a
     multi-panel figure are dropped when they abut a placeholder."""
     blocks: list[_Block] = []
@@ -300,13 +339,8 @@ def _parse_page_blocks(md: str) -> list[_Block]:
             continue
         rest = "\n".join(lines[1:]).strip()
         caption: str | None = rest or None
-        if (
-            caption is None
-            and k + 1 < len(raw_blocks)
-            and _looks_like_figure_caption(raw_blocks[k + 1])
-        ):
-            k += 1
-            caption = raw_blocks[k].strip()
+        if caption is None:
+            k, caption = _claim_adjacent_caption(raw_blocks, k, blocks)
         if caption is not None and _is_bare_figure_label(caption):
             k, caption = _fold_next(raw_blocks, k, caption, _is_caption_continuation)
         # Fold each multi-panel sub-description ("(A) … (B) … (C) …") onto the

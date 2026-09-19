@@ -26,12 +26,21 @@ from manuscribe.pipeline.errors import OcrResponseError, OcrUnavailableError
 
 _DEFAULT_BASE_URL = "http://127.0.0.1:8000/v1"
 _DEFAULT_MODEL = "lightonocr"
-_OCR_MAX_NEW_TOKENS = 2048
+# The first pass claims this share of the window, leaving the rest for the page
+# image.  Derived rather than fixed per model because the window is already the
+# per-model value (``deploy/vllm/model-defaults.sh``), so one table governs both
+# and an operator's ``MAX_MODEL_LEN`` carries through: a quarter is 2048 on
+# LightOnOCR's 8192 and 8192 on chandra's 32768.  A page that needs more says so
+# with ``finish_reason == "length"`` and is retried on the remaining window, so
+# the cost of this being low is a second request, not a lost tail — but only
+# while prompt+output stays inside the window, which a quarter guarantees for any
+# page image up to three-quarters of it.
+_FIRST_PASS_WINDOW_SHARE = 4
 # Fallback context window — input (page-image) tokens plus generated tokens — used
 # only when the server's ``/models`` response omits ``max_model_len`` *and* the
 # ``MANUSCRIBE_VLLM_MAX_MODEL_LEN`` override is unset (see ``_resolve_context_len``).
 # It sizes the retry budget when a page's generation truncates: a dense page (a large
-# table plus prose) can exceed ``_OCR_MAX_NEW_TOKENS`` and get cut off mid-output,
+# table plus prose) can exceed the first pass's budget and get cut off mid-output,
 # silently dropping the rest of the table and everything after it.
 _DEFAULT_MODEL_CONTEXT_LEN = 8192
 # Leave a little of the window unclaimed so the retry's ``max_tokens`` can't tip
@@ -487,8 +496,13 @@ def _post_ocr_page(
     return content, finish_reason, prompt_tokens
 
 
+def _first_pass_new_tokens(context_len: int) -> int:
+    """The first pass's ``max_tokens`` for a server window of ``context_len``."""
+    return context_len // _FIRST_PASS_WINDOW_SHARE
+
+
 def _ocr_page(
-    image: Image.Image, ocr: OcrModel, max_new_tokens: int = _OCR_MAX_NEW_TOKENS
+    image: Image.Image, ocr: OcrModel, max_new_tokens: int | None = None
 ) -> str:
     """OCR a single page image via the vLLM chat endpoint, returning the model's
     raw response text (LightOnOCR markdown, or chandra's div-tree — see
@@ -505,7 +519,14 @@ def _ocr_page(
     continues past the cut.  If even the full window is too small, or the retry
     comes back degenerate (empty/shorter than the first response), the best-effort
     truncated text is kept rather than dropped.
+
+    ``max_new_tokens`` defaults to the window's share (``_first_pass_new_tokens``).
     """
+    budget = (
+        _first_pass_new_tokens(ocr.context_len)
+        if max_new_tokens is None
+        else max_new_tokens
+    )
     buffer = io.BytesIO()
     # compress_level=1 over the default 6: the upload destination is loopback
     # (127.0.0.1 -> vLLM), so zlib effort buys no transfer time but ~2x the encode
@@ -513,11 +534,11 @@ def _ocr_page(
     # lossless, so the server decodes pixel-identical input and the OCR is unchanged.
     image.save(buffer, format="PNG", compress_level=1)
     encoded = base64.b64encode(buffer.getvalue()).decode()
-    content, finish_reason, prompt_tokens = _post_ocr_page(encoded, ocr, max_new_tokens)
+    content, finish_reason, prompt_tokens = _post_ocr_page(encoded, ocr, budget)
     if finish_reason != "length" or prompt_tokens is None:
         return content
     retry_budget = ocr.context_len - prompt_tokens - _CONTEXT_SAFETY_MARGIN
-    if retry_budget <= max_new_tokens:
+    if retry_budget <= budget:
         return content
     retried, _, _ = _post_ocr_page(encoded, ocr, retry_budget)
     # A degenerate retry (null content -> "", or a non-deterministic shorter decode)
@@ -541,7 +562,7 @@ def _resolve_health_timeout() -> float:
 def _ocr_pages(
     images: list[Image.Image],
     ocr: OcrModel,
-    max_new_tokens: int = _OCR_MAX_NEW_TOKENS,
+    max_new_tokens: int | None = None,
     concurrency: int | None = None,
 ) -> list[str]:
     """OCR page images via the vLLM server, returning their raw responses in page

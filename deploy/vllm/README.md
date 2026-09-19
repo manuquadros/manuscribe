@@ -450,7 +450,7 @@ def ocr_image(img) -> str:  # img: PIL.Image
     resp = client.chat.completions.create(
         model="lightonocr",
         temperature=0.0,
-        max_tokens=2048,
+        max_tokens=2048,  # the pipeline derives this from the served window
         messages=[
             {
                 "role": "user",

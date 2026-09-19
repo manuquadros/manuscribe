@@ -267,6 +267,55 @@ class TestOcrSeam:
         # The retry claims the full remaining window, not just another fixed block.
         assert calls[1] == 8192 - 2500 - 64
 
+    def test_first_pass_budget_follows_the_served_window(self) -> None:
+        """The first pass is a share of the window, so the per-model max-model-len
+        (deploy/vllm/model-defaults.sh) is the only place the figure is set: a
+        wider window asks for more before it needs a retry at all."""
+        from manuscribe.pipeline.model import _first_pass_new_tokens
+
+        assert _first_pass_new_tokens(8192) == 2048
+        assert _first_pass_new_tokens(32768) == 8192
+
+    def test_first_pass_budget_leaves_room_for_the_page_image(self) -> None:
+        """vLLM rejects a request whose prompt+max_tokens exceeds the window, so
+        the budget has to leave the image most of it."""
+        from manuscribe.pipeline.model import _first_pass_new_tokens
+
+        for window in (4096, 8192, 32768, 262144):
+            budget = _first_pass_new_tokens(window)
+            assert 0 < budget <= window * 3 // 4
+
+    def test_a_wide_window_asks_for_more_on_the_first_request(self) -> None:
+        import json
+
+        import httpx
+
+        from manuscribe.pipeline.model import OcrModel, _ocr_page
+
+        calls: list[int] = []
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            calls.append(json.loads(request.content)["max_tokens"])
+            return httpx.Response(
+                200,
+                json={
+                    "choices": [
+                        {"message": {"content": "a page"}, "finish_reason": "stop"}
+                    ],
+                    "usage": {"prompt_tokens": 2500},
+                },
+            )
+
+        client = httpx.Client(transport=httpx.MockTransport(handler))
+        ocr = OcrModel(
+            client=client,
+            base_url="http://srv/v1",
+            model="lightonocr",
+            context_len=32768,
+        )
+        _ocr_page(_fake_image(8, 8), ocr)
+        assert calls == [8192]
+
     def test_natural_finish_does_not_retry(self) -> None:
         import httpx
 

@@ -20,10 +20,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-# Read before defaulting: the aarch64 warning below skips an explicit IMAGE.
-_image_overridden=1
-[ -z "${IMAGE+x}" ] && _image_overridden=
-IMAGE="${IMAGE:-docker.io/vllm/vllm-openai:v0.22.1}"
+IMAGE="${IMAGE:-docker.io/vllm/vllm-openai:v0.29.0}"
 NAME="${NAME:-lighton-vllm}"
 MODEL="${MODEL:-lightonai/LightOnOCR-2-1B-bbox}"
 PORT="${PORT:-8000}"
@@ -48,11 +45,6 @@ apply_gpu_defaults
 # shellcheck source=deploy/vllm/model-defaults.sh
 . "$SCRIPT_DIR/model-defaults.sh"
 apply_model_defaults "$MODEL"
-
-if [ -z "$_image_overridden" ] && [ "$(uname -m)" = "aarch64" ]; then
-  echo "run-server.sh: $IMAGE is validated on x86_64 only; on aarch64" \
-       "see deploy/vllm/README.md's GB10 section." >&2
-fi
 
 # Mount the host HF cache at a fixed path and point HF_HOME at it explicitly,
 # rather than guessing the image's home dir — the cache is reused (no re-pull of

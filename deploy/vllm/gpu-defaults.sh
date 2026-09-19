@@ -20,7 +20,7 @@
 #                           corrects itself: the backend has to be named.
 #
 # The backend is a *command-line flag*.  VLLM_ATTENTION_BACKEND, which most
-# advice online still names, does not exist in vLLM 0.22.1 -- the string appears
+# advice online still names, did not exist as of vLLM 0.22.1 -- the string appears
 # nowhere in the package -- so setting it is silently inert.
 #
 # Whatever the caller already exported wins; this only fills blanks.

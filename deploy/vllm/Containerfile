@@ -5,10 +5,10 @@
 # Build:  podman build -f deploy/vllm/Containerfile -t lighton-manuscribe .
 # (build context is the repo root so the COPYs see src/ and pyproject.toml)
 #
-# On an arm64 host (GB10) override VLLM_IMAGE, not just the tag: the default
-# repo may publish no arm64 build. See README.md's GB10 section.
+# The default tag publishes an arm64 manifest and runs on GB10. Override
+# VLLM_IMAGE, not just the tag, if you move to one that may not.
 ARG VLLM_IMAGE=docker.io/vllm/vllm-openai
-ARG VLLM_TAG=v0.22.1
+ARG VLLM_TAG=v0.29.0
 FROM ${VLLM_IMAGE}:${VLLM_TAG}
 
 # Freeze the base image's already-installed packages as a constraint file, then

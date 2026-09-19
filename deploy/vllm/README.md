@@ -67,7 +67,7 @@ DTYPE=float16 ATTENTION_BACKEND=FLEX_ATTENTION ./deploy/vllm/run-server.sh
 
 **The backend is a command-line flag, not an environment variable.**
 `VLLM_ATTENTION_BACKEND` — which most advice online, and this repo's own earlier
-comments, still name — **does not exist in vLLM 0.22.1**: the string appears
+comments, still name — **did not exist as of vLLM 0.22.1**: the string appears
 nowhere in the package, so exporting it is silently inert and the server goes on
 selecting FlashInfer. The live knob is `--attention-backend <NAME>` (or
 `--attention-config '{"backend": "<NAME>"}'`; the two are mutually exclusive and
@@ -130,7 +130,7 @@ If a vLLM upgrade ever renames a backend, the valid names are its own enum:
 
 ```
 podman run --rm --device nvidia.com/gpu=all --entrypoint python3 \
-  docker.io/vllm/vllm-openai:v0.22.1 -c \
+  docker.io/vllm/vllm-openai:v0.29.0 -c \
   'from vllm.v1.attention.backends.registry import AttentionBackendEnum as E; print(sorted(m.name for m in E))'
 ```
 
@@ -139,15 +139,16 @@ it is the half of this that a version bump is most likely to move.
 
 ## GB10 / DGX Spark-class unified-memory ARM64 workstations
 
-Everything above (`gpu-defaults.sh`, `run-server.sh`, the `Containerfile`) was
-built and validated against x86_64 hosts with a dedicated-VRAM GPU (a 6 GiB dev
-card, a T4). A Grace-Blackwell unified-memory workstation — the Dell Pro Max
-with GB10, NVIDIA DGX Spark, or anything else built on the GB10 Superchip — is
-different on every axis that matters here, and needs deliberate overrides
-rather than the defaults above:
+A Grace-Blackwell unified-memory workstation — the Dell Pro Max with GB10,
+NVIDIA DGX Spark, or anything else built on the GB10 Superchip — differs on
+every axis this deployment cares about from the x86_64 dedicated-VRAM hosts
+(a 6 GiB dev card, a T4) the scripts were first built against. The defaults now
+cover it, each for a reason worth knowing:
 
-- **ARM64 host, not x86_64.** The Grace CPU is `aarch64`. Any image pulled
-  here must actually ship an arm64 build, not just a matching version number.
+- **ARM64 host, not x86_64.** The Grace CPU is `aarch64`, so an image has to
+  ship an arm64 build, not merely a matching version number. The default tag
+  does, and is what this box runs; a different one may not, and podman then
+  fails the pull with no matching manifest.
 - **Blackwell GPU, compute capability sm_121** (reported by `nvidia-smi` as
   `12.1`). `gpu-defaults.sh` already routes this into the Ampere-or-newer
   branch (`bfloat16`, backend left to vLLM) — bf16 is genuinely correct for
@@ -186,18 +187,17 @@ podman build --from nvcr.io/nvidia/vllm:26.06-py3 \
 ```
 
 Use NGC 26.06 or newer. NGC 25.09 contains vLLM 0.10.1, which does not support
-`LightOnOCRForConditionalGeneration`; NGC 26.06 contains the vLLM 0.22.1
-version used by this deployment.
+`LightOnOCRForConditionalGeneration`; NGC 26.06 contains vLLM 0.22.1, the
+version this deployment used before v0.29.0 became the default.
 
-**Prefer `docker.io/vllm/vllm-openai:v0.29.0` over the NGC route above when it
-publishes an arm64 manifest** (confirm per step 1 below): measured on a DGX
-Spark (GB10, `GPU_MEM_UTIL=0.4`), the same document went from 6:38 wall-clock
-on v0.22.1 to 3:03 on v0.29.0 — roughly 2x, consistent across a full document
-not a single page. Output was byte-identical apart from one figure crop's PNG
-encode. Likely a Blackwell attention-kernel improvement between the two
-releases, not confirmed further than that. Still unverified per the caveat
-below — this only replaces which pre-0.22.1-vs-0.29.0 image to reach for, not
-the "smoke-test before trusting a document" rule.
+`docker.io/vllm/vllm-openai:v0.29.0` is the default and is preferred over the
+NGC route above: measured on a DGX Spark (GB10, `GPU_MEM_UTIL=0.4`), the same
+document went from 6:38 wall-clock on v0.22.1 to 3:03 on v0.29.0 — roughly 2x,
+consistent across a full document not a single page. Output was byte-identical
+apart from one figure crop's PNG encode. Likely a Blackwell attention-kernel
+improvement between the two releases, not confirmed further than that. It
+publishes an arm64 manifest and is what the GB10 box runs. None of this
+displaces the "smoke-test before trusting a document" rule below.
 
 `run-server.sh` accounts for the image entrypoint difference: the official
 vLLM image already runs `vllm serve`, while the NGC image requires that full
@@ -271,7 +271,7 @@ long-lived container over a one-shot-per-PDF run.
 ./deploy/vllm/run-server.sh
 ```
 
-First run pulls the ~16 G `vllm/vllm-openai:v0.22.1` image (disk is tight — see
+First run pulls the ~16 G `vllm/vllm-openai:v0.29.0` image (disk is tight — see
 below). Confirm that exact tag is published first — the image tag set can lag
 the pip release the spike used; check with
 `podman search --list-tags docker.io/vllm/vllm-openai` (or the Docker Hub tags
@@ -501,9 +501,12 @@ podman **quadlet** (systemd user unit) — ask and I'll generate the
   loss — the client gives up on its truncation retry when the remaining budget
   no longer covers a generation, so a dense page's tail is simply gone.
   `MAX_MODEL_LEN` overrides.
-- **Image tag** is pinned to `v0.22.1` to match the validated spike. Bumping it
-  re-opens the determinism/fidelity question — re-run the spike against the new
-  tag before trusting it.
+- **Image tag** defaults to `v0.29.0`, which is what recent engine work — the
+  chandra-ocr-2 / LightOnOCR comparison included — actually ran on. The §4
+  determinism spike was run against `v0.22.1`, so the determinism claims carry
+  that tag's evidence, not this one's; `IMAGE=…:v0.22.1` pins it back. Moving
+  the tag again re-opens the determinism/fidelity question — re-run the spike
+  against the new one before trusting it.
 - **flashinfer, twice over:** two unrelated settings carry the name.
   `VLLM_USE_FLASHINFER_SAMPLER=0` (always set) avoids the startup nvcc JIT
   failure on this runtime-only host — the container has no CUDA toolkit either,

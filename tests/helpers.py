@@ -7,7 +7,7 @@ from pathlib import Path
 
 from PIL import Image
 
-from pdfparser.pipeline.block import Block
+from manuscribe.pipeline.block import Block
 
 
 def _fake_image(width: int = 800, height: int = 1000) -> Image.Image:
@@ -53,7 +53,7 @@ def _figure_size_by_caption(
 
 def _run_lighton(pages_md: list[str], image: Image.Image | None = None) -> str:
     """Assemble HTML from synthetic per-page markdown (no model, no rendering)."""
-    from pdfparser.pipeline.assemble import _assemble_html
+    from manuscribe.pipeline.assemble import _assemble_html
 
     img = image or _fake_image(1190, 1540)
     return _assemble_html(pages_md, [img for _ in pages_md])

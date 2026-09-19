@@ -8,13 +8,13 @@
 
 The dependency runs one way ``rebuild``/``recover`` → ``localize``/``markup`` →
 ``layers`` (the foundational text-layer cache).  This package re-exports the names
-callers and tests already import, so ``from pdfparser.pipeline.tables import _X``
+callers and tests already import, so ``from manuscribe.pipeline.tables import _X``
 keeps working unchanged; **monkeypatching** a re-OCR internal must target its owning
-submodule (e.g. ``pdfparser.pipeline.tables.recover._region_fully_captured``), not
+submodule (e.g. ``manuscribe.pipeline.tables.recover._region_fully_captured``), not
 this package, since the caller resolves it in that submodule's namespace.
 """
 
-from pdfparser.pipeline.tables.enrich import (
+from manuscribe.pipeline.tables.enrich import (
     _apply_table_bold,
     _bbox_glyph_run,
     _bold_one_table,
@@ -22,7 +22,7 @@ from pdfparser.pipeline.tables.enrich import (
     _recover_table_cell_bold,
     _rewrap_bold_cells,
 )
-from pdfparser.pipeline.tables.localize import (
+from manuscribe.pipeline.tables.localize import (
     _adjacent_para_tokens,
     _glyph_centers,
     _group_lines,
@@ -32,7 +32,7 @@ from pdfparser.pipeline.tables.localize import (
     _scaled_crop,
     _union,
 )
-from pdfparser.pipeline.tables.markup import (
+from manuscribe.pipeline.tables.markup import (
     _cell_texts,
     _close_unclosed_tables,
     _collapse_repeated_rows,
@@ -41,7 +41,7 @@ from pdfparser.pipeline.tables.markup import (
     _nonempty_cell_count,
     _table_regions,
 )
-from pdfparser.pipeline.tables.rebuild import (
+from manuscribe.pipeline.tables.rebuild import (
     _cell_format_map,
     _format_cell,
     _glyph_cell_text,
@@ -53,7 +53,7 @@ from pdfparser.pipeline.tables.rebuild import (
     _rows_to_cells,
     _trim_rows_below_table,
 )
-from pdfparser.pipeline.tables.recover import (
+from manuscribe.pipeline.tables.recover import (
     _crop_trailing,
     _legend_footnote_html,
     _recover_dropped_tables,

@@ -1,7 +1,7 @@
-Embedding pdfparser as a library
-================================
+Embedding manuscribe as a library
+=================================
 
-``pdfparser`` is built to be imported by a long-lived process — the **D3 Annotation
+``manuscribe`` is built to be imported by a long-lived process — the **D3 Annotation
 Hub** drains a durable queue of PDFs with a single background worker that parses one
 document at a time and drops each render into the annotation queue as it completes.
 This page collects the integration contract that matters when you embed it that way.
@@ -10,14 +10,14 @@ This page collects the integration contract that matters when you embed it that 
 Reuse one ``OcrModel`` for the batch
 ------------------------------------
 
-:func:`~pdfparser.pipeline.model.load_ocr_model` opens an ``httpx`` connection pool
+:func:`~manuscribe.pipeline.model.load_ocr_model` opens an ``httpx`` connection pool
 *and* probes the vLLM server for its context window, so it is the expensive part to
 repeat.  Load it **once** at worker startup and pass it to every parse via ``ocr=``;
 the bundle is closed by the caller that created it, not by the parse:
 
 .. code-block:: python
 
-    from pdfparser import (
+    from manuscribe import (
         OcrUnavailableError,
         OcrResponseError,
         PdfInputError,
@@ -34,7 +34,7 @@ the bundle is closed by the caller that created it, not by the parse:
         ocr.close()
 
 The GPU is the throughput ceiling: a single document already fans its pages out
-``PDFPARSER_OCR_CONCURRENCY``-wide against the one shared card, so running documents
+``MANUSCRIBE_OCR_CONCURRENCY``-wide against the one shared card, so running documents
 "in parallel" only queues more requests at the same GPU (and risks an out-of-memory).
 One worker draining serially is the design — stream for latency, not for speedup.
 
@@ -42,8 +42,8 @@ The exception contract drives the retry policy
 ----------------------------------------------
 
 Every failure the entry point can raise is one of the typed errors in
-:mod:`pdfparser.pipeline.errors` (all subclasses of
-:class:`~pdfparser.pipeline.errors.PdfParserError`), so a worker classifies an outcome
+:mod:`manuscribe.pipeline.errors` (all subclasses of
+:class:`~manuscribe.pipeline.errors.ManuscribeError`), so a worker classifies an outcome
 without catching a grab-bag of ``httpx`` / ``pypdfium2`` / ``RuntimeError``.  The
 original low-level error is always chained as ``__cause__``.
 
@@ -54,16 +54,16 @@ original low-level error is always chained as ``__cause__``.
    * - Raised
      - Disposition
      - When
-   * - :class:`~pdfparser.pipeline.errors.OcrUnavailableError`
+   * - :class:`~manuscribe.pipeline.errors.OcrUnavailableError`
      - **Retry, uncapped**
      - Server unreachable / unhealthy, a timeout, a 5xx, or a page-level GPU
        out-of-memory.  The work is fine; wait for the server to come back and re-lease.
-   * - :class:`~pdfparser.pipeline.errors.OcrResponseError`
+   * - :class:`~manuscribe.pipeline.errors.OcrResponseError`
      - **Retry, low cap (~2)**
      - A malformed or unexpected OCR payload.  Usually transient, but a persistent one
        is a real bug — cap the retries so it surfaces as a failed job, not a GPU-burning
        loop.
-   * - :class:`~pdfparser.pipeline.errors.PdfInputError`
+   * - :class:`~manuscribe.pipeline.errors.PdfInputError`
      - **Fail permanently**
      - Corrupt / encrypted / non-PDF / missing file.  Re-running re-fails identically;
        mark the job failed and move on — never retry, or it re-burns the GPU forever.
@@ -85,8 +85,8 @@ Surviving a vLLM restart
 ``OcrModel`` caches the context window from its one-time ``/models`` probe and holds a
 live connection pool, so a server **restart** leaves both stale — the pooled sockets
 are dead and the new server may even report a different window.  On a *persistent*
-:class:`~pdfparser.pipeline.errors.OcrUnavailableError` (the server came back), call
-:meth:`~pdfparser.pipeline.model.OcrModel.reconnect` to rebuild the pool and re-read
+:class:`~manuscribe.pipeline.errors.OcrUnavailableError` (the server came back), call
+:meth:`~manuscribe.pipeline.model.OcrModel.reconnect` to rebuild the pool and re-read
 the window **in place** — every reference the worker threads around stays valid:
 
 .. code-block:: python
@@ -104,12 +104,12 @@ convenience that avoids swapping the shared reference.
 Set the lease timeout above the worst-case parse
 -------------------------------------------------
 
-``PDFPARSER_OCR_TIMEOUT`` defaults to **600 s per page**, so a wedged server can hold a
-single parse for roughly ten minutes per page *legitimately* (pdfparser does not retry
+``MANUSCRIBE_OCR_TIMEOUT`` defaults to **600 s per page**, so a wedged server can hold a
+single parse for roughly ten minutes per page *legitimately* (manuscribe does not retry
 a timeout — it lets the page fail so the pool tears down promptly).  Set the queue's
-lease / visibility timeout **above** that worst case, or lower ``PDFPARSER_OCR_TIMEOUT``
+lease / visibility timeout **above** that worst case, or lower ``MANUSCRIBE_OCR_TIMEOUT``
 for the worker — otherwise a second worker can lease and double-process a job whose
-lease expired while pdfparser was still validly waiting on the server.
+lease expired while manuscribe was still validly waiting on the server.
 
 Image delivery
 --------------
@@ -117,8 +117,8 @@ Image delivery
 Figure crops inline as base64 ``data:`` URIs by default — self-contained, but the
 bytes ride in every copy of the HTML.  When the HTML is stored in a database and
 shipped on every fetch, pass an ``encode_image`` sink
-(:class:`~pdfparser.pipeline.figures.ImageSink`, a ``(png_bytes, mime) -> src``
-callback) that writes each crop to an asset store and returns its served URL; pdfparser
+(:class:`~manuscribe.pipeline.figures.ImageSink`, a ``(png_bytes, mime) -> src``
+callback) that writes each crop to an asset store and returns its served URL; manuscribe
 rewrites the ``<img src>`` and no image bytes land in the body.  ``image_dir=`` is the
 middle ground (sidecar PNG files next to the HTML).  The sink receives PNG bytes, so it
 never imports Pillow.
@@ -126,11 +126,11 @@ never imports Pillow.
 Production environment
 ----------------------
 
-* **Python 3.13.**  pdfparser pins ``<3.14,>=3.13``; run the worker on 3.13.
-* **Leave beartype out of the production environment.**  ``pdfparser/__init__.py``
+* **Python 3.13.**  manuscribe pins ``<3.14,>=3.13``; run the worker on 3.13.
+* **Leave beartype out of the production environment.**  ``manuscribe/__init__.py``
   activates the beartype import hook *iff* ``beartype`` is importable (a guarded
   ``try/except ImportError``), which adds a runtime type-check on every call.  It is a
   dev/test aid — don't install ``beartype`` in the worker env, so the checks stay off.
-* **No torch.**  The GPU work is entirely in the vLLM server; pdfparser's own
+* **No torch.**  The GPU work is entirely in the vLLM server; manuscribe's own
   dependencies are light (``httpx`` / ``pypdfium2`` / ``pillow`` / ``markdown-it`` /
   ``pylatexenc``), so embedding it pulls in no CUDA stack.

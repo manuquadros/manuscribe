@@ -23,7 +23,7 @@ import re
 from dataclasses import dataclass
 from enum import Enum
 
-from pdfparser.pipeline.text import (
+from manuscribe.pipeline.text import (
     _BOLD_LABEL_CAPTURE_RE,
     _ends_sentence,
     _heading_inner,

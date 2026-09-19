@@ -10,7 +10,7 @@ class TestTableCaptionColocation:
     <caption> first child so it renders with the table, not adrift."""
 
     def test_caption_before_table_folded(self) -> None:
-        from pdfparser.pipeline.merge import _colocate_table_captions
+        from manuscribe.pipeline.merge import _colocate_table_captions
 
         parts = [
             "<p><strong>TABLE 1</strong> Enzyme kinetics of PtTRI and PtTRII</p>",
@@ -22,7 +22,7 @@ class TestTableCaptionColocation:
         ]
 
     def test_caption_after_table_folded(self) -> None:
-        from pdfparser.pipeline.merge import _colocate_table_captions
+        from manuscribe.pipeline.merge import _colocate_table_captions
 
         parts = [
             "<table><tbody><tr><td>1</td></tr></tbody></table>",
@@ -35,7 +35,7 @@ class TestTableCaptionColocation:
         ]
 
     def test_heading_form_caption_folded(self) -> None:
-        from pdfparser.pipeline.merge import _colocate_table_captions
+        from manuscribe.pipeline.merge import _colocate_table_captions
 
         # The model sometimes promotes a whole table caption to a section heading
         # ("## TABLE 2 …"); it must still fold into the table, not stay an <h2>.
@@ -50,7 +50,7 @@ class TestTableCaptionColocation:
         ]
 
     def test_word_identifier_heading_not_promoted_to_caption(self) -> None:
-        from pdfparser.pipeline.merge import _colocate_table_captions
+        from manuscribe.pipeline.merge import _colocate_table_captions
 
         # A real section heading whose identifier is a word ("Table of Contents")
         # must not be folded into an adjacent table; only number-like identifiers
@@ -63,7 +63,7 @@ class TestTableCaptionColocation:
         assert out == parts  # unchanged: heading stays, table stays captionless
 
     def test_caption_separated_by_figure_folded(self) -> None:
-        from pdfparser.pipeline.merge import _colocate_table_captions
+        from manuscribe.pipeline.merge import _colocate_table_captions
 
         # The reported bug: a figure floats between the caption and its table.
         parts = [
@@ -79,7 +79,7 @@ class TestTableCaptionColocation:
         ]
 
     def test_caption_not_pulled_across_prose(self) -> None:
-        from pdfparser.pipeline.merge import _colocate_table_captions
+        from manuscribe.pipeline.merge import _colocate_table_captions
 
         # A real paragraph between caption and table breaks the association.
         parts = [
@@ -90,7 +90,7 @@ class TestTableCaptionColocation:
         assert _colocate_table_captions(_as_blocks(parts)) == parts
 
     def test_orphan_caption_left_intact(self) -> None:
-        from pdfparser.pipeline.merge import _colocate_table_captions
+        from manuscribe.pipeline.merge import _colocate_table_captions
 
         parts = [
             "<p>Table 9 Orphan caption with no table near it.</p>",
@@ -99,7 +99,7 @@ class TestTableCaptionColocation:
         assert _colocate_table_captions(_as_blocks(parts)) == parts
 
     def test_two_tables_pair_with_own_captions(self) -> None:
-        from pdfparser.pipeline.merge import _colocate_table_captions
+        from manuscribe.pipeline.merge import _colocate_table_captions
 
         parts = [
             "<p>Table 1 A</p>",
@@ -113,7 +113,7 @@ class TestTableCaptionColocation:
         assert len(out) == 2
 
     def test_existing_caption_not_duplicated(self) -> None:
-        from pdfparser.pipeline.merge import _colocate_table_captions
+        from manuscribe.pipeline.merge import _colocate_table_captions
 
         parts = [
             "<p>Table 5 Duplicate guard</p>",
@@ -124,7 +124,7 @@ class TestTableCaptionColocation:
         assert out == parts
 
     def test_table_attributes_preserved(self) -> None:
-        from pdfparser.pipeline.merge import _colocate_table_captions
+        from manuscribe.pipeline.merge import _colocate_table_captions
 
         # The caption goes after the *whole* opening tag, not inside it.
         parts = [
@@ -138,7 +138,7 @@ class TestTableCaptionColocation:
         ]
 
     def test_caption_between_tables_pairs_with_following(self) -> None:
-        from pdfparser.pipeline.merge import _colocate_table_captions
+        from manuscribe.pipeline.merge import _colocate_table_captions
 
         # A caption sat between two tables precedes the second, so it belongs to
         # it — the first (captionless) table must not forward-steal it.
@@ -154,7 +154,7 @@ class TestTableCaptionColocation:
         ]
 
     def test_reference_sentence_not_folded(self) -> None:
-        from pdfparser.pipeline.merge import _colocate_table_captions
+        from manuscribe.pipeline.merge import _colocate_table_captions
 
         # "Table N <lowercase verb> …" is a running reference, not a caption; it
         # must stay in the body, not be absorbed into the table.
@@ -165,7 +165,7 @@ class TestTableCaptionColocation:
         assert _colocate_table_captions(_as_blocks(parts)) == parts
 
     def test_bare_label_rejoined_then_folded(self) -> None:
-        from pdfparser.pipeline.merge import (
+        from manuscribe.pipeline.merge import (
             _colocate_table_captions,
             _join_split_table_caption_labels,
         )
@@ -186,7 +186,7 @@ class TestTableCaptionColocation:
         ]
 
     def test_heading_label_rejoined_then_folded(self) -> None:
-        from pdfparser.pipeline.merge import (
+        from manuscribe.pipeline.merge import (
             _colocate_table_captions,
             _join_split_table_caption_labels,
         )
@@ -208,7 +208,7 @@ class TestTableCaptionColocation:
         ]
 
     def test_labelled_caption_not_rejoined(self) -> None:
-        from pdfparser.pipeline.merge import _join_split_table_caption_labels
+        from manuscribe.pipeline.merge import _join_split_table_caption_labels
 
         # A label that already carries its title ("Table 4 X") is a complete
         # caption; the following block is unrelated prose and must stay separate.
@@ -219,7 +219,7 @@ class TestTableCaptionColocation:
         assert _join_split_table_caption_labels(parts) == parts
 
     def test_bare_label_before_table_not_rejoined_with_table(self) -> None:
-        from pdfparser.pipeline.merge import _join_split_table_caption_labels
+        from manuscribe.pipeline.merge import _join_split_table_caption_labels
 
         # A bare label sitting directly on its table needs no rejoin (the next
         # block is the <table>, not a stray title paragraph).
@@ -294,7 +294,7 @@ class TestTableFootnoteColocation:
     or swept into the article footnote section."""
 
     def test_marker_footnotes_folded_onto_table(self) -> None:
-        from pdfparser.pipeline.merge import _colocate_table_footnotes
+        from manuscribe.pipeline.merge import _colocate_table_footnotes
 
         # The table carries the a/b markers its footnotes annotate.
         parts = [
@@ -311,7 +311,7 @@ class TestTableFootnoteColocation:
         ]
 
     def test_note_sentence_before_markers_folded(self) -> None:
-        from pdfparser.pipeline.merge import _colocate_table_footnotes
+        from manuscribe.pipeline.merge import _colocate_table_footnotes
 
         # The reported case: a note sentence sits between the table and its
         # superscript footnotes, so it rides along into the table block.
@@ -327,7 +327,7 @@ class TestTableFootnoteColocation:
         ]
 
     def test_body_after_markers_stays_in_stream(self) -> None:
-        from pdfparser.pipeline.merge import _colocate_table_footnotes
+        from manuscribe.pipeline.merge import _colocate_table_footnotes
 
         # The body paragraph that resumes after the footnotes is not absorbed.
         parts = [
@@ -343,7 +343,7 @@ class TestTableFootnoteColocation:
         ]
 
     def test_article_footnote_marker_not_in_table_not_absorbed(self) -> None:
-        from pdfparser.pipeline.merge import _colocate_table_footnotes
+        from manuscribe.pipeline.merge import _colocate_table_footnotes
 
         # The hardening: a superscript line whose label the table does NOT carry
         # is an article footnote that merely follows the table, not a table
@@ -355,7 +355,7 @@ class TestTableFootnoteColocation:
         assert _colocate_table_footnotes(_as_blocks(parts)) == parts
 
     def test_numeric_marker_matching_table_exponent_not_absorbed(self) -> None:
-        from pdfparser.pipeline.merge import _colocate_table_footnotes
+        from manuscribe.pipeline.merge import _colocate_table_footnotes
 
         # A numbered article footnote whose digit collides with a table exponent
         # ("cm<sup>2</sup>") must not be folded — exponents are not footnote
@@ -367,7 +367,7 @@ class TestTableFootnoteColocation:
         assert _colocate_table_footnotes(_as_blocks(parts)) == parts
 
     def test_letter_marker_folded_despite_table_exponents(self) -> None:
-        from pdfparser.pipeline.merge import _colocate_table_footnotes
+        from manuscribe.pipeline.merge import _colocate_table_footnotes
 
         # A letter footnote still folds when the table mixes exponents and an
         # 'a' referent; the exponent does not interfere.
@@ -383,7 +383,7 @@ class TestTableFootnoteColocation:
         ]
 
     def test_note_before_unmatched_marker_not_absorbed(self) -> None:
-        from pdfparser.pipeline.merge import _colocate_table_footnotes
+        from manuscribe.pipeline.merge import _colocate_table_footnotes
 
         # A leading note rides along only when matching markers follow; an
         # unmatched marker abandons the run, so the note stays in the stream.
@@ -395,7 +395,7 @@ class TestTableFootnoteColocation:
         assert _colocate_table_footnotes(_as_blocks(parts)) == parts
 
     def test_note_without_markers_not_absorbed(self) -> None:
-        from pdfparser.pipeline.merge import _colocate_table_footnotes
+        from manuscribe.pipeline.merge import _colocate_table_footnotes
 
         # A plain paragraph after a table with no footnote markers is body, not a
         # note, and is left untouched.
@@ -406,7 +406,7 @@ class TestTableFootnoteColocation:
         assert _colocate_table_footnotes(_as_blocks(parts)) == parts
 
     def test_runaway_leading_prose_not_swallowed(self) -> None:
-        from pdfparser.pipeline.merge import _colocate_table_footnotes
+        from manuscribe.pipeline.merge import _colocate_table_footnotes
 
         # More than a note's worth of prose before any marker is body, so the
         # run is abandoned and nothing is folded — even though the table carries
@@ -421,7 +421,7 @@ class TestTableFootnoteColocation:
         assert _colocate_table_footnotes(_as_blocks(parts)) == parts
 
     def test_second_leading_line_exceeds_note_cap(self) -> None:
-        from pdfparser.pipeline.merge import _colocate_table_footnotes
+        from manuscribe.pipeline.merge import _colocate_table_footnotes
 
         # A table note is a single line; two non-marker lines before the marker
         # exceed the cap, so the run is abandoned rather than swallowing a second
@@ -435,7 +435,7 @@ class TestTableFootnoteColocation:
         assert _colocate_table_footnotes(_as_blocks(parts)) == parts
 
     def test_trailing_source_note_after_markers_folded(self) -> None:
-        from pdfparser.pipeline.merge import _colocate_table_footnotes
+        from manuscribe.pipeline.merge import _colocate_table_footnotes
 
         # The reported case: an attribution note with no superscript marker trails
         # the marker run, so the marker loop can't anchor it; its lexical shape
@@ -452,7 +452,7 @@ class TestTableFootnoteColocation:
         ]
 
     def test_standalone_source_note_without_markers_folded(self) -> None:
-        from pdfparser.pipeline.merge import _colocate_table_footnotes
+        from manuscribe.pipeline.merge import _colocate_table_footnotes
 
         # A source note can also be the table's only footnote, with no markers at
         # all; the lexical cue still folds it onto the table.
@@ -468,7 +468,7 @@ class TestTableFootnoteColocation:
         ]
 
     def test_body_line_before_standalone_source_note_not_swallowed(self) -> None:
-        from pdfparser.pipeline.merge import _colocate_table_footnotes
+        from manuscribe.pipeline.merge import _colocate_table_footnotes
 
         # A body line stranded between the table and a markerless source note must
         # not be dragged into the footnotes just because the source note folds: with
@@ -482,7 +482,7 @@ class TestTableFootnoteColocation:
         assert _colocate_table_footnotes(_as_blocks(parts)) == parts
 
     def test_generic_verb_without_subject_not_a_source_note(self) -> None:
-        from pdfparser.pipeline.merge import _colocate_table_footnotes
+        from manuscribe.pipeline.merge import _colocate_table_footnotes
 
         # A body sentence opening with a generic participle ("Obtained from …")
         # is not an attribution note, so it stays in the body after the table.
@@ -493,7 +493,7 @@ class TestTableFootnoteColocation:
         assert _colocate_table_footnotes(_as_blocks(parts)) == parts
 
     def test_plain_body_after_markers_not_mistaken_for_source_note(self) -> None:
-        from pdfparser.pipeline.merge import _colocate_table_footnotes
+        from manuscribe.pipeline.merge import _colocate_table_footnotes
 
         # The body resuming after the markers does not open with a source cue, so
         # the trailing-note sweep leaves it in the stream.
@@ -534,7 +534,7 @@ class TestTableTextHelpers:
     """Pure markup helpers for table re-OCR substitution."""
 
     def test_cell_texts_and_count(self) -> None:
-        from pdfparser.pipeline.tables import _cell_texts, _nonempty_cell_count
+        from manuscribe.pipeline.tables import _cell_texts, _nonempty_cell_count
 
         table = (
             "<table><thead><tr><th>Metal ion</th><th></th></tr></thead>"
@@ -545,7 +545,7 @@ class TestTableTextHelpers:
         assert _nonempty_cell_count(table) == 3
 
     def test_table_regions_group_consecutive_split_on_prose(self) -> None:
-        from pdfparser.pipeline.tables import _table_regions
+        from manuscribe.pipeline.tables import _table_regions
 
         md = (
             "intro\n\n"
@@ -561,7 +561,7 @@ class TestTableTextHelpers:
         assert md[start:end] == "<table><tr><td>c</td></tr></table>"
 
     def test_crop_trailing_returns_text_after_last_table(self) -> None:
-        from pdfparser.pipeline.tables import _crop_trailing
+        from manuscribe.pipeline.tables import _crop_trailing
 
         legend = "MW: molecular weight, NR: Not reported"
         md = f"<table><tr><td>x</td></tr></table>\n\n{legend}"
@@ -569,7 +569,7 @@ class TestTableTextHelpers:
         assert _crop_trailing("no table here") == ""
 
     def test_legend_footnote_preserves_sup_marker(self) -> None:
-        from pdfparser.pipeline.tables import _legend_footnote_html
+        from manuscribe.pipeline.tables import _legend_footnote_html
 
         # The recovered legend's <sup> marker and *emphasis* are OCR markup: render
         # them, don't HTML-escape (which would print a literal "<sup>a</sup>").
@@ -580,7 +580,7 @@ class TestTableTextHelpers:
         )
 
     def test_legend_footnote_escapes_stray_markup(self) -> None:
-        from pdfparser.pipeline.tables import _legend_footnote_html
+        from manuscribe.pipeline.tables import _legend_footnote_html
 
         # A bare "<"/"&" in a legend ("n<5", "Tris & HCl") must be escaped, not left
         # to start a bogus tag — while a real <sup> marker still passes through.
@@ -591,7 +591,7 @@ class TestTableTextHelpers:
         )
 
     def test_collapse_repeated_rows_kills_decode_loop(self) -> None:
-        from pdfparser.pipeline.tables import _collapse_repeated_rows
+        from manuscribe.pipeline.tables import _collapse_repeated_rows
 
         # The crop re-OCR fell into a repetition loop, trailing a real table with
         # dozens of identical "RAMS Deviations" rows; collapse them to one.
@@ -607,7 +607,7 @@ class TestTableTextHelpers:
         assert "<td>bond lengths</td>" in collapsed
 
     def test_collapse_repeated_rows_keeps_short_repeats(self) -> None:
-        from pdfparser.pipeline.tables import _collapse_repeated_rows
+        from manuscribe.pipeline.tables import _collapse_repeated_rows
 
         # Genuine adjacent rows that happen to repeat a value a few times are not a
         # decode loop — a short run is left untouched.
@@ -621,7 +621,7 @@ class TestTableTextHelpers:
         assert _collapse_repeated_rows(table) == table
 
     def test_collapse_repeated_rows_preserves_repeated_cell_value(self) -> None:
-        from pdfparser.pipeline.tables import _collapse_repeated_rows
+        from manuscribe.pipeline.tables import _collapse_repeated_rows
 
         # A column repeating "NA" (or a number) across many rows is real data, not a
         # loop — the rows differ in their label cell, so they are not byte-identical
@@ -637,7 +637,7 @@ class TestTableTextHelpers:
         assert _collapse_repeated_rows(table) == table
 
     def test_collapse_repeated_rows_preserves_sign_and_superscript_diffs(self) -> None:
-        from pdfparser.pipeline.tables import _collapse_repeated_rows
+        from manuscribe.pipeline.tables import _collapse_repeated_rows
 
         # The comparison is byte-exact, not normalized: rows sharing a label but
         # differing only by a sign or a superscript carry distinct data and must
@@ -653,7 +653,7 @@ class TestTableTextHelpers:
         assert _collapse_repeated_rows(table) == table
 
     def test_collapse_repeated_rows_md_collapses_page_table_loop(self) -> None:
-        from pdfparser.pipeline.tables import _collapse_repeated_rows_md
+        from manuscribe.pipeline.tables import _collapse_repeated_rows_md
 
         # The page-level re-OCR (not the crop path) can land a decode loop straight
         # in pages_md; the markdown-level pass collapses every table's loop in place
@@ -672,7 +672,7 @@ class TestTableTextHelpers:
         assert "Some prose after." in collapsed
 
     def test_collapse_repeated_rows_md_is_idempotent_without_loop(self) -> None:
-        from pdfparser.pipeline.tables import _collapse_repeated_rows_md
+        from manuscribe.pipeline.tables import _collapse_repeated_rows_md
 
         # A page whose tables carry no degenerate run is returned byte-for-byte.
         md = (
@@ -684,7 +684,7 @@ class TestTableTextHelpers:
         assert _collapse_repeated_rows_md(md) == md
 
     def test_extract_tables_strips_inner_caption(self) -> None:
-        from pdfparser.pipeline.tables import _extract_tables
+        from manuscribe.pipeline.tables import _extract_tables
 
         # a level-1 heading is the overall caption (carried separately), so it is
         # not folded into the table
@@ -695,7 +695,7 @@ class TestTableTextHelpers:
         assert _extract_tables(md) == ["<table><tr><td>x</td></tr></table>"]
 
     def test_extract_tables_folds_subheading_as_spanning_row(self) -> None:
-        from pdfparser.pipeline.tables import _extract_tables
+        from manuscribe.pipeline.tables import _extract_tables
 
         # the crop re-OCR lifts a sub-table label into a level-2 heading; it must
         # come back as a spanning header row spanning all the table's columns
@@ -714,14 +714,14 @@ class TestTableNormalization:
     the PDF text layer so the same content matches across both."""
 
     def test_superscript_and_micro_fold_to_text_layer_form(self) -> None:
-        from pdfparser.pipeline.layers import _normalize
+        from manuscribe.pipeline.layers import _normalize
 
         assert _normalize("Mg²⁺") == _normalize("Mg2+") == "mg2"
         # micro sign vs Greek mu, and superscript ⁻¹ (a U+2212 minus) vs ASCII -1
         assert _normalize("µg L⁻¹") == _normalize("μg L-1")
 
     def test_index_map_recovers_source_range(self) -> None:
-        from pdfparser.pipeline.layers import _normalize_with_map
+        from manuscribe.pipeline.layers import _normalize_with_map
 
         text = "A: Mg²⁺ ok"
         norm, idx_map = _normalize_with_map(text)
@@ -765,8 +765,8 @@ class TestTableLocalization:
         return text, boxes, rotations
 
     def test_bbox_covers_table_rows_excludes_prose(self) -> None:
-        from pdfparser.pipeline.layers import _normalize_with_map
-        from pdfparser.pipeline.tables import _locate_bbox
+        from manuscribe.pipeline.layers import _normalize_with_map
+        from manuscribe.pipeline.tables import _locate_bbox
 
         # A 5-row table at the top, then a wide gap, then dense prose.  Only the
         # heading row is a (unique) anchor; growth must still reach the trailing
@@ -800,8 +800,8 @@ class TestTableLocalization:
         assert bottom <= 680 and top >= 688
 
     def test_returns_none_when_no_anchor_matches(self) -> None:
-        from pdfparser.pipeline.layers import _normalize_with_map
-        from pdfparser.pipeline.tables import _locate_bbox
+        from manuscribe.pipeline.layers import _normalize_with_map
+        from manuscribe.pipeline.tables import _locate_bbox
 
         text, boxes, rotations = self._layout([("Effect of EDTA on activity", 700, 50)])
         norm, idx_map = _normalize_with_map(text)
@@ -811,8 +811,8 @@ class TestTableLocalization:
         )
 
     def test_repeated_anchor_is_ambiguous_and_skipped(self) -> None:
-        from pdfparser.pipeline.layers import _normalize_with_map
-        from pdfparser.pipeline.tables import _locate_bbox
+        from manuscribe.pipeline.layers import _normalize_with_map
+        from manuscribe.pipeline.tables import _locate_bbox
 
         # "alpha beta" occurs twice, so it cannot seed the box on its own.
         text, boxes, rotations = self._layout(
@@ -855,8 +855,8 @@ class TestTableLocalization:
         return text, boxes, rotations
 
     def test_sideways_table_located_on_reading_axis_excludes_prose(self) -> None:
-        from pdfparser.pipeline.layers import _normalize_with_map
-        from pdfparser.pipeline.tables import _locate_bbox
+        from manuscribe.pipeline.layers import _normalize_with_map
+        from manuscribe.pipeline.tables import _locate_bbox
 
         # A 270°-rotated table occupies three vertical column-strips on the right;
         # an upright body heading sits in the left column.  Localization must run
@@ -896,15 +896,15 @@ class TestCoverageGate:
     def _centers(
         lines: list[tuple[str, float | int, float | int]],
     ) -> tuple[str, list[tuple[float, float] | None]]:
-        from pdfparser.pipeline.layers import _normalize_with_map
-        from pdfparser.pipeline.tables import _glyph_centers
+        from manuscribe.pipeline.layers import _normalize_with_map
+        from manuscribe.pipeline.tables import _glyph_centers
 
         text, boxes, _ = TestTableLocalization._layout(lines)
         norm, idx_map = _normalize_with_map(text)
         return norm, _glyph_centers(norm, idx_map, boxes)
 
     def test_in_bbox_tokens_keeps_only_in_box_words(self) -> None:
-        from pdfparser.pipeline.tables import _in_bbox_tokens
+        from manuscribe.pipeline.tables import _in_bbox_tokens
 
         norm, centers = self._centers(
             [("alpha beta", 700, 50), ("gamma delta", 600, 50)]
@@ -913,7 +913,7 @@ class TestCoverageGate:
         assert toks == ["alpha", "beta"]  # top line only, bottom line excluded
 
     def test_in_bbox_tokens_does_not_glue_clipped_word(self) -> None:
-        from pdfparser.pipeline.tables import _in_bbox_tokens
+        from manuscribe.pipeline.tables import _in_bbox_tokens
 
         # The right edge cuts off "beta"; "alpha" must survive as its own token —
         # the box-less space still has to break the words, not weld "alphabeta".
@@ -922,7 +922,7 @@ class TestCoverageGate:
         assert toks == ["alpha"]
 
     def test_fully_captured_when_all_distinctive_tokens_present(self) -> None:
-        from pdfparser.pipeline.tables import _region_fully_captured
+        from manuscribe.pipeline.tables import _region_fully_captured
 
         norm, centers = self._centers([("alpha beta", 700, 50)])
         assert _region_fully_captured(
@@ -930,7 +930,7 @@ class TestCoverageGate:
         )
 
     def test_not_captured_when_a_token_is_missing(self) -> None:
-        from pdfparser.pipeline.tables import _region_fully_captured
+        from manuscribe.pipeline.tables import _region_fully_captured
 
         # "beta" is in the text layer but not the captured cells — content the page
         # pass dropped — so the gate must not fire and the region is re-OCR'd.
@@ -940,7 +940,7 @@ class TestCoverageGate:
         )
 
     def test_numeric_drop_is_not_skipped(self) -> None:
-        from pdfparser.pipeline.tables import _region_fully_captured
+        from manuscribe.pipeline.tables import _region_fully_captured
 
         # All words captured but a multi-digit data value (26621) missing — a dropped
         # data cell. Numbers count as distinctive evidence, so the gate must not fire.
@@ -950,7 +950,7 @@ class TestCoverageGate:
         )
 
     def test_empty_text_layer_forces_reocr(self) -> None:
-        from pdfparser.pipeline.tables import _region_fully_captured
+        from manuscribe.pipeline.tables import _region_fully_captured
 
         # A bbox over a region with no glyphs (a scanned page) gives no evidence, so
         # the gate stays off — it never opts out on absence of evidence.
@@ -960,7 +960,7 @@ class TestCoverageGate:
         )
 
     def test_short_non_numeric_tokens_are_not_evidence(self) -> None:
-        from pdfparser.pipeline.tables import _region_fully_captured
+        from manuscribe.pipeline.tables import _region_fully_captured
 
         # Only short non-numeric tokens in the bbox — no distinctive token to judge
         # completeness, so the gate does not fire even with nothing captured.
@@ -970,7 +970,7 @@ class TestCoverageGate:
         )
 
     def test_adjacent_para_tokens_pick_caption_and_legend(self) -> None:
-        from pdfparser.pipeline.tables import _adjacent_para_tokens
+        from manuscribe.pipeline.tables import _adjacent_para_tokens
 
         md = (
             "Table 1. Effect of metals on activity\n\n"
@@ -984,7 +984,7 @@ class TestCoverageGate:
         assert {"molecular", "reported"} <= toks  # legend below the table
 
     def test_adjacent_para_ignores_long_prose_block(self) -> None:
-        from pdfparser.pipeline.tables import _adjacent_para_tokens
+        from manuscribe.pipeline.tables import _adjacent_para_tokens
 
         # A long block flanking the table (e.g. body prose the bbox overran, or the
         # whole pre-table content when no blank line separates it) is NOT folded into
@@ -1001,7 +1001,7 @@ class TestUnclosedTableClosing:
     or it swallows whatever follows (most visibly the next page's prose)."""
 
     def test_close_unclosed_tables_balances_and_is_idempotent(self) -> None:
-        from pdfparser.pipeline.tables import _close_unclosed_tables
+        from manuscribe.pipeline.tables import _close_unclosed_tables
 
         assert (
             _close_unclosed_tables("<table><tr><td>a</td><td>0")
@@ -1040,7 +1040,7 @@ class TestTextLayerTableRepair:
         return out
 
     def test_glyph_cell_text_spaces_words_keeps_numbers(self) -> None:
-        from pdfparser.pipeline.tables import _glyph_cell_text
+        from manuscribe.pipeline.tables import _glyph_cell_text
 
         assert _glyph_cell_text(self._glyphs("PDB code", 0, 100)) == "PDB code"
         assert _glyph_cell_text(self._glyphs("37991", 0, 100)) == "37991"
@@ -1049,7 +1049,7 @@ class TestTextLayerTableRepair:
         assert _glyph_cell_text(glyphs) == "0.081"
 
     def test_rows_to_cells_header_divider_and_footnote_stop(self) -> None:
-        from pdfparser.pipeline.tables import _group_glyph_rows, _rows_to_cells
+        from manuscribe.pipeline.tables import _group_glyph_rows, _rows_to_cells
 
         glyphs = (
             self._glyphs("CgKARI", 80, 200)  # value-only row (empty label) at the top
@@ -1073,7 +1073,7 @@ class TestTextLayerTableRepair:
         # body prose below the table into the rows; the gap-to-prose trim must cut at
         # the wider margin so the prose can't inflate the rebuild past the OCR table
         # and win the substitution gate with a wrong table.
-        from pdfparser.pipeline.tables import (
+        from manuscribe.pipeline.tables import (
             _group_glyph_rows,
             _trim_rows_below_table,
         )
@@ -1109,7 +1109,7 @@ class TestTextLayerTableRepair:
         # below-table line is short and value-less ("see main text", <
         # _RECON_FOOTNOTE_LEN), so _rows_to_cells' footnote-stop would *not* remove it —
         # only the gap-trim does.
-        from pdfparser.pipeline.tables import (
+        from manuscribe.pipeline.tables import (
             _group_glyph_rows,
             _trim_rows_below_table,
         )
@@ -1134,7 +1134,7 @@ class TestTextLayerTableRepair:
         # the anchors did not cover must still survive the trim).  The seed box overlaps
         # the top two rows, so the seeded-region spacing median (gaps[lo:hi], not the
         # whole-table fallback) drives the grow-down through the un-seeded third row.
-        from pdfparser.pipeline.tables import (
+        from manuscribe.pipeline.tables import (
             _group_glyph_rows,
             _trim_rows_below_table,
         )
@@ -1152,7 +1152,7 @@ class TestTextLayerTableRepair:
         assert len(_trim_rows_below_table(rows, seeds)) == 3
 
     def test_format_cell_recovers_ocr_subscripts(self) -> None:
-        from pdfparser.pipeline.tables import _cell_format_map, _format_cell
+        from manuscribe.pipeline.tables import _cell_format_map, _format_cell
 
         ocr = (
             "<table><tr><td><em>R</em><sub>sym</sub> or <em>R</em><sub>merge</sub></td>"
@@ -1166,7 +1166,7 @@ class TestTextLayerTableRepair:
         assert _format_cell("not in the table", fmt) == "not in the table"
 
     def test_format_cell_escapes_text_layer_fallback(self) -> None:
-        from pdfparser.pipeline.tables import _format_cell
+        from manuscribe.pipeline.tables import _format_cell
 
         # A rebuilt value the OCR never produced (no format-map entry) is raw
         # text-layer text; "<"/">"/"&" must be escaped or it injects markup / breaks
@@ -1176,7 +1176,7 @@ class TestTextLayerTableRepair:
         assert _format_cell("< 2.0", {}) == "&lt; 2.0"
 
     def test_leading_caption_rows_extracted(self) -> None:
-        from pdfparser.pipeline.tables import _leading_caption_rows
+        from manuscribe.pipeline.tables import _leading_caption_rows
 
         table = (
             "<table>"
@@ -1194,7 +1194,7 @@ class TestTextLayerTableRepair:
         # ("Refinement" ⊂ "… Structural Refinement Statistics") must NOT be dropped as a
         # caption fragment — only the wrapped fragments *above* the first data row are.
         # This exercises the column filter via the public rows_to_cells output shape.
-        from pdfparser.pipeline.tables import _group_glyph_rows, _rows_to_cells
+        from manuscribe.pipeline.tables import _group_glyph_rows, _rows_to_cells
 
         glyphs = (
             self._glyphs("Refinement Statistics", 60, 220)  # caption fragment (top)
@@ -1216,7 +1216,7 @@ class TestTextLayerTableRepair:
         # fixture PDF is absent.
         import pathlib
 
-        from pdfparser.pipeline.tables import _repair_tables_from_text_layer
+        from manuscribe.pipeline.tables import _repair_tables_from_text_layer
 
         pdf = pathlib.Path(__file__).parent / "fixtures" / "31298526.pdf"
         if not pdf.exists():
@@ -1242,7 +1242,7 @@ class TestTextLayerTableRepair:
             "<tr><td>bond lengths (Å)</td><td>0.011</td></tr>"
             "</table>"
         )
-        from pdfparser.pipeline.layers import _DocumentLayers
+        from manuscribe.pipeline.layers import _DocumentLayers
 
         with _DocumentLayers.open(str(pdf)) as layers:
             pages = ["" for _ in range(len(layers))]
@@ -1268,7 +1268,7 @@ class TestTextLayerTableRepair:
         # masks the off-by-one table and the repair never fires (the live-only bug).
         import pathlib
 
-        from pdfparser.pipeline.tables import _repair_tables_from_text_layer
+        from manuscribe.pipeline.tables import _repair_tables_from_text_layer
 
         pdf = pathlib.Path(__file__).parent / "fixtures" / "31298526.pdf"
         if not pdf.exists():
@@ -1285,7 +1285,7 @@ class TestTextLayerTableRepair:
             "<tr><td>unique reflections</td><td>37991</td></tr>"
             "<tr><td>redundancy</td><td>4.2 (3.4)</td></tr>" + loop + "</table>"
         )
-        from pdfparser.pipeline.layers import _DocumentLayers
+        from manuscribe.pipeline.layers import _DocumentLayers
 
         with _DocumentLayers.open(str(pdf)) as layers:
             pages = ["" for _ in range(len(layers))]
@@ -1309,13 +1309,13 @@ class TestRepairLazyExtraction:
         import pypdfium2 as pdfium
         import pytest
 
-        from pdfparser.pipeline import tables
-        from pdfparser.pipeline.layers import _DocumentLayers, _PageLayer
+        from manuscribe.pipeline import tables
+        from manuscribe.pipeline.layers import _DocumentLayers, _PageLayer
 
         calls: list[int] = []
         with pytest.MonkeyPatch.context() as mp:
             mp.setattr(
-                "pdfparser.pipeline.layers._page_layer",
+                "manuscribe.pipeline.layers._page_layer",
                 lambda page: calls.append(1) or _PageLayer("", [], [], [], "", []),
             )
             # a 3-column table: the repair only understands label|value (2-col) tables
@@ -1330,19 +1330,19 @@ class TestRepairLazyExtraction:
         import pypdfium2 as pdfium
         import pytest
 
-        from pdfparser.pipeline import tables
-        from pdfparser.pipeline.layers import _DocumentLayers, _PageLayer
+        from manuscribe.pipeline import tables
+        from manuscribe.pipeline.layers import _DocumentLayers, _PageLayer
 
         calls: list[int] = []
         with pytest.MonkeyPatch.context() as mp:
             mp.setattr(
-                "pdfparser.pipeline.layers._page_layer",
+                "manuscribe.pipeline.layers._page_layer",
                 lambda page: calls.append(1) or _PageLayer("", [], [], [], "", []),
             )
             # _repair_page_tables resolves _reconstruct_table_from_text_layer in the
             # rebuild submodule, so patch it there (not the tables package re-export).
             mp.setattr(
-                "pdfparser.pipeline.tables.rebuild._reconstruct_table_from_text_layer",
+                "manuscribe.pipeline.tables.rebuild._reconstruct_table_from_text_layer",
                 lambda layer, table: None,
             )
             tbl = "<table><tr><td>label</td><td>value</td></tr></table>"
@@ -1363,12 +1363,12 @@ class TestDocumentLayersCache:
         import pypdfium2 as pdfium
         import pytest
 
-        from pdfparser.pipeline.layers import _DocumentLayers, _PageLayer
+        from manuscribe.pipeline.layers import _DocumentLayers, _PageLayer
 
         calls: list[int] = []
         with pytest.MonkeyPatch.context() as mp:
             mp.setattr(
-                "pdfparser.pipeline.layers._page_layer",
+                "manuscribe.pipeline.layers._page_layer",
                 lambda page: calls.append(1) or _PageLayer("", [], [], [], "", []),
             )
             layers = _DocumentLayers(MagicMock(spec=pdfium.PdfDocument))
@@ -1387,7 +1387,7 @@ class TestTableCellBold:
     th/already-bold/miss guards — plus an end-to-end run on the real fixture layer."""
 
     def test_is_bold_glyph_threshold(self) -> None:
-        from pdfparser.pipeline.tables import _is_bold_glyph
+        from manuscribe.pipeline.tables import _is_bold_glyph
 
         assert not _is_bold_glyph(None)
         assert not _is_bold_glyph(315)
@@ -1396,7 +1396,7 @@ class TestTableCellBold:
         assert _is_bold_glyph(708)
 
     def test_majority_vote_bolds_cell(self) -> None:
-        from pdfparser.pipeline.tables import _rewrap_bold_cells
+        from manuscribe.pipeline.tables import _rewrap_bold_cells
 
         # "Total" is bold (708×5), "x" is normal (315) — only the bold cell is wrapped.
         table = "<table><tr><td>Total</td><td>x</td></tr></table>"
@@ -1405,7 +1405,7 @@ class TestTableCellBold:
         assert "<td>x</td>" in out
 
     def test_one_thin_glyph_still_bold_majority(self) -> None:
-        from pdfparser.pipeline.tables import _rewrap_bold_cells
+        from manuscribe.pipeline.tables import _rewrap_bold_cells
 
         # 4/5 glyphs bold (0.8 >= 0.6) — one antialiased-thin glyph doesn't un-bold it.
         table = "<table><tr><td>Total</td></tr></table>"
@@ -1413,7 +1413,7 @@ class TestTableCellBold:
         assert "<td><strong>Total</strong></td>" in out
 
     def test_lone_bold_glyph_does_not_bold_cell(self) -> None:
-        from pdfparser.pipeline.tables import _rewrap_bold_cells
+        from manuscribe.pipeline.tables import _rewrap_bold_cells
 
         # 1/5 glyphs bold (0.2 < 0.6) — a stray bold glyph leaves the cell plain.
         table = "<table><tr><td>Total</td></tr></table>"
@@ -1421,7 +1421,7 @@ class TestTableCellBold:
         assert "<td>Total</td>" in out
 
     def test_repeated_cell_binds_in_document_order(self) -> None:
-        from pdfparser.pipeline.tables import _rewrap_bold_cells
+        from manuscribe.pipeline.tables import _rewrap_bold_cells
 
         # "Resolution" twice: the first occurrence is bold, the second normal — the
         # monotonic cursor binds each cell to its own occurrence, not always the first.
@@ -1434,7 +1434,7 @@ class TestTableCellBold:
         assert out.index("<strong>") < out.index("</tr><tr>")
 
     def test_miss_leaves_cell_unchanged(self) -> None:
-        from pdfparser.pipeline.tables import _rewrap_bold_cells
+        from manuscribe.pipeline.tables import _rewrap_bold_cells
 
         # The OCR text isn't in the layer here → no guess, cell unchanged.
         table = "<table><tr><td>xyz</td></tr></table>"
@@ -1442,7 +1442,7 @@ class TestTableCellBold:
         assert out == table
 
     def test_header_th_not_bolded(self) -> None:
-        from pdfparser.pipeline.tables import _rewrap_bold_cells
+        from manuscribe.pipeline.tables import _rewrap_bold_cells
 
         # A <th> matches and advances the cursor (so later cells stay aligned) but is
         # never wrapped — the render's CSS already differentiates headers.
@@ -1451,14 +1451,14 @@ class TestTableCellBold:
         assert out == table
 
     def test_already_bold_cell_not_double_wrapped(self) -> None:
-        from pdfparser.pipeline.tables import _rewrap_bold_cells
+        from manuscribe.pipeline.tables import _rewrap_bold_cells
 
         table = "<table><tr><td><strong>foo</strong></td></tr></table>"
         out = _rewrap_bold_cells(table, "foo", [708, 708, 708])
         assert out.count("<strong>") == 1
 
     def test_empty_cell_unchanged_and_keeps_cursor(self) -> None:
-        from pdfparser.pipeline.tables import _rewrap_bold_cells
+        from manuscribe.pipeline.tables import _rewrap_bold_cells
 
         # An empty cell is skipped without consuming the cursor, so the following bold
         # cell still binds to its glyph run.
@@ -1468,7 +1468,7 @@ class TestTableCellBold:
         assert "<td><strong>Total</strong></td>" in out
 
     def test_inline_markup_cell_rewrapped_whole(self) -> None:
-        from pdfparser.pipeline.tables import _rewrap_bold_cells
+        from manuscribe.pipeline.tables import _rewrap_bold_cells
 
         # A bold cell carrying inline markup is wrapped around its whole inner HTML,
         # preserving the sub-tag (a blind string replace would corrupt it).
@@ -1482,15 +1482,15 @@ class TestTableCellBold:
         import pypdfium2 as pdfium
         import pytest
 
-        from pdfparser.pipeline.layers import _DocumentLayers, _PageLayer
-        from pdfparser.pipeline.tables import _apply_table_bold
+        from manuscribe.pipeline.layers import _DocumentLayers, _PageLayer
+        from manuscribe.pipeline.tables import _apply_table_bold
 
         # An image-only / scanned page: the text layer carries no font-weight metadata
         # (every weight None) → every table is returned unchanged.
         md = "<table><tr><td>Total</td></tr></table>"
         with pytest.MonkeyPatch.context() as mp:
             mp.setattr(
-                "pdfparser.pipeline.layers._page_layer",
+                "manuscribe.pipeline.layers._page_layer",
                 lambda page: _PageLayer("", [], [], [], "", []),
             )
             layers = _DocumentLayers(MagicMock(spec=pdfium.PdfDocument))
@@ -1505,8 +1505,8 @@ class TestTableCellBold:
 
         import pytest
 
-        from pdfparser.pipeline.layers import _DocumentLayers
-        from pdfparser.pipeline.tables import _apply_table_bold
+        from manuscribe.pipeline.layers import _DocumentLayers
+        from manuscribe.pipeline.tables import _apply_table_bold
 
         pdf = pathlib.Path(__file__).parent / "fixtures" / "31123167.pdf"
         dump = (
@@ -1557,7 +1557,7 @@ class TestTableReocrApply:
     def _plan(self, md: str):
         from PIL import Image
 
-        from pdfparser.pipeline.tables.recover import _RegionPlan
+        from manuscribe.pipeline.tables.recover import _RegionPlan
 
         start = md.index(self._ORIG)
         return _RegionPlan(
@@ -1565,7 +1565,7 @@ class TestTableReocrApply:
         )
 
     def test_richer_reocr_replaces_original(self) -> None:
-        from pdfparser.pipeline.tables.recover import _apply_page_results
+        from manuscribe.pipeline.tables.recover import _apply_page_results
 
         md = f"Intro paragraph.\n\n{self._ORIG}\n\nTrailing body paragraph."
         out = _apply_page_results(md, [(self._plan(md), self._RICHER)])
@@ -1574,20 +1574,20 @@ class TestTableReocrApply:
         assert "Intro paragraph." in out and "Trailing body paragraph." in out
 
     def test_sparser_reocr_keeps_original(self) -> None:
-        from pdfparser.pipeline.tables.recover import _apply_page_results
+        from manuscribe.pipeline.tables.recover import _apply_page_results
 
         md = f"Intro paragraph.\n\n{self._ORIG}\n\nTrailing body paragraph."
         # Fewer non-empty cells than the original -> the full-page table is kept.
         assert _apply_page_results(md, [(self._plan(md), self._SPARSER)]) == md
 
     def test_reocr_without_a_table_keeps_original(self) -> None:
-        from pdfparser.pipeline.tables.recover import _apply_page_results
+        from manuscribe.pipeline.tables.recover import _apply_page_results
 
         md = f"Intro paragraph.\n\n{self._ORIG}\n\nTrailing body paragraph."
         assert _apply_page_results(md, [(self._plan(md), "prose, no table")]) == md
 
     def test_recovered_legend_folded_as_table_footnote(self) -> None:
-        from pdfparser.pipeline.tables.recover import _apply_page_results
+        from manuscribe.pipeline.tables.recover import _apply_page_results
 
         md = f"Intro paragraph.\n\n{self._ORIG}\n\nTrailing body paragraph."
         crop = self._RICHER + "\n\naValues are means of triplicate assays."
@@ -1596,7 +1596,7 @@ class TestTableReocrApply:
         assert "means of triplicate assays" in out
 
     def test_legend_already_in_page_not_duplicated(self) -> None:
-        from pdfparser.pipeline.tables.recover import _apply_page_results
+        from manuscribe.pipeline.tables.recover import _apply_page_results
 
         legend = "aValues are means of triplicate assays."
         md = f"Intro paragraph.\n\n{self._ORIG}\n\n{legend}"
@@ -1608,7 +1608,7 @@ class TestTableReocrApply:
     def test_multiple_regions_spliced_back_to_front(self) -> None:
         from PIL import Image
 
-        from pdfparser.pipeline.tables.recover import _apply_page_results, _RegionPlan
+        from manuscribe.pipeline.tables.recover import _apply_page_results, _RegionPlan
 
         t2 = "<table><tr><td>X</td><td>Y</td></tr><tr><td>9</td><td>8</td></tr></table>"
         r2 = (
@@ -1659,8 +1659,8 @@ class TestTableReocrEndToEnd:
         return pdf, pages
 
     def test_crops_are_batched_in_one_call_and_richer_reocr_spliced(self) -> None:
-        from pdfparser.pipeline.layers import _DocumentLayers
-        from pdfparser.pipeline.tables.recover import _recover_dropped_tables
+        from manuscribe.pipeline.layers import _DocumentLayers
+        from manuscribe.pipeline.tables.recover import _recover_dropped_tables
 
         pdf, pages = self._dump_pages("30592559")
         # 240 distinct cells out-cells the fixture's biggest planned region (101), so a
@@ -1696,8 +1696,8 @@ class TestTableReocrEndToEnd:
 
         import pypdfium2 as pdfium
 
-        from pdfparser.pipeline.layers import _DocumentLayers
-        from pdfparser.pipeline.tables.recover import _recover_dropped_tables
+        from manuscribe.pipeline.layers import _DocumentLayers
+        from manuscribe.pipeline.tables.recover import _recover_dropped_tables
 
         called: list[int] = []
 
@@ -1717,8 +1717,8 @@ class TestTableReocrEndToEnd:
         # rotation and the planner rotates the crop upright before re-OCR.  Declining
         # every crop here (empty re-OCR) keeps the originals, but the rotation-aware
         # localize→batch path still runs.
-        from pdfparser.pipeline.layers import _DocumentLayers
-        from pdfparser.pipeline.tables.recover import _recover_dropped_tables
+        from manuscribe.pipeline.layers import _DocumentLayers
+        from manuscribe.pipeline.tables.recover import _recover_dropped_tables
 
         pdf, pages = self._dump_pages("32117944")
         seen: list[int] = []
@@ -1734,8 +1734,8 @@ class TestTableReocrEndToEnd:
         assert len(out) == len(pages)
 
     def test_unlocalizable_table_is_left_untouched(self) -> None:
-        from pdfparser.pipeline.layers import _DocumentLayers
-        from pdfparser.pipeline.tables.recover import _recover_dropped_tables
+        from manuscribe.pipeline.layers import _DocumentLayers
+        from manuscribe.pipeline.tables.recover import _recover_dropped_tables
 
         pdf, _ = self._dump_pages("30592559")
         called: list[int] = []

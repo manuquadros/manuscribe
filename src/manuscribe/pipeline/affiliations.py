@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import re
 
-from pdfparser.pipeline.text import _SENTENCE_END_RE
+from manuscribe.pipeline.text import _SENTENCE_END_RE
 
 # An affiliation names an institution: a department, university, institute,
 # laboratory, college, hospital, faculty, academy or school.  Stems

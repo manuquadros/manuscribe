@@ -22,9 +22,9 @@ from dataclasses import dataclass
 
 from PIL import Image  # noqa: TC002 — beartype reads annotations at runtime
 
-from pdfparser.pipeline.layers import _DocumentLayers, _normalize
-from pdfparser.pipeline.markdown import _render_inline
-from pdfparser.pipeline.tables.localize import (
+from manuscribe.pipeline.layers import _DocumentLayers, _normalize
+from manuscribe.pipeline.markdown import _render_inline
+from manuscribe.pipeline.tables.localize import (
     _adjacent_para_tokens,
     _anchor_texts,
     _glyph_centers,
@@ -32,7 +32,7 @@ from pdfparser.pipeline.tables.localize import (
     _region_fully_captured,
     _scaled_crop,
 )
-from pdfparser.pipeline.tables.markup import (
+from manuscribe.pipeline.tables.markup import (
     _cell_texts,
     _close_unclosed_tables,
     _collapse_repeated_rows,

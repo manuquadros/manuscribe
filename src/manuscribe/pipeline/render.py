@@ -7,7 +7,7 @@ from pathlib import Path  # noqa: TC003 — beartype reads annotations at runtim
 import pypdfium2 as pdfium
 from PIL import Image
 
-from pdfparser.pipeline.errors import PdfInputError
+from manuscribe.pipeline.errors import PdfInputError
 
 _RENDER_SCALE = 200 / 72  # 200 DPI per the model card
 _OCR_MAX_LONG_SIDE = 1540  # model-card target; VRAM ≈ 2.7/6.1 GiB at this size

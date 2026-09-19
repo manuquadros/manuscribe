@@ -19,18 +19,18 @@ from __future__ import annotations
 
 import re
 
-from pdfparser.pipeline.layers import _Box, _DocumentLayers, _normalize, _PageLayer
-from pdfparser.pipeline.tables.localize import (
+from manuscribe.pipeline.layers import _Box, _DocumentLayers, _normalize, _PageLayer
+from manuscribe.pipeline.tables.localize import (
     _anchor_texts,
     _glyph_centers,
     _locate_bbox,
 )
-from pdfparser.pipeline.tables.markup import (
+from manuscribe.pipeline.tables.markup import (
     _TABLE_RE,
     _cell_texts,
     _collapse_repeated_rows,
 )
-from pdfparser.pipeline.text import _visible_text
+from manuscribe.pipeline.text import _visible_text
 
 # CSS-style font weight: 400 normal, 700 bold.  >=600 captures semibold/bold while
 # excluding normal/medium — the 31123167 fixture's bold section rows read 708, plain

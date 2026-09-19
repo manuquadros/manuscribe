@@ -32,8 +32,8 @@ from helpers import (
     _run_lighton,
 )
 
-from pdfparser.pipeline.assemble import _assemble_document
-from pdfparser.pipeline.text import _visible_text
+from manuscribe.pipeline.assemble import _assemble_document
+from manuscribe.pipeline.text import _visible_text
 
 _DUMP_DIR = Path(__file__).parent / "data" / "dumps"
 _PAGE_MARKER = re.compile(r"^===== PAGE \d+ =====$", re.MULTILINE)

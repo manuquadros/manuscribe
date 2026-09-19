@@ -1,5 +1,5 @@
 """P100 fallback OCR server: LightOnOCR-2-1B via HF transformers behind the two
-OpenAI-compatible routes pdfparser's model seam (``pipeline/model.py``) uses.
+OpenAI-compatible routes manuscribe's model seam (``pipeline/model.py``) uses.
 
 Why this exists: the pinned vLLM image has no sm_60 (Pascal) kernels, so vLLM
 crashes on a P100 with ``cudaErrorNoKernelImageForDevice``.  ``transformers``
@@ -11,7 +11,7 @@ Not a general OpenAI server: only ``GET /v1/models`` (reachability + context
 probe) and ``POST /v1/chat/completions`` (single image, greedy) are implemented,
 matching exactly what the client parses.  No streaming, no batching, one GPU.
 
-Run (in a venv carrying torch+transformers, NOT the pdfparser venv)::
+Run (in a venv carrying torch+transformers, NOT the manuscribe venv)::
 
     python deploy/p100/shim.py
 
@@ -55,7 +55,7 @@ _DATA_URI_RE = re.compile(r"^data:[\w/+.\-]*;base64,(?P<b64>.+)$", re.DOTALL)
 _state: dict[str, Any] = {}
 # generate() is not concurrency-safe and there is one GPU; the client issues
 # pages in parallel (default 4), so serialize decoding here.  Also set
-# PDFPARSER_OCR_CONCURRENCY=1 client-side to avoid pointless queueing.
+# MANUSCRIBE_OCR_CONCURRENCY=1 client-side to avoid pointless queueing.
 _gpu_lock = threading.Lock()
 
 

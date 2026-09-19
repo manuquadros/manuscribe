@@ -11,7 +11,7 @@ from unittest.mock import MagicMock
 
 from PIL import Image
 
-from pdfparser.pipeline.layers import (
+from manuscribe.pipeline.layers import (
     _MIN_TEXT_LAYER_ALNUM,
     _DocumentLayers,
     _is_trivial_text_layer,
@@ -81,8 +81,8 @@ class TestOcrDocumentPagesSkip:
     skipped leading pages with empty markdown to keep positional alignment."""
 
     def test_ad_page_is_never_ocred(self, monkeypatch) -> None:
-        from pdfparser.pipeline import assemble
-        from pdfparser.pipeline.model import OcrModel
+        from manuscribe.pipeline import assemble
+        from manuscribe.pipeline.model import OcrModel
 
         seen: list[list[Image.Image]] = []
 
@@ -111,8 +111,8 @@ class TestOcrDocumentPagesSkip:
         assert result[1:] == [f"page-{i}" for i in range(10)]
 
     def test_no_ad_pdf_ocrs_every_page(self, monkeypatch) -> None:
-        from pdfparser.pipeline import assemble
-        from pdfparser.pipeline.model import OcrModel
+        from manuscribe.pipeline import assemble
+        from manuscribe.pipeline.model import OcrModel
 
         seen: list[list[Image.Image]] = []
 

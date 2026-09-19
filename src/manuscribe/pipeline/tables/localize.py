@@ -14,9 +14,9 @@ from collections import Counter
 import pypdfium2 as pdfium  # noqa: TC002 — beartype reads annotations at runtime
 from PIL import Image  # noqa: TC002 — beartype reads annotations at runtime
 
-from pdfparser.pipeline.layers import _Box, _normalize
-from pdfparser.pipeline.render import _downscale_to_long_side
-from pdfparser.pipeline.text import _visible_text
+from manuscribe.pipeline.layers import _Box, _normalize
+from manuscribe.pipeline.render import _downscale_to_long_side
+from manuscribe.pipeline.text import _visible_text
 
 # A normalized cell must be at least this many chars to seed localization — short
 # numeric/symbol cells ("1 mM", "None") recur in prose and would match the wrong

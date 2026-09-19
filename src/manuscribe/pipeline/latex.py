@@ -16,7 +16,7 @@ import re
 
 from pylatexenc.latex2text import LatexNodes2Text  # type: ignore[import-untyped]
 
-from pdfparser.pipeline.text import _SUP_DIGITS
+from manuscribe.pipeline.text import _SUP_DIGITS
 
 # Unicode superscript forms.  A LaTeX ``$^{…}$`` run is rendered with these
 # glyphs when every character has one (so "NAD$^+$" → "NAD⁺"); otherwise it falls

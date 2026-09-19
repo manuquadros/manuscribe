@@ -4,7 +4,7 @@ from pathlib import Path
 
 from PIL import Image
 
-from pdfparser.pipeline.render import (
+from manuscribe.pipeline.render import (
     _OCR_MAX_LONG_SIDE,
     _RENDER_SCALE,
     _downscale_to_long_side,

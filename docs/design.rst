@@ -10,13 +10,13 @@ they hang on.
 The pipeline at a glance
 ------------------------
 
-``pdfparser`` converts a PDF to HTML — self-contained by default — by handing each
+``manuscribe`` converts a PDF to HTML — self-contained by default — by handing each
 rendered page to **LightOnOCR-2-1B-bbox**, an end-to-end vision-language model that
 returns the whole page as markdown — reading order, emphasis, ``<table>`` HTML,
 LaTeX math, and figure crop boxes appended to ``![image]`` placeholders.  The model
 runs out of process in a vLLM server; everything on this side of that call is
 deterministic clean-up, and the entry point returns a
-:class:`~pdfparser.pipeline.assemble.ParsedDocument` — the HTML plus the plain-text
+:class:`~manuscribe.pipeline.assemble.ParsedDocument` — the HTML plus the plain-text
 title, byline and best-effort DOI a consumer would otherwise re-parse out of it.
 
 The flow (design *B-prime*)::
@@ -49,13 +49,13 @@ The flow (design *B-prime*)::
 
 The single most important structural decision is the **purity seam**.  The GPU work
 — the LightOnOCR model itself — runs *out of process* in a vLLM server (see
-``deploy/vllm/``), so :mod:`pdfparser.pipeline.model` is a thin HTTP client rather
+``deploy/vllm/``), so :mod:`manuscribe.pipeline.model` is a thin HTTP client rather
 than an in-process model load, and the package depends on neither torch nor
 transformers.  What the seam buys is unchanged: everything downstream of the OCR call
 — the entire clean-up, merge and classification surface, which is where the bugs and
 the design live — is a pure function of ``(list[page_markdown], list[page_image])``.
-That core is :func:`~pdfparser.pipeline.assemble._assemble_html`, which
-:func:`~pdfparser.pipeline.assemble.lightonocr_pdf_to_document` wires rendering, OCR
+That core is :func:`~manuscribe.pipeline.assemble._assemble_html`, which
+:func:`~manuscribe.pipeline.assemble.lightonocr_pdf_to_document` wires rendering, OCR
 and the recovery passes around.  The core is what makes the hard parts unit-testable
 without a GPU *or* a server: feed synthetic markdown plus blank images straight in and
 assert on the HTML — and the seam itself is now mockable with an
@@ -64,18 +64,18 @@ stage, keep it on the pure side of the seam unless it genuinely needs pixels or 
 model.
 
 Three kinds of work sit *outside* the pure core, upstream of it.
-:mod:`~pdfparser.pipeline.render` turns the PDF into page images; the OCR seam turns
+:mod:`~manuscribe.pipeline.render` turns the PDF into page images; the OCR seam turns
 images into markdown; and a family of **recovery passes** repairs that markdown before
 it reaches the core.  Each re-reads the page — some re-OCR a tight crop through the
 seam, all of them consult the **PDF text layer** — to recover content the full-page
-pass dropped or mangled: a clipped table (:mod:`pdfparser.pipeline.tables`), a whole
-missing figure (:mod:`~pdfparser.pipeline.recover_figures`), a truncated sentence tail
-(:mod:`~pdfparser.pipeline.reconcile`).  They are the IO-bound part by design, kept
+pass dropped or mangled: a clipped table (:mod:`manuscribe.pipeline.tables`), a whole
+missing figure (:mod:`~manuscribe.pipeline.recover_figures`), a truncated sentence tail
+(:mod:`~manuscribe.pipeline.reconcile`).  They are the IO-bound part by design, kept
 upstream so the core still sees only ``(markdown, images)`` and stays model-free; their
 own pure helpers — cell extraction, bbox-from-the-text-layer geometry, caption folding
 — are unit-tested directly, and only the render-and-re-OCR wrappers touch the server.
 All of them read one shared, already-open document
-(:class:`pdfparser.pipeline.layers._DocumentLayers`), so a page is text-extracted once
+(:class:`manuscribe.pipeline.layers._DocumentLayers`), so a page is text-extracted once
 rather than once per pass.
 
 A note on testing: because real OCR output is the thing the heuristics actually
@@ -102,7 +102,7 @@ disagree, the code leans toward **including too much rather than too little**, a
 that bias is intentional.  It shows up in three places:
 
 * **Four-edge recovery**
-  (:func:`~pdfparser.pipeline.figures._extend_edge`).
+  (:func:`~manuscribe.pipeline.figures._extend_edge`).
   The model's box routinely clips a figure's edges — most often the bottom, but
   any side too (a wide figure's right edge, a plot's left axis line, a top panel
   label or frame line the box cuts straight through).  Rather than trust the box,
@@ -124,17 +124,17 @@ that bias is intentional.  It shows up in three places:
   rather than stepping over it into the caption.
 
 * **Over-segmentation merge**
-  (:func:`~pdfparser.pipeline.figures._cluster_figure_boxes`,
-  :func:`~pdfparser.pipeline.figures._union_box`).  The model sometimes splits one
+  (:func:`~manuscribe.pipeline.figures._cluster_figure_boxes`,
+  :func:`~manuscribe.pipeline.figures._union_box`).  The model sometimes splits one
   tall figure into stacked boxes.  Boxes that share a column and sit close
   vertically are unioned back into one crop, so a panel never gets dropped on the
   floor between two boxes.  The same over-segmentation also emits the bare panel
   labels (``A``, ``B``) as their own text blocks;
-  :func:`~pdfparser.pipeline.assemble._parse_page_blocks` drops a lone
+  :func:`~manuscribe.pipeline.assemble._parse_page_blocks` drops a lone
   single-letter label that abuts a figure placeholder, since it belongs to the
   figure (baked into the crop), not the prose.
 
-* **Render resolution** (:mod:`pdfparser.pipeline.render`).  Each page is rasterized
+* **Render resolution** (:mod:`manuscribe.pipeline.render`).  Each page is rasterized
   straight to the model's long-side budget (capped at 200 DPI), so the crop has the
   model's full working resolution to recover from — without supersampling every page
   to 200 DPI only to shrink it back.
@@ -144,7 +144,7 @@ swallow prose rather than recover figure.  First, *ambiguity*: if the ink past t
 box runs all the way to the search cap with no clear whitespace gap, that is
 usually a correct box sitting above caption or body text, and extending would
 swallow prose — so the box is left untouched.  Second, a *leading gap*
-(:func:`~pdfparser.pipeline.figures._ink_run_end`): growth recovers only content
+(:func:`~manuscribe.pipeline.figures._ink_run_end`): growth recovers only content
 *contiguous* with the box; a clean whitespace gap before the first ink means the
 box already ends at the figure boundary and what follows is separated from it (a
 caption below, a neighbouring column to the right), so growth is declined.  A real
@@ -160,13 +160,13 @@ enough to bake the caption *inside* it.  In both, the geometry waves it through,
 a *document-level* signal breaks the tie: the OCR already emitted the caption as its
 own text block, so its words are known.  That signal is only as good as the caption
 text actually attached to the figure: when the model splits a caption into a bare
-``FIG. N`` label and a following descriptive block, :func:`~pdfparser.pipeline.assemble._parse_page_blocks`
+``FIG. N`` label and a following descriptive block, :func:`~manuscribe.pipeline.assemble._parse_page_blocks`
 rejoins them so the figure owns the *whole* caption — otherwise the trim is handed
 only "FIG. N", finds none of those words in the baked band, and leaves the caption
 baked in (and the descriptive sentence stranded in the body).
 
 So when a caption is present and an OCR seam is available,
-:func:`~pdfparser.pipeline.figures._trim_baked_caption` is **authoritative**.  It
+:func:`~manuscribe.pipeline.figures._trim_baked_caption` is **authoritative**.  It
 re-OCRs the trailing text bands (cheap and rare — gated on the band being text-
 rather than dense-figure-textured, and confined to the bottom of the crop) and cuts
 at the caption's true top, dropping a band that *reproduces the caption's words*.
@@ -181,7 +181,7 @@ test would mistake for prose, survives, because its words (axis numbers) are not
 caption's.
 
 The pixel-only run-length test
-(:func:`~pdfparser.pipeline.figures._trim_swallowed_caption`,
+(:func:`~manuscribe.pipeline.figures._trim_swallowed_caption`,
 ``_FIGURE_PROSE_RUN_FRAC`` — caption text is short letter runs, recoverable figure
 content long continuous runs) remains only as the backstop when no OCR seam is
 available, or a band re-OCR fails on the shared GPU.  Without the OCR signal it
@@ -195,7 +195,7 @@ down there, trust prose-shaped pixels, or the caption's own words, to find it."
 
 All of this assumes the page pass at least *boxed* the figure.  When a dense page
 drops one whole — no ``![image]`` at all — the clip logic has nothing to grow, so a
-separate recovery pass (:func:`~pdfparser.pipeline.recover_figures._recover_dropped_figures`)
+separate recovery pass (:func:`~manuscribe.pipeline.recover_figures._recover_dropped_figures`)
 takes over: it diffs the figure numbers the OCR emitted against the figure numbers in
 the PDF text layer, localizes each missing one's caption from the layer, re-OCRs a
 tight figure+caption crop, and splices the recovered ``![image]`` back through the
@@ -205,7 +205,7 @@ Text merging: when the join is uncertain, don't join
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Re-stitching paragraphs that a two-column layout split across a column or page
-break (:func:`~pdfparser.pipeline.merge._merge_split_paragraphs`) leans the
+break (:func:`~manuscribe.pipeline.merge._merge_split_paragraphs`) leans the
 *opposite* way from figures: a wrong merge fuses two unrelated sentences into
 grammatical nonsense, which is worse than leaving a paragraph visibly broken in
 two.  So the merge fires only when the evidence is positive — the first fragment
@@ -231,9 +231,9 @@ internalizing because they encode this caution:
 A subtlety that bites if you touch these predicates: terminal punctuation often
 hides inside a closing inline tag (``…carboxylase.</em>``) or behind a trailing
 citation superscript (``…humans.<sup>15–18</sup>``, ``…software.³²``).  Run the
-sentence-end check through :func:`~pdfparser.pipeline.text._ends_sentence`, which
+sentence-end check through :func:`~manuscribe.pipeline.text._ends_sentence`, which
 strips a trailing citation before testing the **visible** text
-(:func:`~pdfparser.pipeline.text._visible_text`) — never a raw match on the block
+(:func:`~manuscribe.pipeline.text._visible_text`) — never a raw match on the block
 HTML.  The same predicate is shared by the classification side
 (``_looks_like_body_prose``, ``_is_frontmatter_text``, ``_ends_like_sentence``) so
 a body sentence ending in a citation isn't mistaken for a label and hidden.
@@ -251,17 +251,17 @@ under-collect:
 
 * An affiliation OCR'd without its author superscript is accepted only on a
   structural tell — a comma-separated address ending in a postal code or a
-  recognised country (:func:`~pdfparser.pipeline.affiliations._is_affiliation_line`).
+  recognised country (:func:`~manuscribe.pipeline.affiliations._is_affiliation_line`).
   An address with neither is left visible rather than risk hiding a sentence that
   merely names a university.
 
 * Stray footer metadata is relocated position-independently only on its own
   strong evidence — a known publishing label, two or more metadata tokens (DOI,
   e-mail, date), or a fixed boilerplate phrase
-  (:func:`~pdfparser.pipeline.classify._is_stray_metadata`) — never because of
+  (:func:`~manuscribe.pipeline.classify._is_stray_metadata`) — never because of
   where it sits.
 
-* As a final backstop, :func:`~pdfparser.pipeline.classify._extract_front_matter`
+* As a final backstop, :func:`~manuscribe.pipeline.classify._extract_front_matter`
   refuses to hide the body when the run of "front matter" would be the *entire*
   document: an all-front-matter result signals a detection failure, not a
   metadata-only paper.
@@ -269,7 +269,7 @@ under-collect:
 Other deliberate choices
 ------------------------
 
-Math is reduced, not rendered.  :mod:`pdfparser.pipeline.latex` converts inline
+Math is reduced, not rendered.  :mod:`manuscribe.pipeline.latex` converts inline
 ``$…$`` to Unicode super/subscripts or HTML ``<sup>``/``<sub>``; full equation
 rendering is out of scope (a later MathJax option).  The guiding rule when a
 construct can't be reduced is *lossless degradation*: keep the TeX literal so a
@@ -279,18 +279,18 @@ maintained macro table instead of a hand-curated map, with one documented
 override (``^\circ`` → "°", the degree idiom).  A ``$…$`` span with *no* TeX
 markup is reduced too when it is plain inline math the model wrapped in math mode
 — an identifier-led equation or variable list (``$x = 22$``, ``$a, b, c$``) sheds
-its delimiters (:func:`~pdfparser.pipeline.latex._is_inline_math_span`).  Currency
+its delimiters (:func:`~manuscribe.pipeline.latex._is_inline_math_span`).  Currency
 is protected by the same test: it is digit-led (``$5``), so a stray ``$…$``
 pairing over "$5 … $10" is left verbatim, and a span carrying a complete HTML tag
 is rejected outright — the pre-markdown stream still holds raw ``<sup>``/``<td>``
 whose ``<``/``>`` would otherwise read as a math relation.  A reduced span also
 italicises a standalone single letter as a variable (``$x = 22$`` →
-``<em>x</em> = 22``; :func:`~pdfparser.pipeline.latex._italicize_math_variables`),
+``<em>x</em> = 22``; :func:`~manuscribe.pipeline.latex._italicize_math_variables`),
 with one carve-out that is itself an "is this X or Y?" call: a letter in *unit
 position* — trailing a numeric magnitude, ``5 V``, ``9.8 m/s²`` — is a unit symbol,
 not a variable, and stays upright.
 
-OCR decoding is greedy (:func:`~pdfparser.pipeline.model._ocr_page`).  OCR wants
+OCR decoding is greedy (:func:`~manuscribe.pipeline.model._ocr_page`).  OCR wants
 the single most-likely transcription, and a deterministic decode avoids
 run-to-run drift — notably a figure box that occasionally over-segments into two
 stacked crops on a sampled decode.  A page dense enough to overrun the token
@@ -299,7 +299,7 @@ after it — so ``_ocr_page`` detects the ``finish_reason == "length"`` cut and
 re-OCRs once with the full remaining context window, keeping the longer result.
 
 The pages of one document are OCR'd *concurrently* against the shared server
-(:func:`~pdfparser.pipeline.model._ocr_pages`), which lets vLLM's continuous batching
+(:func:`~manuscribe.pipeline.model._ocr_pages`), which lets vLLM's continuous batching
 engage and is most of the throughput.  The cost is that greedy decode no longer buys
 byte-exact reproducibility — batch composition shifts with request timing, so two runs
 can differ in the small — which is why the tests assert on structure and substrings,
@@ -307,17 +307,17 @@ never a byte-exact OCR snapshot.  A transient blip on one page (a connection res
 503, an out-of-memory) would otherwise abort the whole document through the propagated
 exception, so a page POST carries a bounded backoff retry; a failure that outlives the
 retries surfaces as a typed
-:class:`~pdfparser.pipeline.errors.OcrUnavailableError` /
-:class:`~pdfparser.pipeline.errors.OcrResponseError` a batch worker can classify for
+:class:`~manuscribe.pipeline.errors.OcrUnavailableError` /
+:class:`~manuscribe.pipeline.errors.OcrResponseError` a batch worker can classify for
 re-queue, not a raw ``httpx`` traceback.
 
 Leading image-only pages are skipped *before* OCR.  An ad-prefixed article opens with a
 full-page-image cover the model would transcribe to garbage the assembly discards
 anyway — one or two wasted ~10–24 s round trips, more wall-clock than any other saving
-on this side of the seam.  :func:`~pdfparser.pipeline.layers._leading_image_only_pages`
+on this side of the seam.  :func:`~manuscribe.pipeline.layers._leading_image_only_pages`
 reads the PDF text layer first and, for the *leading run* of pages whose layer is
 essentially empty (below a small alphanumeric floor,
-:func:`~pdfparser.pipeline.layers._is_trivial_text_layer`), sends nothing to the model;
+:func:`~manuscribe.pipeline.layers._is_trivial_text_layer`), sends nothing to the model;
 each skipped page is padded with empty markdown so the page↔image alignment the recovery
 passes and the assembly depend on survives, and the assembly's own article-start scan
 then drops the pads exactly as it dropped an OCR'd-but-heading-less cover before.  This
@@ -331,11 +331,11 @@ be sure is to OCR the page, the exact cost the skip exists to avoid.  Two guards
 blast radius small: the skip is the leading run only, never an interior page, and a
 document whose text layer is empty *everywhere* (a wholly-scanned paper) is left entirely
 to the model.  Deciding ad-versus-article for a page that *does* carry text stays the
-model's job (:func:`~pdfparser.pipeline.classify._is_article_page_md`); should a real
+model's job (:func:`~manuscribe.pipeline.classify._is_article_page_md`); should a real
 fixture ever lose content here, the fix is a cap on how many leading pages may be
 skipped, not removing the skip.
 
-Tables are re-OCR'd from a tight crop (:mod:`pdfparser.pipeline.tables`).  The
+Tables are re-OCR'd from a tight crop (:mod:`manuscribe.pipeline.tables`).  The
 full-page pass silently drops small in-table content — a column-spanning
 subheader, the ``colspan``/``rowspan`` structure of a header — and does so at
 *every* render resolution; the loss is to the dense full page, not to pixels.
@@ -374,11 +374,11 @@ matters.
 Sideways tables are the exception to "boxes figures, never tables."  A table printed
 rotated 270° *is* boxed by the model — as a figure — while it also (badly) transcribes
 it, mis-grouping the columns.  So here the geometry comes from a box after all, but the
-crop is sideways: :func:`~pdfparser.pipeline.layers._page_text_and_boxes` records each
+crop is sideways: :func:`~manuscribe.pipeline.layers._page_text_and_boxes` records each
 glyph's rotation, the localizer reads the region along its true reading axis, and the
 re-OCR rotates the crop upright first (the model mis-groups a rotated table's columns
 otherwise).  Because the model emitted both a ``<table>`` and an ``![image]`` for the
-one table, :func:`~pdfparser.pipeline.assemble._dedup_table_figures` drops the duplicate
+one table, :func:`~manuscribe.pipeline.assemble._dedup_table_figures` drops the duplicate
 image.
 
 One table defeats even a perfect crop, and it forces the single real exception to
@@ -387,7 +387,7 @@ mis-reads *the same way on every run* — dropping the empty top-left header cel
 every row shifts a column and a value falls off the end, then truncating the tail —
 cannot be repaired by re-OCR, because a tighter crop just re-rolls the identical
 error (measured 5/5 runs on one fixture).  The only fix is deterministic, so
-:func:`~pdfparser.pipeline.tables.rebuild._repair_tables_from_text_layer` rebuilds
+:func:`~manuscribe.pipeline.tables.rebuild._repair_tables_from_text_layer` rebuilds
 that table's *content* straight from the PDF text layer — reading the layer's words,
 not just its coordinates, one of the two places B-prime's "OCR is the sole reader"
 rule is broken on purpose (the other is the truncated-tail reconciliation below), and
@@ -403,13 +403,13 @@ model is provably, repeatably wrong and the text layer is provably right.
 Separately, a table that *overruns the bottom of a page* is transcribed without a
 closing ``</table>`` — the model stops mid-table at the page edge — so the next
 page's opening prose would render inside it.
-:func:`~pdfparser.pipeline.tables.markup._close_unclosed_tables` balances the tags per
+:func:`~manuscribe.pipeline.tables.markup._close_unclosed_tables` balances the tags per
 page (the unit the model transcribes) before block-splitting, scoped to the pure
 core so it runs whether or not the re-OCR pass did.
 
 One more shape pathology is deterministic too: a *decode loop*.  On a dense table
 either OCR path can repeat a single row dozens of times (one fixture's table
-ballooned to ~110 rows).  :func:`~pdfparser.pipeline.tables.markup._collapse_repeated_rows_md`
+ballooned to ~110 rows).  :func:`~manuscribe.pipeline.tables.markup._collapse_repeated_rows_md`
 collapses any run of more than ``_MAX_IDENTICAL_ROW_RUN`` byte-identical adjacent
 rows to one; like the tag-balancing it lives in the pure core and runs over every
 page table, so it covers both the page-level length-retry and the crop re-OCR paths.
@@ -419,7 +419,7 @@ right caption, and slipped a presence-only assertion.
 
 Reconciliation recovers what the OCR *truncated*, and is the second place the text
 layer's words — not just its coordinates — are read.  When the model cuts a prose
-block a few words short, :func:`~pdfparser.pipeline.reconcile._reconcile_text_layer`
+block a few words short, :func:`~manuscribe.pipeline.reconcile._reconcile_text_layer`
 anchors the block's tail uniquely in the PDF text layer and splices the faithful raw
 layer slice up to the next block.  It leans the way classification does — a wrong
 splice fabricates text, worse than a missing tail — so it fires only behind a stack of
@@ -431,7 +431,7 @@ emitted.  Like the table rebuild it is deterministic, so replaying recorded tran
 through it is full verification — no server needed.
 
 Stage order is load-bearing.  In
-:func:`~pdfparser.pipeline.assemble._assemble_html` the clean-up runs in a fixed
+:func:`~manuscribe.pipeline.assemble._assemble_html` the clean-up runs in a fixed
 sequence: caption-label rejoin → table-caption colocation → table-footnote
 colocation → classify → paragraph merge.  Footnote colocation must precede
 classify so a table's footnotes stay with the table instead of being swept into
@@ -443,7 +443,7 @@ ever sees what classify left behind.  Reorder these at your peril.
 After that sequence settles the body, one last pass re-levels heading *depth*.  The
 OCR places every heading in the right reading order but jitters its ``<hN>`` level —
 a subsection emitted as ``<h2>``, a top-level section as ``<h1>``.
-:func:`~pdfparser.pipeline.classify._normalize_heading_levels` corrects depth from
+:func:`~manuscribe.pipeline.classify._normalize_heading_levels` corrects depth from
 two high-confidence signals only: a dotted section number sets depth by its dotted
 depth (``2.`` → ``<h2>``, ``2.1.`` → ``<h3>``), and a canonical top-level section
 name (Introduction, Results, References …) anchors to ``<h2>``.  Every other heading

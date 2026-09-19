@@ -6,28 +6,28 @@ class TestLatexToHtml:
     before markdown parsing."""
 
     def test_simple_subscript(self) -> None:
-        from pdfparser.pipeline.latex import _latex_to_html
+        from manuscribe.pipeline.latex import _latex_to_html
 
         assert _latex_to_html("$K_m$") == "<em>K</em><sub>m</sub>"
 
     def test_braced_subscript(self) -> None:
-        from pdfparser.pipeline.latex import _latex_to_html
+        from manuscribe.pipeline.latex import _latex_to_html
 
         assert _latex_to_html("$V_{max}$") == "<em>V</em><sub>max</sub>"
 
     def test_superscript_becomes_unicode(self) -> None:
-        from pdfparser.pipeline.latex import _latex_to_html
+        from manuscribe.pipeline.latex import _latex_to_html
 
         # All-mappable superscript chars collapse to Unicode (matches "NAD⁺").
         assert _latex_to_html("NAD$^+$") == "NAD⁺"
 
     def test_superscript_letters_fall_back_to_tag(self) -> None:
-        from pdfparser.pipeline.latex import _latex_to_html
+        from manuscribe.pipeline.latex import _latex_to_html
 
         assert _latex_to_html("pH$^{S}$") == "pH<sup>S</sup>"
 
     def test_footnote_marker_asterisk_escaped_for_markdown(self) -> None:
-        from pdfparser.pipeline.latex import _latex_to_html
+        from manuscribe.pipeline.latex import _latex_to_html
 
         # A '*' inside an author superscript ("1,*") is emitted as an HTML entity
         # so the downstream Markdown inline parser does not read it as emphasis and
@@ -35,7 +35,7 @@ class TestLatexToHtml:
         assert _latex_to_html("Zhou$^{1,*}$") == "Zhou<sup>1,&#42;</sup>"
 
     def test_literal_asterisk_in_math_span_escaped(self) -> None:
-        from pdfparser.pipeline.latex import _latex_to_html
+        from manuscribe.pipeline.latex import _latex_to_html
 
         # A '*' *outside* the sub/superscript but inside a converted span (a
         # multiplication) is escaped too, so two of them are not paired into
@@ -47,7 +47,7 @@ class TestLatexToHtml:
         )
 
     def test_ratio_of_kinetic_constants(self) -> None:
-        from pdfparser.pipeline.latex import _latex_to_html
+        from manuscribe.pipeline.latex import _latex_to_html
 
         assert (
             _latex_to_html("$k_{cat}/K_m$")
@@ -55,7 +55,7 @@ class TestLatexToHtml:
         )
 
     def test_degree_command_superscript(self) -> None:
-        from pdfparser.pipeline.latex import _latex_to_html
+        from manuscribe.pipeline.latex import _latex_to_html
 
         # ``$^\circ$`` is the LaTeX degree idiom; the single-char superscript
         # rule used to capture only the backslash, leaving a lone ``\`` inside
@@ -63,22 +63,22 @@ class TestLatexToHtml:
         assert _latex_to_html(r"grown at 25 $\pm$ 1$^\circ$C") == "grown at 25 ± 1°C"
 
     def test_braced_degree_command(self) -> None:
-        from pdfparser.pipeline.latex import _latex_to_html
+        from manuscribe.pipeline.latex import _latex_to_html
 
         assert _latex_to_html(r"$^{\circ}$C") == "°C"
 
     def test_symbol_command_translated(self) -> None:
-        from pdfparser.pipeline.latex import _latex_to_html
+        from manuscribe.pipeline.latex import _latex_to_html
 
         assert _latex_to_html(r"$5 \times 10^{3}$ cells") == "5 × 10³ cells"
 
     def test_greek_command_as_subscript(self) -> None:
-        from pdfparser.pipeline.latex import _latex_to_html
+        from manuscribe.pipeline.latex import _latex_to_html
 
         assert _latex_to_html(r"$T_\alpha$") == "<em>T</em><sub>α</sub>"
 
     def test_command_matched_as_whole_token(self) -> None:
-        from pdfparser.pipeline.latex import _latex_to_html
+        from manuscribe.pipeline.latex import _latex_to_html
 
         # Commands are matched as maximal "\name" tokens and looked up whole, so
         # a short command never eats the head of a longer one ("\to" vs "\top",
@@ -88,12 +88,12 @@ class TestLatexToHtml:
         assert _latex_to_html(r"$A \simeq B$") == "<em>A</em> ≃ <em>B</em>"
 
     def test_command_still_terminated_by_digit(self) -> None:
-        from pdfparser.pipeline.latex import _latex_to_html
+        from manuscribe.pipeline.latex import _latex_to_html
 
         assert _latex_to_html(r"$\alpha2$") == "α2"
 
     def test_unknown_command_left_literal(self) -> None:
-        from pdfparser.pipeline.latex import _latex_to_html
+        from manuscribe.pipeline.latex import _latex_to_html
 
         # pylatexenc returns "" for an unknown macro; we keep the literal rather
         # than silently dropping it.
@@ -102,13 +102,13 @@ class TestLatexToHtml:
         )
 
     def test_extended_symbol_coverage(self) -> None:
-        from pdfparser.pipeline.latex import _latex_to_html
+        from manuscribe.pipeline.latex import _latex_to_html
 
         # Coverage we get for free from pylatexenc that the old hand map lacked.
         assert _latex_to_html(r"$T_\beta + \nabla$") == "<em>T</em><sub>β</sub> + ∇"
 
     def test_supplementary_label_s_not_section_sign(self) -> None:
-        from pdfparser.pipeline.latex import _latex_to_html
+        from manuscribe.pipeline.latex import _latex_to_html
 
         # The model misreads a supplementary label's leading "S" as the section
         # command (\S); "\S<digit>" means the letter S ("S4 Fig."), not "§", and the
@@ -118,7 +118,7 @@ class TestLatexToHtml:
         assert _latex_to_html(r"$\S1$ Raw images.") == "S1 Raw images."
 
     def test_supplementary_label_escapes_underscore(self) -> None:
-        from pdfparser.pipeline.latex import _latex_to_html
+        from manuscribe.pipeline.latex import _latex_to_html
 
         # The captured label can carry a literal "_" ("$\S4_2$") which lands in the
         # pre-markdown stream; it is escaped to the HTML entity so the downstream
@@ -127,7 +127,7 @@ class TestLatexToHtml:
         assert _latex_to_html(r"$\S4_2$ Data.") == "S4&#95;2 Data."
 
     def test_standalone_section_command_still_section_sign(self) -> None:
-        from pdfparser.pipeline.latex import _latex_to_html
+        from manuscribe.pipeline.latex import _latex_to_html
 
         # A standalone "\S" (no following digit) is a real footnote/section marker and
         # still converts to "§" — the supplementary-label rule must not swallow it.
@@ -135,7 +135,7 @@ class TestLatexToHtml:
         assert _latex_to_html(r"$^{1,\S}$") == "<sup>1,§</sup>"
 
     def test_literal_section_sign_label_recovered_at_block_start(self) -> None:
-        from pdfparser.pipeline.latex import _latex_to_html
+        from manuscribe.pipeline.latex import _latex_to_html
 
         # The model sometimes emits the *resolved* section sign ("§4 Fig.") rather than
         # the "\S" command; a "§<digit>" at a line/block start (the label position) is
@@ -145,14 +145,14 @@ class TestLatexToHtml:
         assert _latex_to_html("**§1 Raw images.**") == "**S1 Raw images.**"
 
     def test_genuine_midsentence_section_sign_preserved(self) -> None:
-        from pdfparser.pipeline.latex import _latex_to_html
+        from manuscribe.pipeline.latex import _latex_to_html
 
         # A genuine section reference mid-sentence is not at a block start, so it is
         # left intact — the label rule must not rewrite "§3" into "S3" here.
         assert _latex_to_html("as described in §3 above") == "as described in §3 above"
 
     def test_arg_macro_that_raises_does_not_crash(self) -> None:
-        from pdfparser.pipeline.latex import _latex_to_html
+        from manuscribe.pipeline.latex import _latex_to_html
 
         # pylatexenc raises when fed a bare arg-taking macro like \sqrt; the
         # exception must be swallowed and the span left intact, not propagated
@@ -160,7 +160,7 @@ class TestLatexToHtml:
         assert _latex_to_html(r"$\sqrt{x}$") == r"\sqrtx"
 
     def test_arg_macro_template_not_leaked(self) -> None:
-        from pdfparser.pipeline.latex import _latex_to_html
+        from manuscribe.pipeline.latex import _latex_to_html
 
         # \frac's substitution template ("%s/%s") must not reach the output; the
         # command stays literal so real math survives for a later MathJax pass.
@@ -168,32 +168,32 @@ class TestLatexToHtml:
         assert _latex_to_html(r"$\frac{a}{b}$") == r"\fracab"
 
     def test_extended_symbol_coverage_via_command_helper(self) -> None:
-        from pdfparser.pipeline.latex import _latex_command_to_unicode
+        from manuscribe.pipeline.latex import _latex_command_to_unicode
 
         assert _latex_command_to_unicode(r"\sqrt") == r"\sqrt"
         assert _latex_command_to_unicode(r"\frac") == r"\frac"
         assert _latex_command_to_unicode(r"\alpha") == "α"
 
     def test_plain_text_untouched(self) -> None:
-        from pdfparser.pipeline.latex import _latex_to_html
+        from manuscribe.pipeline.latex import _latex_to_html
 
         assert _latex_to_html("no math here") == "no math here"
 
     def test_currency_dollars_left_alone(self) -> None:
-        from pdfparser.pipeline.latex import _latex_to_html
+        from manuscribe.pipeline.latex import _latex_to_html
 
         # No TeX markup between the '$' → not math; must not be stripped/merged.
         assert _latex_to_html("costs $5 and $10 total") == "costs $5 and $10 total"
 
     def test_math_wrapped_bare_number_unwrapped(self) -> None:
-        from pdfparser.pipeline.latex import _latex_to_html
+        from manuscribe.pipeline.latex import _latex_to_html
 
         # A lone number in a math span is just a value the model wrapped — drop
         # the '$' delimiters but keep the number (and the surrounding spaces).
         assert _latex_to_html("was $42.26$ Sec") == "was 42.26 Sec"
 
     def test_inline_equation_unwrapped(self) -> None:
-        from pdfparser.pipeline.latex import _latex_to_html
+        from manuscribe.pipeline.latex import _latex_to_html
 
         # A markup-free "variable = value" span the model wrapped in math mode must
         # shed its '$' delimiters like a bare number — the relational operator marks
@@ -205,7 +205,7 @@ class TestLatexToHtml:
         assert _latex_to_html("at $P < 0.05$ level") == "at <em>P</em> < 0.05 level"
 
     def test_inline_variable_list_unwrapped(self) -> None:
-        from pdfparser.pipeline.latex import _latex_to_html
+        from manuscribe.pipeline.latex import _latex_to_html
 
         # A comma-separated list of single-letter variables ("a, b, c") the model
         # wrapped in math mode — no relational operator — still sheds its delimiters,
@@ -216,7 +216,7 @@ class TestLatexToHtml:
         )
 
     def test_currency_left_alone(self) -> None:
-        from pdfparser.pipeline.latex import _latex_to_html
+        from manuscribe.pipeline.latex import _latex_to_html
 
         # A spurious '$' pairing over prose (English words) and a digit-led currency
         # range (no relation) must both stay verbatim — neither is inline math.
@@ -226,7 +226,7 @@ class TestLatexToHtml:
         assert _latex_to_html("priced $5 - $10 each") == "priced $5 - $10 each"
 
     def test_currency_comparison_with_relation_left_alone(self) -> None:
-        from pdfparser.pipeline.latex import _latex_to_html
+        from manuscribe.pipeline.latex import _latex_to_html
 
         # A currency pairing that brackets a relational operator ("$10 > $5") must not
         # be mistaken for an equation: currency is digit-led, so the identifier-lead
@@ -237,7 +237,7 @@ class TestLatexToHtml:
         assert _latex_to_html("the $5 < $10 rule") == "the $5 < $10 rule"
 
     def test_dollar_span_straddling_html_tag_left_alone(self) -> None:
-        from pdfparser.pipeline.latex import _latex_to_html
+        from manuscribe.pipeline.latex import _latex_to_html
 
         # _latex_to_html runs on the pre-markdown stream, which still carries raw HTML
         # (<sub>, <td>, …).  A stray '$' pairing that straddles a tag must not be read
@@ -253,7 +253,7 @@ class TestLatexToHtml:
         )
 
     def test_single_letter_variables_italicised(self) -> None:
-        from pdfparser.pipeline.latex import _latex_to_html
+        from manuscribe.pipeline.latex import _latex_to_html
 
         # Math-mode convention: a standalone single Latin letter is a variable and
         # renders italic; numbers, operators, and multi-letter identifiers stay
@@ -262,7 +262,7 @@ class TestLatexToHtml:
         assert _latex_to_html("$n = 12$") == "<em>n</em> = 12"
 
     def test_script_marker_letter_not_italicised(self) -> None:
-        from pdfparser.pipeline.latex import _latex_to_html
+        from manuscribe.pipeline.latex import _latex_to_html
 
         # A single letter inside a generated <sub>/<sup> — e.g. an affiliation or
         # table footnote marker that falls back to a tag — must NOT be italicised;
@@ -271,7 +271,7 @@ class TestLatexToHtml:
         assert _latex_to_html("$E_a$") == "<em>E</em><sub>a</sub>"
 
     def test_single_letter_units_not_italicised(self) -> None:
-        from pdfparser.pipeline.latex import _latex_to_html
+        from manuscribe.pipeline.latex import _latex_to_html
 
         # A single letter in *unit position* — trailing a numeric magnitude — is a
         # unit symbol, not a variable, and stays upright; the variable left of the
@@ -282,7 +282,7 @@ class TestLatexToHtml:
         assert _latex_to_html(r"$c = 3 \times 10^8 m/s$") == "<em>c</em> = 3 × 10⁸ m/s"
 
     def test_temperature_unit_not_italicised(self) -> None:
-        from pdfparser.pipeline.latex import _latex_to_html
+        from manuscribe.pipeline.latex import _latex_to_html
 
         # "°C"/"°F" is a unit: the degree sign sits between the magnitude and the
         # letter, so the unit run must bridge it and keep C/F upright, not read the
@@ -291,7 +291,7 @@ class TestLatexToHtml:
         assert _latex_to_html(r"$T = 37^\circ C$") == "<em>T</em> = 37°C"
 
     def test_paren_led_stereodescriptor_unwrapped(self) -> None:
-        from pdfparser.pipeline.latex import _latex_to_html
+        from manuscribe.pipeline.latex import _latex_to_html
 
         # The model wraps a Cahn-Ingold-Prelog stereodescriptor in math mode
         # ("$(R)$-2-alkanols"); a paren lead is not currency, so the delimiters drop
@@ -306,7 +306,7 @@ class TestLatexToHtml:
         assert _latex_to_html("$(R,S)$") == "(<em>R</em>,<em>S</em>)"
 
     def test_paren_led_panel_label_not_unwrapped(self) -> None:
-        from pdfparser.pipeline.latex import _latex_to_html
+        from manuscribe.pipeline.latex import _latex_to_html
 
         # A bare parenthesized label has the same shape as a stereodescriptor but is
         # NOT one: a figure panel "(A)"/"(B)", a roman list item "(i)", or a letter
@@ -317,7 +317,7 @@ class TestLatexToHtml:
         assert _latex_to_html("$(n = 5)$") == "(<em>n</em> = 5)"
 
     def test_script_span_reattaches_to_preceding_token(self) -> None:
-        from pdfparser.pipeline.latex import _latex_to_html
+        from manuscribe.pipeline.latex import _latex_to_html
 
         # The model writes a unit and its exponent with a gap ("Sec $^{-1}$"); a
         # span opening with a script attaches to the previous token, no space.
@@ -330,7 +330,7 @@ class TestRenderInlineHtml:
     the model's caption prose."""
 
     def test_balanced_emphasis_and_escapes(self) -> None:
-        from pdfparser.pipeline.markdown import _render_inline_html
+        from manuscribe.pipeline.markdown import _render_inline_html
 
         # The reason for using the parser over a regex sub: nested bold+italic closes
         # in order, and a backslash-escaped marker stays literal.
@@ -341,7 +341,7 @@ class TestRenderInlineHtml:
         assert _render_inline_html(r"Jang\* and Lee\*") == "Jang* and Lee*"
 
     def test_code_link_autolink_left_literal(self) -> None:
-        from pdfparser.pipeline.markdown import _render_inline_html
+        from manuscribe.pipeline.markdown import _render_inline_html
 
         # A caption's OCR prose can carry backticks (mis-read primes), bracket+paren
         # adjacencies, and bare <addr> tokens; none must become <code>/<a>/autolinks.
@@ -355,7 +355,7 @@ class TestBreakCaptionTitle:
     <br> before the legend, but only when it is genuinely bold and legend follows."""
 
     def test_bold_title_broken_from_panel_legend(self) -> None:
-        from pdfparser.pipeline.markdown import _break_caption_title
+        from manuscribe.pipeline.markdown import _break_caption_title
 
         assert (
             _break_caption_title(
@@ -365,7 +365,7 @@ class TestBreakCaptionTitle:
         )
 
     def test_nested_italic_title_closes_at_first_strong(self) -> None:
-        from pdfparser.pipeline.markdown import _break_caption_title
+        from manuscribe.pipeline.markdown import _break_caption_title
 
         # the title's inner </em> closes before its </strong>, so the break lands after
         # the whole bold title, not inside it
@@ -374,7 +374,7 @@ class TestBreakCaptionTitle:
         ) == ("<strong>Figure 2. analyses of <em>BkTauF</em></strong><br>(A) SDS/PAGE")
 
     def test_non_panel_legend_also_broken(self) -> None:
-        from pdfparser.pipeline.markdown import _break_caption_title
+        from manuscribe.pipeline.markdown import _break_caption_title
 
         assert (
             _break_caption_title(
@@ -384,7 +384,7 @@ class TestBreakCaptionTitle:
         )
 
     def test_title_only_caption_unchanged(self) -> None:
-        from pdfparser.pipeline.markdown import _break_caption_title
+        from manuscribe.pipeline.markdown import _break_caption_title
 
         # a caption that is wholly the bold title (no legend) gets no break
         assert (
@@ -393,14 +393,14 @@ class TestBreakCaptionTitle:
         )
 
     def test_unbolded_caption_unchanged(self) -> None:
-        from pdfparser.pipeline.markdown import _break_caption_title
+        from manuscribe.pipeline.markdown import _break_caption_title
 
         # no leading bold title → nothing to break, even if a term inside is bold
         cap = "Figure 4. Activity of the <strong>mutant</strong> enzyme over time"
         assert _break_caption_title(cap) == cap
 
     def test_punctuation_glued_to_bold_not_split(self) -> None:
-        from pdfparser.pipeline.markdown import _break_caption_title
+        from manuscribe.pipeline.markdown import _break_caption_title
 
         # the </strong> is immediately followed by a period (the model un-bolded the
         # trailing dot) — no whitespace, so it must NOT be mistaken for a legend start
@@ -408,7 +408,7 @@ class TestBreakCaptionTitle:
         assert _break_caption_title(cap) == cap
 
     def test_bold_panel_label_not_a_title_unchanged(self) -> None:
-        from pdfparser.pipeline.markdown import _break_caption_title
+        from manuscribe.pipeline.markdown import _break_caption_title
 
         # the leading bold is a panel label, not a figure/table title — no break, or the
         # label is split from its own description (the regression this guard prevents)
@@ -416,7 +416,7 @@ class TestBreakCaptionTitle:
         assert _break_caption_title(cap) == cap
 
     def test_bold_emphasis_word_not_a_title_unchanged(self) -> None:
-        from pdfparser.pipeline.markdown import _break_caption_title
+        from manuscribe.pipeline.markdown import _break_caption_title
 
         # an emphasised first word in a legend ("**Asterisks** denote …") is not a title
         for cap in (
@@ -426,7 +426,7 @@ class TestBreakCaptionTitle:
             assert _break_caption_title(cap) == cap
 
     def test_two_bold_run_title_breaks_after_last_run(self) -> None:
-        from pdfparser.pipeline.markdown import _break_caption_title
+        from manuscribe.pipeline.markdown import _break_caption_title
 
         # the model emits the number and the title as two adjacent bold runs; the break
         # must land after the *whole* title (the last </strong>), not split it mid-title
@@ -439,7 +439,7 @@ class TestBreakCaptionTitle:
         )
 
     def test_all_bold_two_run_title_no_legend_unchanged(self) -> None:
-        from pdfparser.pipeline.markdown import _break_caption_title
+        from manuscribe.pipeline.markdown import _break_caption_title
 
         # two bold runs, no non-bold legend after — nothing to break off, so the title
         # must not be split between its runs
@@ -452,13 +452,13 @@ class TestMdToHtmlBlocks:
     HTML (tables, <sup>) passed through and thematic breaks dropped."""
 
     def test_heading_and_paragraph_split(self) -> None:
-        from pdfparser.pipeline.markdown import _md_to_html_blocks
+        from manuscribe.pipeline.markdown import _md_to_html_blocks
 
         blocks = _md_to_html_blocks("## Introduction\n\nSome prose here.")
         assert blocks == ["<h2>Introduction</h2>", "<p>Some prose here.</p>"]
 
     def test_emphasis_rendered(self) -> None:
-        from pdfparser.pipeline.markdown import _md_to_html_blocks
+        from manuscribe.pipeline.markdown import _md_to_html_blocks
 
         (block,) = _md_to_html_blocks("*Przewalskia tangutica* is **rare**.")
         assert (
@@ -466,13 +466,13 @@ class TestMdToHtmlBlocks:
         )
 
     def test_table_passthrough(self) -> None:
-        from pdfparser.pipeline.markdown import _md_to_html_blocks
+        from manuscribe.pipeline.markdown import _md_to_html_blocks
 
         table = "<table><tbody><tr><td>1</td></tr></tbody></table>"
         assert _md_to_html_blocks(table) == [table]
 
     def test_table_cell_emphasis_rendered(self) -> None:
-        from pdfparser.pipeline.markdown import _md_to_html_blocks
+        from manuscribe.pipeline.markdown import _md_to_html_blocks
 
         # Raw-HTML table cells carry the model's ``*emphasis*`` unparsed; organism
         # names in a cell must still italicise instead of showing bare asterisks.
@@ -486,7 +486,7 @@ class TestMdToHtmlBlocks:
         assert "*" not in block
 
     def test_table_cell_lone_asterisk_kept_literal(self) -> None:
-        from pdfparser.pipeline.markdown import _md_to_html_blocks
+        from manuscribe.pipeline.markdown import _md_to_html_blocks
 
         # A single footnote-marker asterisk is not an emphasis span — it must stay.
         (block,) = _md_to_html_blocks(
@@ -495,7 +495,7 @@ class TestMdToHtmlBlocks:
         assert "<td>100*</td>" in block
 
     def test_table_cell_spaced_asterisks_not_emphasis(self) -> None:
-        from pdfparser.pipeline.markdown import _md_to_html_blocks
+        from manuscribe.pipeline.markdown import _md_to_html_blocks
 
         # Asterisks flanked by spaces (multiplication, paired footnote daggers) are
         # not CommonMark emphasis — they must stay literal, not wrap an <em>.
@@ -506,7 +506,7 @@ class TestMdToHtmlBlocks:
         assert "<em>" not in block
 
     def test_table_cell_stray_lt_and_amp_escaped(self) -> None:
-        from pdfparser.pipeline.markdown import _md_to_html_blocks
+        from manuscribe.pipeline.markdown import _md_to_html_blocks
 
         # A bare "<" / "&" / ">" inside a cell must be escaped, not left to start a
         # bogus tag or a broken entity.
@@ -516,13 +516,13 @@ class TestMdToHtmlBlocks:
         assert "<td>n&lt;5 &amp; p&gt;0.05</td>" in block
 
     def test_sup_passthrough(self) -> None:
-        from pdfparser.pipeline.markdown import _md_to_html_blocks
+        from manuscribe.pipeline.markdown import _md_to_html_blocks
 
         (block,) = _md_to_html_blocks("NAD<sup>+</sup> dependent.")
         assert block == "<p>NAD<sup>+</sup> dependent.</p>"
 
     def test_degree_does_not_bleed_into_superscript(self) -> None:
-        from pdfparser.pipeline.markdown import _md_to_html_blocks
+        from manuscribe.pipeline.markdown import _md_to_html_blocks
 
         # Regression: "$^\circ$" once produced "<sup>\</sup>", whose lone "\<"
         # markdown escaped into "&lt;/sup&gt;", swallowing the rest of the
@@ -533,12 +533,12 @@ class TestMdToHtmlBlocks:
         assert block == "<p>grown at 25 ± 1°C under 16 H of light.</p>"
 
     def test_thematic_break_dropped(self) -> None:
-        from pdfparser.pipeline.markdown import _md_to_html_blocks
+        from manuscribe.pipeline.markdown import _md_to_html_blocks
 
         assert _md_to_html_blocks("A.\n\n---\n\nB.") == ["<p>A.</p>", "<p>B.</p>"]
 
     def test_list_kept_as_one_block(self) -> None:
-        from pdfparser.pipeline.markdown import _md_to_html_blocks
+        from manuscribe.pipeline.markdown import _md_to_html_blocks
 
         (block,) = _md_to_html_blocks("- one\n- two")
         assert block.startswith("<ul>")

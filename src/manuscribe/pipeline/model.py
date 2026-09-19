@@ -21,14 +21,14 @@ from dataclasses import dataclass
 import httpx
 from PIL import Image  # noqa: TC002 — beartype reads annotations at runtime
 
-from pdfparser.pipeline.errors import OcrResponseError, OcrUnavailableError
+from manuscribe.pipeline.errors import OcrResponseError, OcrUnavailableError
 
 _DEFAULT_BASE_URL = "http://127.0.0.1:8000/v1"
 _DEFAULT_MODEL = "lightonocr"
 _OCR_MAX_NEW_TOKENS = 2048
 # Fallback context window — input (page-image) tokens plus generated tokens — used
 # only when the server's ``/models`` response omits ``max_model_len`` *and* the
-# ``PDFPARSER_VLLM_MAX_MODEL_LEN`` override is unset (see ``_resolve_context_len``).
+# ``MANUSCRIBE_VLLM_MAX_MODEL_LEN`` override is unset (see ``_resolve_context_len``).
 # It sizes the retry budget when a page's generation truncates: a dense page (a large
 # table plus prose) can exceed ``_OCR_MAX_NEW_TOKENS`` and get cut off mid-output,
 # silently dropping the rest of the table and everything after it.
@@ -39,16 +39,16 @@ _CONTEXT_SAFETY_MARGIN = 64
 # Pages OCR independently, so the client issues several requests at once to let
 # the vLLM server's continuous batching engage — a serial caller pins
 # ``num_requests_running`` at 1, leaving most of the GPU idle.  Bounded because
-# the card is small and shared; override with ``PDFPARSER_OCR_CONCURRENCY``.
+# the card is small and shared; override with ``MANUSCRIBE_OCR_CONCURRENCY``.
 _DEFAULT_OCR_CONCURRENCY = 4
 # A cold page can take tens of seconds on a small GPU; httpx's 5 s default would
 # abort mid-decode, so OCR requests use a generous per-request budget.  Override
-# per-deployment with ``PDFPARSER_OCR_TIMEOUT`` — a slow cold-start GPU may need
+# per-deployment with ``MANUSCRIBE_OCR_TIMEOUT`` — a slow cold-start GPU may need
 # longer (see ``_resolve_request_timeout``).
 _DEFAULT_REQUEST_TIMEOUT_S = 600.0
 # The reachability probe must fail fast — it shares the client but not the long
 # generation budget, so a wedged server doesn't block startup for ten minutes.
-# Override with ``PDFPARSER_OCR_HEALTH_TIMEOUT`` — a fast CI probe may want shorter.
+# Override with ``MANUSCRIBE_OCR_HEALTH_TIMEOUT`` — a fast CI probe may want shorter.
 _DEFAULT_HEALTH_TIMEOUT_S = 10.0
 # A page POST runs concurrently against a small shared GPU, so a transient
 # connection blip or vLLM overload status on any one page would otherwise abort the
@@ -76,7 +76,7 @@ class OcrModel:
     the truncation-retry budget in ``_ocr_page`` is correct for the actual server
     without a per-page ``os.environ`` re-read.
 
-    ``concurrency`` is the resolved ``PDFPARSER_OCR_CONCURRENCY``, likewise read once
+    ``concurrency`` is the resolved ``MANUSCRIBE_OCR_CONCURRENCY``, likewise read once
     at load time — it sizes *both* the httpx pool (``_client_limits``) and the
     ``_ocr_pages`` worker count, so reading it once here keeps the two in lock-step
     (a re-read at call time could desync the workers from the pool cap).
@@ -108,7 +108,7 @@ class OcrModel:
         For a long-lived worker (the annotation-hub batch ingester holds one
         ``OcrModel`` across many documents): if the vLLM server restarts, the pooled
         connections go stale and its config (the context window) may change.  Calling
-        this on a persistent :class:`~pdfparser.pipeline.errors.OcrUnavailableError`
+        this on a persistent :class:`~manuscribe.pipeline.errors.OcrUnavailableError`
         swaps in a fresh pool and
         re-reads ``context_len``/``concurrency`` from the new server *without* dropping
         the bundle the worker threads around — every existing reference stays valid.
@@ -133,16 +133,16 @@ class OcrModel:
 
 
 def _resolve_base_url(base_url: str | None) -> str:
-    """The vLLM endpoint root: the explicit arg, else ``PDFPARSER_VLLM_URL``, else the
+    """The vLLM endpoint root: the explicit arg, else ``MANUSCRIBE_VLLM_URL``, else the
     built-in default; trailing slash stripped so ``f"{base_url}/…"`` stays clean."""
-    return (base_url or os.environ.get("PDFPARSER_VLLM_URL", _DEFAULT_BASE_URL)).rstrip(
-        "/"
-    )
+    return (
+        base_url or os.environ.get("MANUSCRIBE_VLLM_URL", _DEFAULT_BASE_URL)
+    ).rstrip("/")
 
 
 def _client_limits(workers: int) -> httpx.Limits:
     """Size the connection pool to the resolved OCR concurrency so a raised
-    ``PDFPARSER_OCR_CONCURRENCY`` isn't capped below the worker count by httpx's
+    ``MANUSCRIBE_OCR_CONCURRENCY`` isn't capped below the worker count by httpx's
     default ``max_connections`` — the page pass issues that many POSTs at once over
     the single shared client.  ``workers`` is resolved once in ``load_ocr_model`` and
     stored on ``OcrModel.concurrency`` so the pool cap and the worker count can't
@@ -159,11 +159,11 @@ def load_ocr_model(
 
     Args:
         base_url: OpenAI-compatible endpoint root.  Defaults to the
-            ``PDFPARSER_VLLM_URL`` env var, then ``http://127.0.0.1:8000/v1``.
-        model: Served model name.  Defaults to ``PDFPARSER_VLLM_MODEL``, then
+            ``MANUSCRIBE_VLLM_URL`` env var, then ``http://127.0.0.1:8000/v1``.
+        model: Served model name.  Defaults to ``MANUSCRIBE_VLLM_MODEL``, then
             ``lightonocr``.
         timeout: Per-request timeout in seconds.  ``None`` (the default) resolves
-            ``PDFPARSER_OCR_TIMEOUT``, then ``_DEFAULT_REQUEST_TIMEOUT_S``.
+            ``MANUSCRIBE_OCR_TIMEOUT``, then ``_DEFAULT_REQUEST_TIMEOUT_S``.
 
     Raises:
         OcrUnavailableError: If the server is unreachable or unhealthy (the probe's
@@ -171,7 +171,7 @@ def load_ocr_model(
             degrade gracefully (e.g. the integration fixture) catch this.
     """
     base_url = _resolve_base_url(base_url)
-    model = model or os.environ.get("PDFPARSER_VLLM_MODEL", _DEFAULT_MODEL)
+    model = model or os.environ.get("MANUSCRIBE_VLLM_MODEL", _DEFAULT_MODEL)
     concurrency = _resolve_ocr_concurrency()
     request_timeout = timeout if timeout is not None else _resolve_request_timeout()
     client = httpx.Client(timeout=request_timeout, limits=_client_limits(concurrency))
@@ -265,12 +265,12 @@ def _parse_server_context_len(payload: object) -> int | None:
 
 def _resolve_context_len(reported: int | None) -> int:
     """The server context window (the truncation-retry token budget): the
-    ``PDFPARSER_VLLM_MAX_MODEL_LEN`` override wins, else the value the server reported
+    ``MANUSCRIBE_VLLM_MAX_MODEL_LEN`` override wins, else the value the server reported
     via ``/models`` (``reported``), else the built-in default.  The override lets a
     deployment whose server can't report ``max_model_len`` still tune the budget."""
-    if os.environ.get("PDFPARSER_VLLM_MAX_MODEL_LEN") is not None:
+    if os.environ.get("MANUSCRIBE_VLLM_MAX_MODEL_LEN") is not None:
         return _env_int(
-            "PDFPARSER_VLLM_MAX_MODEL_LEN",
+            "MANUSCRIBE_VLLM_MAX_MODEL_LEN",
             reported if reported is not None else _DEFAULT_MODEL_CONTEXT_LEN,
         )
     return reported if reported is not None else _DEFAULT_MODEL_CONTEXT_LEN
@@ -431,15 +431,15 @@ def _ocr_page(
 
 
 def _resolve_ocr_concurrency() -> int:
-    return _env_int("PDFPARSER_OCR_CONCURRENCY", _DEFAULT_OCR_CONCURRENCY)
+    return _env_int("MANUSCRIBE_OCR_CONCURRENCY", _DEFAULT_OCR_CONCURRENCY)
 
 
 def _resolve_request_timeout() -> float:
-    return _env_float("PDFPARSER_OCR_TIMEOUT", _DEFAULT_REQUEST_TIMEOUT_S)
+    return _env_float("MANUSCRIBE_OCR_TIMEOUT", _DEFAULT_REQUEST_TIMEOUT_S)
 
 
 def _resolve_health_timeout() -> float:
-    return _env_float("PDFPARSER_OCR_HEALTH_TIMEOUT", _DEFAULT_HEALTH_TIMEOUT_S)
+    return _env_float("MANUSCRIBE_OCR_HEALTH_TIMEOUT", _DEFAULT_HEALTH_TIMEOUT_S)
 
 
 def _ocr_pages(

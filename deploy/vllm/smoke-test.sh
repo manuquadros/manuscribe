@@ -14,9 +14,9 @@ PDF="${PDF:-tests/fixtures/31051047.pdf}"
 # points both the smoke test and a conversion at the same server. 127.0.0.1
 # rather than localhost in the fallback: rootless podman's port-forwarder
 # answers on IPv4 only, so a localhost resolving to ::1 gets "connection reset".
-BASE_URL="${BASE_URL:-${PDFPARSER_VLLM_URL:-http://127.0.0.1:${PORT}/v1}}"
+BASE_URL="${BASE_URL:-${MANUSCRIBE_VLLM_URL:-http://127.0.0.1:${PORT}/v1}}"
 BASE_URL="${BASE_URL%/}"
-MODEL="${MODEL:-${PDFPARSER_VLLM_MODEL:-lightonocr}}"
+MODEL="${MODEL:-${MANUSCRIBE_VLLM_MODEL:-lightonocr}}"
 ENDPOINT="${BASE_URL}/chat/completions"
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
@@ -36,7 +36,7 @@ curl -sS -m 20 "${BASE_URL}/models" >/dev/null || {
 IMG_B64="$(pdm run python - "$PDF" <<'PY'
 import base64, io, sys
 from pathlib import Path
-from pdfparser.pipeline.render import _render_page_images
+from manuscribe.pipeline.render import _render_page_images
 img = _render_page_images(Path(sys.argv[1]))[0]
 buf = io.BytesIO()
 img.save(buf, format="PNG")

@@ -11,8 +11,8 @@ from pathlib import Path
 
 import pytest
 
-from pdfparser.pipeline.doi import _clean_doi, _extract_doi, _find_doi
-from pdfparser.pipeline.layers import _DocumentLayers
+from manuscribe.pipeline.doi import _clean_doi, _extract_doi, _find_doi
+from manuscribe.pipeline.layers import _DocumentLayers
 
 _FIXTURE_DIR = Path(__file__).parent / "fixtures"
 

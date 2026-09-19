@@ -26,8 +26,8 @@ from collections import Counter
 
 import pypdfium2 as pdfium
 
-from pdfparser.pipeline.layers import _DocumentLayers
-from pdfparser.pipeline.text import (
+from manuscribe.pipeline.layers import _DocumentLayers
+from manuscribe.pipeline.text import (
     _STRIP_TAGS_RE,
     _TABLE_TAG_RE,
     _looks_like_figure_caption,

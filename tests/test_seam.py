@@ -10,7 +10,7 @@ from helpers import (
 )
 from PIL import Image
 
-from pdfparser.pipeline.errors import OcrResponseError, OcrUnavailableError
+from manuscribe.pipeline.errors import OcrResponseError, OcrUnavailableError
 
 
 class TestOcrSeam:
@@ -22,7 +22,7 @@ class TestOcrSeam:
 
         import httpx
 
-        from pdfparser.pipeline.model import OcrModel, _ocr_page
+        from manuscribe.pipeline.model import OcrModel, _ocr_page
 
         captured: dict[str, object] = {}
 
@@ -56,7 +56,7 @@ class TestOcrSeam:
 
         import httpx
 
-        from pdfparser.pipeline.model import OcrModel, _ocr_page
+        from manuscribe.pipeline.model import OcrModel, _ocr_page
 
         page = Image.frombytes(
             "RGB",
@@ -86,7 +86,7 @@ class TestOcrSeam:
     def test_ocr_page_raises_on_server_error(self) -> None:
         import httpx
 
-        from pdfparser.pipeline.model import OcrModel, _ocr_page
+        from manuscribe.pipeline.model import OcrModel, _ocr_page
 
         def handler(request: httpx.Request) -> httpx.Response:
             return httpx.Response(500, json={"error": "boom"})
@@ -99,7 +99,7 @@ class TestOcrSeam:
     def test_ocr_page_null_content_returns_empty_string(self) -> None:
         import httpx
 
-        from pdfparser.pipeline.model import OcrModel, _ocr_page
+        from manuscribe.pipeline.model import OcrModel, _ocr_page
 
         def handler(request: httpx.Request) -> httpx.Response:
             body = {"choices": [{"message": {"content": None}}]}
@@ -113,7 +113,7 @@ class TestOcrSeam:
     def test_ocr_page_raises_on_malformed_response(self) -> None:
         import httpx
 
-        from pdfparser.pipeline.model import OcrModel, _ocr_page
+        from manuscribe.pipeline.model import OcrModel, _ocr_page
 
         def handler(request: httpx.Request) -> httpx.Response:
             return httpx.Response(200, json={"choices": []})
@@ -126,7 +126,7 @@ class TestOcrSeam:
     def test_ocr_page_null_choices_raises_ocr_response_error(self) -> None:
         import httpx
 
-        from pdfparser.pipeline.model import OcrModel, _ocr_page
+        from manuscribe.pipeline.model import OcrModel, _ocr_page
 
         # "choices": null is a null-valued key (None[0] -> TypeError), not a missing
         # one; it must still surface as the clear "unexpected OCR response" error.
@@ -141,7 +141,7 @@ class TestOcrSeam:
     def test_ocr_page_non_string_content_raises(self) -> None:
         import httpx
 
-        from pdfparser.pipeline.model import OcrModel, _ocr_page
+        from manuscribe.pipeline.model import OcrModel, _ocr_page
 
         # Structured (non-null, non-string) content — e.g. OpenAI content parts —
         # is a response the pipeline can't consume; fail loudly rather than silently
@@ -160,7 +160,7 @@ class TestOcrSeam:
 
         import httpx
 
-        from pdfparser.pipeline.model import OcrModel, _ocr_page
+        from manuscribe.pipeline.model import OcrModel, _ocr_page
 
         # First response truncates (finish_reason "length"); the seam must retry once
         # with the whole remaining context window (max-model-len 8192 − prompt − a
@@ -198,7 +198,7 @@ class TestOcrSeam:
     def test_natural_finish_does_not_retry(self) -> None:
         import httpx
 
-        from pdfparser.pipeline.model import OcrModel, _ocr_page
+        from manuscribe.pipeline.model import OcrModel, _ocr_page
 
         calls: list[int] = []
 
@@ -222,7 +222,7 @@ class TestOcrSeam:
     def test_truncation_without_headroom_keeps_best_effort(self) -> None:
         import httpx
 
-        from pdfparser.pipeline.model import OcrModel, _ocr_page
+        from manuscribe.pipeline.model import OcrModel, _ocr_page
 
         # The prompt already fills the window, so a retry has no more room than the
         # first call — keep the truncated text rather than re-OCRing for nothing.
@@ -250,7 +250,7 @@ class TestOcrSeam:
 
         import httpx
 
-        from pdfparser.pipeline.model import OcrModel, _ocr_page
+        from manuscribe.pipeline.model import OcrModel, _ocr_page
 
         # First call truncates with usable text; the retry comes back degenerate
         # (null content -> ""). The good-but-truncated first response must be kept,
@@ -281,7 +281,7 @@ class TestOcrSeam:
 
         import httpx
 
-        from pdfparser.pipeline.model import OcrModel, _ocr_pages
+        from manuscribe.pipeline.model import OcrModel, _ocr_pages
 
         # Each page carries a distinct width so the handler can echo its identity;
         # concurrent completion must still gather back in input (page) order.
@@ -304,7 +304,7 @@ class TestOcrSeam:
     def test_ocr_pages_empty_input_returns_empty(self) -> None:
         import httpx
 
-        from pdfparser.pipeline.model import OcrModel, _ocr_pages
+        from manuscribe.pipeline.model import OcrModel, _ocr_pages
 
         # No images → no requests, no thread pool; returns [] without touching the
         # client (a handler that would fail the test if called).
@@ -318,7 +318,7 @@ class TestOcrSeam:
     def test_ocr_pages_propagates_page_error(self) -> None:
         import httpx
 
-        from pdfparser.pipeline.model import OcrModel, _ocr_pages
+        from manuscribe.pipeline.model import OcrModel, _ocr_pages
 
         def handler(request: httpx.Request) -> httpx.Response:
             return httpx.Response(500, json={"error": "boom"})
@@ -331,7 +331,7 @@ class TestOcrSeam:
     def test_ocr_model_context_manager_closes_client(self) -> None:
         import httpx
 
-        from pdfparser.pipeline.model import OcrModel
+        from manuscribe.pipeline.model import OcrModel
 
         transport = httpx.MockTransport(lambda r: httpx.Response(200))
         client = httpx.Client(transport=transport)
@@ -346,7 +346,7 @@ class TestOcrSeam:
         pool's lifecycle."""
         import httpx
 
-        from pdfparser.pipeline import model
+        from manuscribe.pipeline import model
 
         built: list[object] = []
         real_client = httpx.Client
@@ -364,7 +364,7 @@ class TestOcrSeam:
     ) -> None:
         import httpx
 
-        from pdfparser.pipeline.model import load_ocr_model
+        from manuscribe.pipeline.model import load_ocr_model
 
         seen: dict[str, str] = {}
 
@@ -385,10 +385,10 @@ class TestOcrSeam:
     ) -> None:
         import httpx
 
-        from pdfparser.pipeline.model import load_ocr_model
+        from manuscribe.pipeline.model import load_ocr_model
 
-        monkeypatch.setenv("PDFPARSER_VLLM_URL", "http://envhost:9/v1")
-        monkeypatch.setenv("PDFPARSER_VLLM_MODEL", "envmodel")
+        monkeypatch.setenv("MANUSCRIBE_VLLM_URL", "http://envhost:9/v1")
+        monkeypatch.setenv("MANUSCRIBE_VLLM_MODEL", "envmodel")
         seen: dict[str, str] = {}
 
         def handler(request: httpx.Request) -> httpx.Response:
@@ -406,13 +406,13 @@ class TestOcrSeam:
     ) -> None:
         import httpx
 
-        from pdfparser.pipeline import model
-        from pdfparser.pipeline.model import load_ocr_model
+        from manuscribe.pipeline import model
+        from manuscribe.pipeline.model import load_ocr_model
 
         # Concurrency is resolved once at load and stored on the model *and* used to
         # size the httpx pool, so the pool cap and the _ocr_pages worker count can't
         # desync (a late env change is then ignored by both).
-        monkeypatch.setenv("PDFPARSER_OCR_CONCURRENCY", "6")
+        monkeypatch.setenv("MANUSCRIBE_OCR_CONCURRENCY", "6")
         captured: dict[str, httpx.Limits] = {}
         real_client = httpx.Client
 
@@ -436,7 +436,7 @@ class TestOcrSeam:
     ) -> None:
         import httpx
 
-        from pdfparser.pipeline.model import load_ocr_model
+        from manuscribe.pipeline.model import load_ocr_model
 
         built = self._patch_client(
             monkeypatch, lambda request: httpx.Response(503, json={"error": "down"})
@@ -452,7 +452,7 @@ class TestOcrSeam:
     ) -> None:
         import httpx
 
-        from pdfparser.pipeline.model import load_ocr_model
+        from manuscribe.pipeline.model import load_ocr_model
 
         # The restarted server reports a different context window on the second probe.
         probes = {"n": 0}
@@ -483,7 +483,7 @@ class TestOcrSeam:
     ) -> None:
         import httpx
 
-        from pdfparser.pipeline.model import load_ocr_model
+        from manuscribe.pipeline.model import load_ocr_model
 
         probes = {"n": 0}
 
@@ -514,7 +514,7 @@ class TestOcrTransientRetry:
     @staticmethod
     def _record_sleeps(monkeypatch: pytest.MonkeyPatch) -> list[float]:
         """Stub out the backoff sleep and return the list it records each delay into."""
-        from pdfparser.pipeline import model
+        from manuscribe.pipeline import model
 
         delays: list[float] = []
         monkeypatch.setattr(model.time, "sleep", lambda s: delays.append(s))
@@ -522,7 +522,7 @@ class TestOcrTransientRetry:
 
     @staticmethod
     def _no_sleep(monkeypatch: pytest.MonkeyPatch) -> None:
-        from pdfparser.pipeline import model
+        from manuscribe.pipeline import model
 
         monkeypatch.setattr(model.time, "sleep", lambda _s: None)
 
@@ -531,7 +531,7 @@ class TestOcrTransientRetry:
     ) -> None:
         import httpx
 
-        from pdfparser.pipeline.model import OcrModel, _ocr_page
+        from manuscribe.pipeline.model import OcrModel, _ocr_page
 
         self._no_sleep(monkeypatch)
         calls: list[int] = []
@@ -554,7 +554,7 @@ class TestOcrTransientRetry:
     ) -> None:
         import httpx
 
-        from pdfparser.pipeline.model import OcrModel, _ocr_page
+        from manuscribe.pipeline.model import OcrModel, _ocr_page
 
         self._no_sleep(monkeypatch)
         calls: list[int] = []
@@ -577,7 +577,7 @@ class TestOcrTransientRetry:
     ) -> None:
         import httpx
 
-        from pdfparser.pipeline.model import OcrModel, _ocr_page
+        from manuscribe.pipeline.model import OcrModel, _ocr_page
 
         self._no_sleep(monkeypatch)
         calls: list[int] = []
@@ -604,8 +604,8 @@ class TestOcrTransientRetry:
     def test_backoff_has_jitter(self, monkeypatch: pytest.MonkeyPatch) -> None:
         import httpx
 
-        from pdfparser.pipeline import model
-        from pdfparser.pipeline.model import _RETRY_BACKOFF_BASE_S, OcrModel, _ocr_page
+        from manuscribe.pipeline import model
+        from manuscribe.pipeline.model import _RETRY_BACKOFF_BASE_S, OcrModel, _ocr_page
 
         delays = self._record_sleeps(monkeypatch)
         # Pin the jitter term so the exact sleep is assertable; the point under test is
@@ -633,7 +633,7 @@ class TestOcrTransientRetry:
     def test_retries_exhausted_reraises(self, monkeypatch: pytest.MonkeyPatch) -> None:
         import httpx
 
-        from pdfparser.pipeline.model import _MAX_OCR_RETRIES, OcrModel, _ocr_page
+        from manuscribe.pipeline.model import _MAX_OCR_RETRIES, OcrModel, _ocr_page
 
         self._no_sleep(monkeypatch)
         calls: list[int] = []
@@ -654,7 +654,7 @@ class TestOcrTransientRetry:
     ) -> None:
         import httpx
 
-        from pdfparser.pipeline.model import OcrModel, _ocr_page
+        from manuscribe.pipeline.model import OcrModel, _ocr_page
 
         self._no_sleep(monkeypatch)
         calls: list[int] = []
@@ -674,7 +674,7 @@ class TestOcrTransientRetry:
     def test_read_timeout_is_not_retried(self, monkeypatch: pytest.MonkeyPatch) -> None:
         import httpx
 
-        from pdfparser.pipeline.model import OcrModel, _ocr_page
+        from manuscribe.pipeline.model import OcrModel, _ocr_page
 
         self._no_sleep(monkeypatch)
         calls: list[int] = []
@@ -699,7 +699,7 @@ class TestOcrTransientRetry:
     ) -> None:
         import httpx
 
-        from pdfparser.pipeline.model import _MAX_RETRY_AFTER_S, OcrModel, _ocr_page
+        from manuscribe.pipeline.model import _MAX_RETRY_AFTER_S, OcrModel, _ocr_page
 
         delays = self._record_sleeps(monkeypatch)
         calls: list[int] = []
@@ -723,39 +723,39 @@ class TestOcrTransientRetry:
 
 
 class TestOcrConcurrencyResolution:
-    """``PDFPARSER_OCR_CONCURRENCY`` parsing — defaulting, flooring, and the
+    """``MANUSCRIBE_OCR_CONCURRENCY`` parsing — defaulting, flooring, and the
     misconfiguration warning — without spinning up the thread pool."""
 
     def test_default_when_unset(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        from pdfparser.pipeline.model import (
+        from manuscribe.pipeline.model import (
             _DEFAULT_OCR_CONCURRENCY,
             _resolve_ocr_concurrency,
         )
 
-        monkeypatch.delenv("PDFPARSER_OCR_CONCURRENCY", raising=False)
+        monkeypatch.delenv("MANUSCRIBE_OCR_CONCURRENCY", raising=False)
         assert _resolve_ocr_concurrency() == _DEFAULT_OCR_CONCURRENCY
 
     def test_valid_integer_is_honored(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        from pdfparser.pipeline.model import _resolve_ocr_concurrency
+        from manuscribe.pipeline.model import _resolve_ocr_concurrency
 
-        monkeypatch.setenv("PDFPARSER_OCR_CONCURRENCY", "7")
+        monkeypatch.setenv("MANUSCRIBE_OCR_CONCURRENCY", "7")
         assert _resolve_ocr_concurrency() == 7
 
     def test_floored_at_one(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        from pdfparser.pipeline.model import _resolve_ocr_concurrency
+        from manuscribe.pipeline.model import _resolve_ocr_concurrency
 
-        monkeypatch.setenv("PDFPARSER_OCR_CONCURRENCY", "0")
+        monkeypatch.setenv("MANUSCRIBE_OCR_CONCURRENCY", "0")
         assert _resolve_ocr_concurrency() == 1
 
     def test_non_integer_warns_and_falls_back(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        from pdfparser.pipeline.model import (
+        from manuscribe.pipeline.model import (
             _DEFAULT_OCR_CONCURRENCY,
             _resolve_ocr_concurrency,
         )
 
-        monkeypatch.setenv("PDFPARSER_OCR_CONCURRENCY", "lots")
+        monkeypatch.setenv("MANUSCRIBE_OCR_CONCURRENCY", "lots")
         # a misconfigured deployment is surfaced, not silently defaulted
         with pytest.warns(UserWarning, match="not an integer"):
             assert _resolve_ocr_concurrency() == _DEFAULT_OCR_CONCURRENCY
@@ -767,13 +767,13 @@ class TestOcrConcurrencyResolution:
 
         import httpx
 
-        from pdfparser.pipeline import model
-        from pdfparser.pipeline.model import OcrModel, _ocr_pages
+        from manuscribe.pipeline import model
+        from manuscribe.pipeline.model import OcrModel, _ocr_pages
 
         # Env raised *after* load must not change the worker count: it is taken from the
         # value resolved at load time (OcrModel.concurrency), which also sized the httpx
         # pool — so a late env change can't desync the workers from the pool cap.
-        monkeypatch.setenv("PDFPARSER_OCR_CONCURRENCY", "9")
+        monkeypatch.setenv("MANUSCRIBE_OCR_CONCURRENCY", "9")
         captured: list[int] = []
         real_pool = model.ThreadPoolExecutor
 
@@ -804,7 +804,7 @@ class TestOcrConcurrencyResolution:
 
         import httpx
 
-        from pdfparser.pipeline.model import OcrModel, _ocr_pages
+        from manuscribe.pipeline.model import OcrModel, _ocr_pages
 
         # Page 0 blocks until released; page 1 fails fast.  The failure must surface
         # without first waiting out the slow earlier-submitted page — the property a
@@ -838,61 +838,61 @@ class TestOcrConcurrencyResolution:
 
 
 class TestOcrTimeoutResolution:
-    """``PDFPARSER_OCR_TIMEOUT`` / ``PDFPARSER_OCR_HEALTH_TIMEOUT`` parsing —
+    """``MANUSCRIBE_OCR_TIMEOUT`` / ``MANUSCRIBE_OCR_HEALTH_TIMEOUT`` parsing —
     defaulting, honoring a value, and the misconfiguration warnings — plus the
     load-time wiring onto the client and the reachability probe."""
 
     def test_request_timeout_default_when_unset(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        from pdfparser.pipeline.model import (
+        from manuscribe.pipeline.model import (
             _DEFAULT_REQUEST_TIMEOUT_S,
             _resolve_request_timeout,
         )
 
-        monkeypatch.delenv("PDFPARSER_OCR_TIMEOUT", raising=False)
+        monkeypatch.delenv("MANUSCRIBE_OCR_TIMEOUT", raising=False)
         assert _resolve_request_timeout() == _DEFAULT_REQUEST_TIMEOUT_S
 
     def test_health_timeout_default_when_unset(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        from pdfparser.pipeline.model import (
+        from manuscribe.pipeline.model import (
             _DEFAULT_HEALTH_TIMEOUT_S,
             _resolve_health_timeout,
         )
 
-        monkeypatch.delenv("PDFPARSER_OCR_HEALTH_TIMEOUT", raising=False)
+        monkeypatch.delenv("MANUSCRIBE_OCR_HEALTH_TIMEOUT", raising=False)
         assert _resolve_health_timeout() == _DEFAULT_HEALTH_TIMEOUT_S
 
     def test_valid_float_is_honored(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        from pdfparser.pipeline.model import _resolve_request_timeout
+        from manuscribe.pipeline.model import _resolve_request_timeout
 
-        monkeypatch.setenv("PDFPARSER_OCR_TIMEOUT", "42.5")
+        monkeypatch.setenv("MANUSCRIBE_OCR_TIMEOUT", "42.5")
         assert _resolve_request_timeout() == 42.5
 
     def test_non_number_warns_and_falls_back(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        from pdfparser.pipeline.model import (
+        from manuscribe.pipeline.model import (
             _DEFAULT_HEALTH_TIMEOUT_S,
             _resolve_health_timeout,
         )
 
-        monkeypatch.setenv("PDFPARSER_OCR_HEALTH_TIMEOUT", "soon")
+        monkeypatch.setenv("MANUSCRIBE_OCR_HEALTH_TIMEOUT", "soon")
         with pytest.warns(UserWarning, match="not a number"):
             assert _resolve_health_timeout() == _DEFAULT_HEALTH_TIMEOUT_S
 
     def test_non_positive_warns_and_falls_back(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        from pdfparser.pipeline.model import (
+        from manuscribe.pipeline.model import (
             _DEFAULT_REQUEST_TIMEOUT_S,
             _resolve_request_timeout,
         )
 
         # A zero/negative timeout is a misconfiguration with no sane clamp (unlike the
         # integer concurrency floor) — it warns and falls back rather than coercing.
-        monkeypatch.setenv("PDFPARSER_OCR_TIMEOUT", "0")
+        monkeypatch.setenv("MANUSCRIBE_OCR_TIMEOUT", "0")
         with pytest.warns(UserWarning, match="must be positive"):
             assert _resolve_request_timeout() == _DEFAULT_REQUEST_TIMEOUT_S
 
@@ -901,14 +901,14 @@ class TestOcrTimeoutResolution:
     ) -> None:
         import httpx
 
-        from pdfparser.pipeline import model
-        from pdfparser.pipeline.model import load_ocr_model
+        from manuscribe.pipeline import model
+        from manuscribe.pipeline.model import load_ocr_model
 
         # The request timeout reaches the client default; the shorter health timeout is
         # applied as a per-request override on the /models probe (httpx surfaces the
         # resolved per-request value in request.extensions["timeout"]).
-        monkeypatch.setenv("PDFPARSER_OCR_TIMEOUT", "123")
-        monkeypatch.setenv("PDFPARSER_OCR_HEALTH_TIMEOUT", "7")
+        monkeypatch.setenv("MANUSCRIBE_OCR_TIMEOUT", "123")
+        monkeypatch.setenv("MANUSCRIBE_OCR_HEALTH_TIMEOUT", "7")
         captured: dict[str, object] = {}
         real_client = httpx.Client
 
@@ -931,10 +931,10 @@ class TestOcrTimeoutResolution:
     ) -> None:
         import httpx
 
-        from pdfparser.pipeline import model
-        from pdfparser.pipeline.model import load_ocr_model
+        from manuscribe.pipeline import model
+        from manuscribe.pipeline.model import load_ocr_model
 
-        monkeypatch.setenv("PDFPARSER_OCR_TIMEOUT", "123")
+        monkeypatch.setenv("MANUSCRIBE_OCR_TIMEOUT", "123")
         captured: dict[str, object] = {}
         real_client = httpx.Client
 
@@ -955,7 +955,7 @@ class TestOcrTimeoutResolution:
 
 
 class TestCli:
-    """The ``python -m pdfparser`` entry point: output-path defaulting and option
+    """The ``python -m manuscribe`` entry point: output-path defaulting and option
     forwarding, with the conversion itself stubbed (no model, no rendering)."""
 
     @staticmethod
@@ -967,7 +967,7 @@ class TestCli:
     def test_default_output_path_derived_from_pdf_suffix(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        import pdfparser.__main__ as cli
+        import manuscribe.__main__ as cli
 
         pdf = self._make_pdf(tmp_path)
         captured: dict[str, object] = {}
@@ -992,7 +992,7 @@ class TestCli:
     def test_explicit_output_and_options_forwarded(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        import pdfparser.__main__ as cli
+        import manuscribe.__main__ as cli
 
         pdf = self._make_pdf(tmp_path)
         out = tmp_path / "custom.html"
@@ -1025,7 +1025,7 @@ class TestCli:
     def test_missing_pdf_errors_before_conversion(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        import pdfparser.__main__ as cli
+        import manuscribe.__main__ as cli
 
         called: list[int] = []
         monkeypatch.setattr(
@@ -1047,7 +1047,7 @@ class TestCli:
     ) -> None:
         import httpx
 
-        import pdfparser.__main__ as cli
+        import manuscribe.__main__ as cli
 
         pdf = self._make_pdf(tmp_path)
 
@@ -1073,7 +1073,7 @@ class TestServerContextWindow:
     ``os.environ`` per page."""
 
     def test_parse_server_context_len_extracts_max_model_len(self) -> None:
-        from pdfparser.pipeline.model import _parse_server_context_len
+        from manuscribe.pipeline.model import _parse_server_context_len
 
         payload = {"object": "list", "data": [{"id": "m", "max_model_len": 16384}]}
         assert _parse_server_context_len(payload) == 16384
@@ -1093,41 +1093,41 @@ class TestServerContextWindow:
     def test_parse_server_context_len_none_on_missing_or_bad_shape(
         self, payload: object
     ) -> None:
-        from pdfparser.pipeline.model import _parse_server_context_len
+        from manuscribe.pipeline.model import _parse_server_context_len
 
         assert _parse_server_context_len(payload) is None
 
     def test_resolve_prefers_reported_over_default(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        from pdfparser.pipeline.model import _resolve_context_len
+        from manuscribe.pipeline.model import _resolve_context_len
 
-        monkeypatch.delenv("PDFPARSER_VLLM_MAX_MODEL_LEN", raising=False)
+        monkeypatch.delenv("MANUSCRIBE_VLLM_MAX_MODEL_LEN", raising=False)
         assert _resolve_context_len(16384) == 16384
 
     def test_resolve_falls_back_to_default_when_unreported(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        from pdfparser.pipeline.model import (
+        from manuscribe.pipeline.model import (
             _DEFAULT_MODEL_CONTEXT_LEN,
             _resolve_context_len,
         )
 
-        monkeypatch.delenv("PDFPARSER_VLLM_MAX_MODEL_LEN", raising=False)
+        monkeypatch.delenv("MANUSCRIBE_VLLM_MAX_MODEL_LEN", raising=False)
         assert _resolve_context_len(None) == _DEFAULT_MODEL_CONTEXT_LEN
 
     def test_env_override_beats_reported(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        from pdfparser.pipeline.model import _resolve_context_len
+        from manuscribe.pipeline.model import _resolve_context_len
 
-        monkeypatch.setenv("PDFPARSER_VLLM_MAX_MODEL_LEN", "5000")
+        monkeypatch.setenv("MANUSCRIBE_VLLM_MAX_MODEL_LEN", "5000")
         assert _resolve_context_len(16384) == 5000
 
     def test_bad_env_override_warns_and_falls_back_to_reported(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        from pdfparser.pipeline.model import _resolve_context_len
+        from manuscribe.pipeline.model import _resolve_context_len
 
-        monkeypatch.setenv("PDFPARSER_VLLM_MAX_MODEL_LEN", "lots")
+        monkeypatch.setenv("MANUSCRIBE_VLLM_MAX_MODEL_LEN", "lots")
         with pytest.warns(UserWarning):
             assert _resolve_context_len(16384) == 16384
 
@@ -1136,9 +1136,9 @@ class TestServerContextWindow:
     ) -> None:
         import httpx
 
-        from pdfparser.pipeline.model import load_ocr_model
+        from manuscribe.pipeline.model import load_ocr_model
 
-        monkeypatch.delenv("PDFPARSER_VLLM_MAX_MODEL_LEN", raising=False)
+        monkeypatch.delenv("MANUSCRIBE_VLLM_MAX_MODEL_LEN", raising=False)
 
         def handler(request: httpx.Request) -> httpx.Response:
             return httpx.Response(200, json={"data": [{"max_model_len": 16384}]})
@@ -1153,9 +1153,9 @@ class TestServerContextWindow:
     ) -> None:
         import httpx
 
-        from pdfparser.pipeline.model import load_ocr_model
+        from manuscribe.pipeline.model import load_ocr_model
 
-        monkeypatch.setenv("PDFPARSER_VLLM_MAX_MODEL_LEN", "4096")
+        monkeypatch.setenv("MANUSCRIBE_VLLM_MAX_MODEL_LEN", "4096")
 
         def handler(request: httpx.Request) -> httpx.Response:
             return httpx.Response(200, json={"data": [{"max_model_len": 16384}]})
@@ -1170,12 +1170,12 @@ class TestServerContextWindow:
     ) -> None:
         import httpx
 
-        from pdfparser.pipeline.model import (
+        from manuscribe.pipeline.model import (
             _DEFAULT_MODEL_CONTEXT_LEN,
             load_ocr_model,
         )
 
-        monkeypatch.delenv("PDFPARSER_VLLM_MAX_MODEL_LEN", raising=False)
+        monkeypatch.delenv("MANUSCRIBE_VLLM_MAX_MODEL_LEN", raising=False)
 
         # A bare-200 probe (no JSON body) must not crash resolution.
         def handler(request: httpx.Request) -> httpx.Response:
@@ -1191,7 +1191,11 @@ class TestServerContextWindow:
 
         import httpx
 
-        from pdfparser.pipeline.model import _CONTEXT_SAFETY_MARGIN, OcrModel, _ocr_page
+        from manuscribe.pipeline.model import (
+            _CONTEXT_SAFETY_MARGIN,
+            OcrModel,
+            _ocr_page,
+        )
 
         # The truncation retry must size its max_tokens off the bundle's context_len,
         # not a hardcoded/env-read default — proving the per-page os.environ re-read is
@@ -1224,7 +1228,7 @@ class TestServerContextWindow:
         assert calls[1] == 4096 - 1000 - _CONTEXT_SAFETY_MARGIN
 
     def test_client_limits_track_concurrency(self) -> None:
-        from pdfparser.pipeline.model import _client_limits
+        from manuscribe.pipeline.model import _client_limits
 
         # the pool is sized to exactly the resolved worker count, both caps (the
         # env→worker-count resolution is exercised end-to-end by the load test below)

@@ -1,6 +1,6 @@
 """Tests for the post-flatten typed block (pipeline.block.Block)."""
 
-from pdfparser.pipeline.block import Block, BlockKind, CaptionLabel
+from manuscribe.pipeline.block import Block, BlockKind, CaptionLabel
 
 
 class TestBlockKind:

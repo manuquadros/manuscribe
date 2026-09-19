@@ -1,7 +1,7 @@
 # P100 (Pascal) fallback OCR server
 
 A tiny HF-`transformers` server that runs `lightonai/LightOnOCR-2-1B-bbox`
-behind the two OpenAI-compatible routes `pdfparser`'s model seam
+behind the two OpenAI-compatible routes `manuscribe`'s model seam
 (`pipeline/model.py`) calls — so the pipeline can run on a **Tesla P100 /
 compute capability sm_60 (Pascal)**, which the pinned vLLM image cannot.
 
@@ -29,7 +29,7 @@ assuming HF's eager attention escapes the overflow.
 
 ## Setup (host venv)
 
-Runs in its **own** environment with torch+transformers — **not** the pdfparser
+Runs in its **own** environment with torch+transformers — **not** the manuscribe
 venv. The GPU driver + CUDA are already on the host; no container/CDI needed.
 
 ```bash
@@ -71,11 +71,11 @@ is needed beyond forcing serial requests (the shim serializes generation on the
 single GPU — parallel client requests just queue and risk timeouts):
 
 ```bash
-PDFPARSER_OCR_CONCURRENCY=1 python -m pdfparser tests/fixtures/30592559.pdf /tmp/out.html
+MANUSCRIBE_OCR_CONCURRENCY=1 python -m manuscribe tests/fixtures/30592559.pdf /tmp/out.html
 ```
 
-If the shim runs elsewhere, also set `PDFPARSER_VLLM_URL=http://<host>:8000/v1`
-and `PDFPARSER_VLLM_MODEL=lightonocr`.
+If the shim runs elsewhere, also set `MANUSCRIBE_VLLM_URL=http://<host>:8000/v1`
+and `MANUSCRIBE_VLLM_MODEL=lightonocr`.
 
 ## Remote access (Tailscale — private, no public port)
 
@@ -110,8 +110,8 @@ tailscale serve status   # shows https://<vm>.<tailnet>.ts.net
 Point the pipeline at that URL from any tailnet client:
 
 ```bash
-PDFPARSER_VLLM_URL=https://<vm>.<tailnet>.ts.net/v1 \
-PDFPARSER_OCR_CONCURRENCY=1 python -m pdfparser in.pdf out.html
+MANUSCRIBE_VLLM_URL=https://<vm>.<tailnet>.ts.net/v1 \
+MANUSCRIBE_OCR_CONCURRENCY=1 python -m manuscribe in.pdf out.html
 ```
 
 **B. Bind to the tailnet IP directly (simplest — plain HTTP over the encrypted
@@ -120,8 +120,8 @@ tunnel).** Traffic is still WireGuard-encrypted; no cert needed.
 ```bash
 SHIM_HOST=$(tailscale ip -4) python deploy/p100/shim.py
 # client:
-PDFPARSER_VLLM_URL=http://100.101.102.103:8000/v1 \
-PDFPARSER_OCR_CONCURRENCY=1 python -m pdfparser in.pdf out.html
+MANUSCRIBE_VLLM_URL=http://100.101.102.103:8000/v1 \
+MANUSCRIBE_OCR_CONCURRENCY=1 python -m manuscribe in.pdf out.html
 ```
 
 Keep port 8000 **closed** in the cloud/VM firewall in both cases — nothing should

@@ -2,7 +2,7 @@
 
 Runs `lightonai/LightOnOCR-2-1B-bbox` under vLLM as an OpenAI-compatible
 server, in a rootless podman container. All GPU/torch work lives in vLLM;
-`pdfparser` itself carries no torch or transformers — its model seam
+`manuscribe` itself carries no torch or transformers — its model seam
 (`pipeline/model.py`) is a thin HTTP client that talks to this server.
 
 Unless noted otherwise, shell commands assume the repository root as the
@@ -13,11 +13,11 @@ HTTP round-trip, not a ~35 s model reload.
 
 Two deployment shapes, both covered below:
 
-- **Single container** (`Containerfile`) — vLLM **and** pdfparser in one image;
+- **Single container** (`Containerfile`) — vLLM **and** manuscribe in one image;
   convert PDFs with `podman exec`. Simplest when both run on the same box.
-- **Server only** (`run-server.sh`) — just the vLLM server; run pdfparser from
-  any environment (it only needs `pip install pdfparser`, no GPU) pointed at the
-  server via `PDFPARSER_VLLM_URL`.
+- **Server only** (`run-server.sh`) — just the vLLM server; run manuscribe from
+  any environment (it only needs `pip install manuscribe`, no GPU) pointed at the
+  server via `MANUSCRIBE_VLLM_URL`.
 
 ## One-time host setup
 
@@ -170,7 +170,7 @@ the repository, not just the tag, since a sm_121-capable build may not live unde
 GPU_MEM_UTIL=0.4 IMAGE=nvcr.io/nvidia/vllm:25.09-py3 ./deploy/vllm/run-server.sh
 # or, building the unified image:
 podman build --from nvcr.io/nvidia/vllm:25.09-py3 \
-  -f deploy/vllm/Containerfile -t lighton-pdfparser .
+  -f deploy/vllm/Containerfile -t lighton-manuscribe .
 ```
 
 `run-server.sh` accounts for the image entrypoint difference: the official
@@ -209,13 +209,13 @@ there (`docker.io/nvidia/cuda:12.4.1-base-ubuntu22.04`) needs its own arm64
 manifest check before you rely on it as a smoke test — don't assume a tag that
 works on x86_64 publishes arm64 too.
 
-## Single container (pdfparser + vLLM)
+## Single container (manuscribe + vLLM)
 
 Build the unified image from the repo root (the build context needs `src/` and
 `pyproject.toml`):
 
 ```
-podman build -f deploy/vllm/Containerfile -t lighton-pdfparser .
+podman build -f deploy/vllm/Containerfile -t lighton-manuscribe .
 ```
 
 Start it as a warm server (mount the HF cache to skip the model download; the
@@ -225,14 +225,14 @@ Start it as a warm server (mount the HF cache to skip the model download; the
 podman run -d --name lighton \
   --device nvidia.com/gpu=all --ipc=host \
   -v "$HOME/.cache/huggingface:/hf-cache:rw" -e HF_HOME=/hf-cache \
-  lighton-pdfparser
+  lighton-manuscribe
 ```
 
 Then convert PDFs against the in-container server with `podman exec` (the image
-sets `PDFPARSER_VLLM_URL=http://127.0.0.1:8000/v1`, so no flags needed):
+sets `MANUSCRIBE_VLLM_URL=http://127.0.0.1:8000/v1`, so no flags needed):
 
 ```
-podman exec lighton python3 -m pdfparser /data/in.pdf /data/out.html
+podman exec lighton python3 -m manuscribe /data/in.pdf /data/out.html
 ```
 
 Mount your input/output dir with `-v` on `podman run` to make `/data` visible.
@@ -311,8 +311,8 @@ chat endpoint; prints the first ~1200 chars of markdown.
 
 The GPU box and the machine holding the PDFs need not be the same: the script
 renders locally and sends only the page image, so point it at the remote server.
-`BASE_URL` (or `PDFPARSER_VLLM_URL`, the same variable the pipeline reads)
-overrides the endpoint, and `MODEL`/`PDFPARSER_VLLM_MODEL` the served name:
+`BASE_URL` (or `MANUSCRIBE_VLLM_URL`, the same variable the pipeline reads)
+overrides the endpoint, and `MODEL`/`MANUSCRIBE_VLLM_MODEL` the served name:
 
 ```
 BASE_URL=http://<vm-host>:8000/v1 ./deploy/vllm/smoke-test.sh
@@ -337,11 +337,11 @@ probe before the render, so it fails in a second rather than after rendering.
 Once the smoke test passes, the same variable drives a full conversion:
 
 ```
-PDFPARSER_VLLM_URL=http://<vm-host>:8000/v1 pdm run python -m pdfparser in.pdf out.html
+MANUSCRIBE_VLLM_URL=http://<vm-host>:8000/v1 pdm run python -m manuscribe in.pdf out.html
 ```
 
 A remote server makes the round-trip latency per page visible; raise
-`PDFPARSER_OCR_CONCURRENCY` (default 4) if the link is slow but the GPU is idle.
+`MANUSCRIBE_OCR_CONCURRENCY` (default 4) if the link is slow but the GPU is idle.
 
 ## Calling it from the pipeline
 

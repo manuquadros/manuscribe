@@ -25,19 +25,19 @@ Typical use::
 
 from __future__ import annotations
 
-from pdfparser.pipeline.assemble import (
+from manuscribe.pipeline.assemble import (
     ParsedDocument,
     lightonocr_pdf_to_document,
     lightonocr_pdf_to_html,
 )
-from pdfparser.pipeline.errors import (
+from manuscribe.pipeline.errors import (
+    ManuscribeError,
     OcrResponseError,
     OcrUnavailableError,
     PdfInputError,
-    PdfParserError,
 )
-from pdfparser.pipeline.figures import ImageSink
-from pdfparser.pipeline.model import OcrModel, load_ocr_model
+from manuscribe.pipeline.figures import ImageSink
+from manuscribe.pipeline.model import OcrModel, load_ocr_model
 
 __all__ = [
     "ImageSink",
@@ -46,7 +46,7 @@ __all__ = [
     "OcrUnavailableError",
     "ParsedDocument",
     "PdfInputError",
-    "PdfParserError",
+    "ManuscribeError",
     "lightonocr_pdf_to_document",
     "lightonocr_pdf_to_html",
     "load_ocr_model",

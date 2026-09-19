@@ -166,7 +166,7 @@ still refuses an unauthenticated caller.
 - Shim: read `SHIM_API_KEY`; if set, require `Authorization: Bearer <key>` on
   `/v1/chat/completions` (and optionally `/v1/models`), else `401`.
 - Client: `pipeline/model.py` does not send an auth header today. A small,
-  backward-compatible change — read `PDFPARSER_VLLM_API_KEY` in
+  backward-compatible change — read `MANUSCRIBE_VLLM_API_KEY` in
   `load_ocr_model` and set `Authorization` on the shared `httpx.Client` — wires
   it through (the annotation-hub worker already owns the `OcrModel` lifecycle, so
   it just sets the env). **This requires that client change to be useful**; until

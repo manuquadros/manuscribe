@@ -17,47 +17,47 @@ class TestArticlePageDetection:
     article start is the first page that does."""
 
     def test_ad_page_is_not_article(self) -> None:
-        from pdfparser.pipeline.classify import _is_article_page_md
+        from manuscribe.pipeline.classify import _is_article_page_md
 
         ad = "# Virtual Conference\n\n## Data integrity seminar\n\nRegister here."
         assert _is_article_page_md(ad) is False
 
     def test_abstract_page_is_article(self) -> None:
-        from pdfparser.pipeline.classify import _is_article_page_md
+        from manuscribe.pipeline.classify import _is_article_page_md
 
         assert _is_article_page_md("# Title\n\n## Abstract\n\nWe did things.") is True
 
     def test_introduction_page_is_article(self) -> None:
-        from pdfparser.pipeline.classify import _is_article_page_md
+        from manuscribe.pipeline.classify import _is_article_page_md
 
         assert _is_article_page_md("## 1. Introduction\n\nText.") is True
 
     def test_summary_page_is_article(self) -> None:
         """Cell Press labels the abstract section "Summary", not "Abstract"."""
-        from pdfparser.pipeline.classify import _is_article_page_md
+        from manuscribe.pipeline.classify import _is_article_page_md
 
         assert _is_article_page_md("## SUMMARY\n\nWe describe a new enzyme.") is True
 
     def test_wiley_numbered_pipe_introduction_is_article(self) -> None:
-        from pdfparser.pipeline.classify import _is_article_page_md
+        from manuscribe.pipeline.classify import _is_article_page_md
 
         assert _is_article_page_md("## 1 | INTRODUCTION\n\nText.") is True
 
     def test_ieee_roman_introduction_is_article(self) -> None:
-        from pdfparser.pipeline.classify import _is_article_page_md
+        from manuscribe.pipeline.classify import _is_article_page_md
 
         assert _is_article_page_md("## I. INTRODUCTION\n\nText.") is True
 
     def test_late_introduction_subsection_is_not_article(self) -> None:
         """A body subsection merely starting with "Introduction" is not the
         article's own Introduction heading and must not match."""
-        from pdfparser.pipeline.classify import _is_article_page_md
+        from manuscribe.pipeline.classify import _is_article_page_md
 
         md = "### Introduction of point mutations\n\nWe mutated residue 42."
         assert _is_article_page_md(md) is False
 
     def test_leading_ad_page_skipped(self) -> None:
-        from pdfparser.pipeline.classify import _leading_pages_to_skip_md
+        from manuscribe.pipeline.classify import _leading_pages_to_skip_md
 
         ad = "# Conference\n\nRegister here."
         article = "# Real Title\n\n## Abstract\n\nBody."
@@ -69,7 +69,7 @@ class TestArticlePageDetection:
         must be recognised as the article start so a later body subsection that
         merely starts with "Introduction" can't push the skip past it and drop
         the title/byline/abstract."""
-        from pdfparser.pipeline.classify import _leading_pages_to_skip_md
+        from manuscribe.pipeline.classify import _leading_pages_to_skip_md
 
         title_page = "# Real Title\n\n## 1 | INTRODUCTION\n\nText."
         results_page = "## 2 | RESULTS\n\nText."
@@ -85,7 +85,7 @@ class TestRunningFurniture:
     page numbers — are dropped; real repeated sentences are kept."""
 
     def test_page_numbered_footer_removed(self) -> None:
-        from pdfparser.pipeline.furniture import _strip_running_furniture
+        from manuscribe.pipeline.furniture import _strip_running_furniture
 
         parts = [
             "<p>Biotechnology and Applied Biochemistry 601</p>",
@@ -96,7 +96,7 @@ class TestRunningFurniture:
         assert out == ["<p>Real body sentence one.</p>"]
 
     def test_repeated_real_sentence_kept(self) -> None:
-        from pdfparser.pipeline.furniture import _strip_running_furniture
+        from manuscribe.pipeline.furniture import _strip_running_furniture
 
         parts = ["<p>This is a sentence.</p>", "<p>This is a sentence.</p>"]
         assert _strip_running_furniture(_as_blocks(parts)) == parts
@@ -104,7 +104,7 @@ class TestRunningFurniture:
     def test_short_enumerated_labels_kept(self) -> None:
         # "Fig 1"/"Fig 2" share a digit-stripped key but must not be removed —
         # only substantial recurring text (a journal footer) is furniture.
-        from pdfparser.pipeline.furniture import _strip_running_furniture
+        from manuscribe.pipeline.furniture import _strip_running_furniture
 
         parts = ["<p>Fig 1</p>", "<p>body</p>", "<p>Fig 2</p>"]
         assert _strip_running_furniture(_as_blocks(parts)) == parts
@@ -113,7 +113,7 @@ class TestRunningFurniture:
         # A bare author-surname running foot ("Clark" on alternating pages) is
         # short but digit-free, so the digit-strip collision the length floor
         # guards against can't happen — it must still be recognised as furniture.
-        from pdfparser.pipeline.furniture import _strip_running_furniture
+        from manuscribe.pipeline.furniture import _strip_running_furniture
 
         parts = [
             "<p>Clark</p>",
@@ -128,7 +128,7 @@ class TestRunningFurniture:
         # OCR transcribes the running journal line as a heading on a sparse page
         # (last page / after references); it must still count as furniture and be
         # stripped, not survive as an <h1>.
-        from pdfparser.pipeline.furniture import _strip_running_furniture
+        from manuscribe.pipeline.furniture import _strip_running_furniture
 
         parts = [
             "<p>Biotechnology and Applied Biochemistry 601</p>",
@@ -143,7 +143,7 @@ class TestRunningFurniture:
         # looks like a finished sentence; recurring on 3+ pages, it is furniture
         # and must be stripped — otherwise it interleaves between a paragraph's
         # halves and blocks their cross-page merge.
-        from pdfparser.pipeline.furniture import _strip_running_furniture
+        from manuscribe.pipeline.furniture import _strip_running_furniture
 
         head = "<p>A ribitol dehydrogenase from <em>Sphingomonas</em> sp.</p>"
         parts = [head, "<p>Body one.</p>", head, "<p>Body two.</p>", head]
@@ -154,7 +154,7 @@ class TestRunningFurniture:
         # The same abbreviation-terminated line appearing only twice stays: two
         # occurrences are too few to outweigh its sentence-like shape, matching
         # the repeated-real-sentence guard.
-        from pdfparser.pipeline.furniture import _strip_running_furniture
+        from manuscribe.pipeline.furniture import _strip_running_furniture
 
         head = "<p>A ribitol dehydrogenase from <em>Sphingomonas</em> sp.</p>"
         parts = [head, "<p>Body one.</p>", head]
@@ -165,7 +165,7 @@ class TestRunningFurniture:
         # SpRDH" under both Methods and Results) recurs but never appears as a
         # plain paragraph, so it is structure, not a running header, and must
         # survive in both places.
-        from pdfparser.pipeline.furniture import _strip_running_furniture
+        from manuscribe.pipeline.furniture import _strip_running_furniture
 
         parts = [
             "<h3>Purification of SpRDH</h3>",
@@ -179,7 +179,7 @@ class TestRunningFurniture:
         # only as a heading on several pages — its paragraph form differs (it also
         # carries a DOI line), so keys never match — is stripped because its
         # *verbatim* text recurs and carries digits.
-        from pdfparser.pipeline.furniture import _strip_running_furniture
+        from manuscribe.pipeline.furniture import _strip_running_furniture
 
         cit = "<h2>Bioscience Reports (2019) 39 BSR20190715</h2>"
         parts = [cit, "<p>Body one.</p>", cit, "<p>Body two.</p>", cit]
@@ -192,7 +192,7 @@ class TestRunningFurniture:
         # Two distinct numbered headings ("Step 1: …" / "Step 2: …") collapse to one
         # digit-stripped key but their verbatim texts differ, so neither is a running
         # head; both must survive (they only appear as headings, never paragraphs).
-        from pdfparser.pipeline.furniture import _strip_running_furniture
+        from manuscribe.pipeline.furniture import _strip_running_furniture
 
         parts = [
             "<h2>Step 1: Purification of Xylanase</h2>",
@@ -206,7 +206,7 @@ class TestRunningFurniture:
         # OCR sometimes isolates the folio into its own block, away from the
         # journal line, so digit-stripped recurrence can't catch it; a number-only
         # block is the page number itself and must be dropped.
-        from pdfparser.pipeline.furniture import _strip_running_furniture
+        from manuscribe.pipeline.furniture import _strip_running_furniture
 
         parts = ["<p>601</p>", "<p>Real body sentence one.</p>", "<h2>602</h2>"]
         assert _strip_running_furniture(_as_blocks(parts)) == [
@@ -215,7 +215,7 @@ class TestRunningFurniture:
 
     def test_section_number_kept(self) -> None:
         # A numbered section heading ("3.4 …") is not a bare folio and stays.
-        from pdfparser.pipeline.furniture import _strip_running_furniture
+        from manuscribe.pipeline.furniture import _strip_running_furniture
 
         parts = ["<h2>3.4 Enzymatic activities</h2>", "<p>4</p>"]
         assert _strip_running_furniture(_as_blocks(parts)) == [
@@ -234,20 +234,20 @@ class TestCaptureLicenseFooter:
     )
 
     def test_recurring_license_captured_once(self) -> None:
-        from pdfparser.pipeline.furniture import _capture_license_footer
+        from manuscribe.pipeline.furniture import _capture_license_footer
 
         parts = [self._CC, "<p>Body prose.</p>", self._CC, self._CC]
         assert _capture_license_footer(_as_blocks(parts)) == self._CC
 
     def test_single_occurrence_not_captured(self) -> None:
-        from pdfparser.pipeline.furniture import _capture_license_footer
+        from manuscribe.pipeline.furniture import _capture_license_footer
 
         # one copy is not running furniture (the strip leaves it in the body), so it
         # must not be pulled — that would duplicate it into the panel
         assert _capture_license_footer(_as_blocks([self._CC, "<p>Body.</p>"])) is None
 
     def test_non_license_prose_ignored(self) -> None:
-        from pdfparser.pipeline.furniture import _capture_license_footer
+        from manuscribe.pipeline.furniture import _capture_license_footer
 
         # a "© 2019" mention without a license phrase is not a license footer
         parts = ["<p>© 2019 someone, all rights here.</p>"] * 2
@@ -277,18 +277,18 @@ class TestByline:
     positively looks like authors; otherwise it stays in the body."""
 
     def test_marker_line_is_byline(self) -> None:
-        from pdfparser.pipeline.classify import _is_byline
+        from manuscribe.pipeline.classify import _is_byline
 
         assert _is_byline("Nianyang Wu¹") is True
         assert _is_byline("Daniel D. Clark <sup>*</sup>") is True
 
     def test_name_list_is_byline(self) -> None:
-        from pdfparser.pipeline.classify import _is_byline
+        from manuscribe.pipeline.classify import _is_byline
 
         assert _is_byline("Jane Doe and John Smith") is True
 
     def test_metadata_lines_are_not_byline(self) -> None:
-        from pdfparser.pipeline.classify import _is_byline
+        from manuscribe.pipeline.classify import _is_byline
 
         assert _is_byline("Received 26 March 2019") is False
         assert _is_byline("DOI: 10.1002/bab.1760") is False
@@ -296,14 +296,14 @@ class TestByline:
 
     def test_unmarked_single_name_is_not_byline(self) -> None:
         # No marker and not a list → ambiguous → not promoted (stays in body).
-        from pdfparser.pipeline.classify import _is_byline
+        from manuscribe.pipeline.classify import _is_byline
 
         assert _is_byline("Jane Doe") is False
 
     def test_single_author_with_initial_is_byline(self) -> None:
         # A lone author with a mid-name initial ("Daniel D. Clark") carries a
         # positive name signal a subtitle never has, so it is promoted.
-        from pdfparser.pipeline.classify import _is_byline
+        from manuscribe.pipeline.classify import _is_byline
 
         assert _is_byline("Daniel D. Clark") is True
         # A title fragment / subtitle of capitalised words is still refused.
@@ -366,7 +366,7 @@ class TestByline:
         # OCR emits the line bold-wrapped with bare-'*' markers, which markdown-it
         # mis-pairs into a stray '**' + spurious <em> (…ChangWoo Lee</em>**).  The
         # byline render strips the layout bold and re-casts the markers as <sup>.
-        from pdfparser.pipeline.classify import _byline_html
+        from manuscribe.pipeline.classify import _byline_html
 
         for inner in (
             # the clean OCR shape: bold-wrapped, markers escaped to literal '*'
@@ -383,7 +383,7 @@ class TestByline:
     def test_byline_latex_superscript_markers_left_intact(self) -> None:
         # a byline whose markers already arrived as <sup> (the $^{1,*}$ LaTeX shape)
         # carries no bare '*', so the marker re-cast must not touch it
-        from pdfparser.pipeline.classify import _byline_html
+        from manuscribe.pipeline.classify import _byline_html
 
         inner = "Yan Zhou<sup>1,*</sup>, Yifeng Wei<sup>2,*</sup>"
         assert _byline_html(inner) == inner
@@ -392,7 +392,7 @@ class TestByline:
         # An *inline* '**' is a genuine distinct marker (e.g. '*' vs '**' on different
         # authors) and its count is kept; only a *trailing* '**' is the unclosed-bold
         # mis-pair artifact and collapses to a single marker.
-        from pdfparser.pipeline.classify import _byline_html
+        from manuscribe.pipeline.classify import _byline_html
 
         assert _byline_html("Author A**, Author B*") == (
             "Author A<sup>**</sup>, Author B<sup>*</sup>"
@@ -408,7 +408,7 @@ class TestHeadingLevelNormalization:
     other heading keeps the OCR's level so a real section is never demoted."""
 
     def test_section_number_depth_sets_level(self) -> None:
-        from pdfparser.pipeline.classify import _normalize_heading_levels
+        from manuscribe.pipeline.classify import _normalize_heading_levels
 
         # depth 1 -> h2, depth 2 -> h3, depth 3 -> h4
         body = [
@@ -423,7 +423,7 @@ class TestHeadingLevelNormalization:
 
     def test_sibling_subsection_jitter_fixed(self) -> None:
         # the 31051047 motivating bug: 3.4/3.5 emitted as <h2> beside 3.1-3.3 <h3>
-        from pdfparser.pipeline.classify import _normalize_heading_levels
+        from manuscribe.pipeline.classify import _normalize_heading_levels
 
         body = ["<h3>3.3. Foo</h3>", "<h2>3.4. Bar</h2>", "<h2>3.5. Baz</h2>"]
         assert _normalize_heading_levels(body) == [
@@ -433,7 +433,7 @@ class TestHeadingLevelNormalization:
         ]
 
     def test_canonical_section_name_anchored_to_h2(self) -> None:
-        from pdfparser.pipeline.classify import _normalize_heading_levels
+        from manuscribe.pipeline.classify import _normalize_heading_levels
 
         body = [
             "<h3>Introduction</h3>",
@@ -451,7 +451,7 @@ class TestHeadingLevelNormalization:
         # combined "Results and Discussion", or a "Methods" subsection of "Study
         # Design"), so the bare single-word forms are NOT anchored to <h2> — only the
         # unambiguous compound forms are.  Guards against promoting a real subsection.
-        from pdfparser.pipeline.classify import _normalize_heading_levels
+        from manuscribe.pipeline.classify import _normalize_heading_levels
 
         body = ["<h3>Methods</h3>", "<h3>Results</h3>", "<h3>Discussion</h3>"]
         assert _normalize_heading_levels(body) == body
@@ -459,7 +459,7 @@ class TestHeadingLevelNormalization:
     def test_unknown_heading_keeps_ocr_level(self) -> None:
         # an unnumbered, non-canonical heading (a journal-specific section, an
         # ambiguous back-matter name) is left at the OCR's level, never guessed at
-        from pdfparser.pipeline.classify import _normalize_heading_levels
+        from manuscribe.pipeline.classify import _normalize_heading_levels
 
         body = [
             "<h2>Metal Binding Mode of CgKARI</h2>",
@@ -469,7 +469,7 @@ class TestHeadingLevelNormalization:
         assert _normalize_heading_levels(body) == body
 
     def test_year_like_number_not_read_as_section(self) -> None:
-        from pdfparser.pipeline.classify import _normalize_heading_levels
+        from manuscribe.pipeline.classify import _normalize_heading_levels
 
         # "2019 …" must not read as section number 2019 and force <h2>
         assert _normalize_heading_levels(["<h3>2019 in Review</h3>"]) == [
@@ -480,7 +480,7 @@ class TestHeadingLevelNormalization:
         # A heading opening with a measurement ("0.5 M NaCl Wash", "5 mM Buffer") must
         # not read as a dotted section number and get re-leveled: the number lacks a
         # trailing separator and (for "0.5") starts with zero, so neither matches.
-        from pdfparser.pipeline.classify import _normalize_heading_levels
+        from manuscribe.pipeline.classify import _normalize_heading_levels
 
         body = ["<h2>0.5 M NaCl Wash</h2>", "<h3>5 mM Sodium Phosphate Buffer</h3>"]
         assert _normalize_heading_levels(body) == body
@@ -494,7 +494,7 @@ class TestHeadingLevelNormalization:
         ]
 
     def test_non_heading_blocks_untouched(self) -> None:
-        from pdfparser.pipeline.classify import _normalize_heading_levels
+        from manuscribe.pipeline.classify import _normalize_heading_levels
 
         body = ["<p>1. A numbered list item, not a heading.</p>", "<table></table>"]
         assert _normalize_heading_levels(body) == body
@@ -505,12 +505,12 @@ class TestDegenerateRepetition:
     such a paragraph is dropped from the body, real prose is kept."""
 
     def test_token_wall_flagged(self) -> None:
-        from pdfparser.pipeline.furniture import _is_degenerate_repetition
+        from manuscribe.pipeline.furniture import _is_degenerate_repetition
 
         assert _is_degenerate_repetition("AaTRI, " * 40) is True
 
     def test_real_prose_not_flagged(self) -> None:
-        from pdfparser.pipeline.furniture import _is_degenerate_repetition
+        from manuscribe.pipeline.furniture import _is_degenerate_repetition
 
         prose = (
             "The enzyme catalyzes the stereospecific oxidation of the substrate"
@@ -570,7 +570,7 @@ class TestLightonAssembly:
         assert "© 2018 International Union" in _metadata(html)
 
     def test_split_abstract_citation_pure(self) -> None:
-        from pdfparser.pipeline.classify import _split_abstract_citation
+        from manuscribe.pipeline.classify import _split_abstract_citation
 
         abstract = ["<p>Prose ends here. © 2019 A Publisher, 66(4):597–606, 2019</p>"]
         kept, tail = _split_abstract_citation(abstract)
@@ -582,7 +582,7 @@ class TestLightonAssembly:
         assert _split_abstract_citation([]) == ([], [])
 
     def test_split_abstract_citation_anchors_on_last_clause(self) -> None:
-        from pdfparser.pipeline.classify import _split_abstract_citation
+        from manuscribe.pipeline.classify import _split_abstract_citation
 
         # An in-abstract "© <year>" mention must be kept; only the trailing journal
         # citation is split off (the prose group is greedy, anchoring on the last ©).
@@ -597,7 +597,7 @@ class TestLightonAssembly:
     def test_split_abstract_citation_ignores_parenthetical_c_and_citation_only(
         self,
     ) -> None:
-        from pdfparser.pipeline.classify import _split_abstract_citation
+        from manuscribe.pipeline.classify import _split_abstract_citation
 
         # A bare "(c) <number>" is not a copyright sign — a quantity like "(c) 2000 mg"
         # must not be mistaken for a citation tail.
@@ -628,7 +628,7 @@ class TestLightonAssembly:
     def test_headingless_recovery_skipped_without_following_heading(self) -> None:
         # Never hide the whole body: with no section heading after the leading prose
         # (a short note that may carry no abstract) the recovery leaves it in place.
-        from pdfparser.pipeline.classify import _recover_headingless_abstract
+        from manuscribe.pipeline.classify import _recover_headingless_abstract
 
         body = [
             "<p>A lone substantial prose paragraph with no section heading after "
@@ -867,7 +867,7 @@ class TestLightonAssembly:
         # A "¹ Department of …, Country" affiliation shares the leading-marker shape
         # but is front matter, not an article footnote — even when OCR ordering drops
         # it after the first body heading (so seen_body_heading is already set).
-        from pdfparser.pipeline.classify import _classify_parts
+        from manuscribe.pipeline.classify import _classify_parts
 
         meta = _classify_parts(
             _as_blocks(
@@ -950,7 +950,7 @@ class TestLightonAssembly:
         assert "We report the discovery of an enzyme" not in _body(html)
 
     def test_extract_front_matter_relocates_trailing_label(self) -> None:
-        from pdfparser.pipeline.classify import _extract_front_matter
+        from manuscribe.pipeline.classify import _extract_front_matter
 
         body = [
             "<p>A long abstract prose paragraph that stays in the body proper.</p>",
@@ -967,7 +967,7 @@ class TestLightonAssembly:
         # The trailing relocation is scoped to the leading region before the first
         # section heading; a back-matter "**Abbreviations:**" glossary stays in the
         # body with its own heading rather than being yanked to the front panel.
-        from pdfparser.pipeline.classify import _extract_front_matter
+        from manuscribe.pipeline.classify import _extract_front_matter
 
         body = [
             "<h2>Introduction</h2>",
@@ -983,7 +983,7 @@ class TestLightonAssembly:
         # A "**Citation:**" line the pre-classify sweep missed because a banner hid it
         # behind the leading <strong> anchor is relocated to the panel post-classify
         # (here it follows a headingless abstract, so it is not in the leading run).
-        from pdfparser.pipeline.classify import _extract_front_matter
+        from manuscribe.pipeline.classify import _extract_front_matter
 
         body = [
             "<p>A long headingless abstract paragraph that stays in the body here.</p>",
@@ -998,7 +998,7 @@ class TestLightonAssembly:
     def test_inline_abstract_requires_colon(self) -> None:
         # A body paragraph merely opening with a bold word "Abstract" (no colon) must
         # not be captured as the abstract; both colon forms of a real label are.
-        from pdfparser.pipeline.classify import _INLINE_ABSTRACT_RE
+        from manuscribe.pipeline.classify import _INLINE_ABSTRACT_RE
 
         assert not _INLINE_ABSTRACT_RE.match("<strong>Abstract</strong> reasoning here")
         assert _INLINE_ABSTRACT_RE.match("<strong>ABSTRACT:</strong> text")
@@ -1008,7 +1008,7 @@ class TestLightonAssembly:
         # An inline-labelled abstract spanning two paragraphs is fully captured; a
         # following bold label (colon inside or outside) ends it rather than being
         # absorbed as abstract prose.
-        from pdfparser.pipeline.classify import _classify_parts
+        from manuscribe.pipeline.classify import _classify_parts
 
         meta = _classify_parts(
             _as_blocks(
@@ -1031,7 +1031,7 @@ class TestLightonAssembly:
         # The OCR sometimes emits the inline abstract label as its own block; the
         # remainder is empty.  The window must still open (the next block is the
         # abstract body) but no stray "<p></p>" leaks into the abstract section.
-        from pdfparser.pipeline.classify import _classify_parts
+        from manuscribe.pipeline.classify import _classify_parts
 
         meta = _classify_parts(
             _as_blocks(
@@ -1395,7 +1395,7 @@ class TestLightonAssembly:
         assert "Raw data are available on request" in body
 
     def test_metadata_run_ends_at_body_prose_with_trailing_citation(self) -> None:
-        from pdfparser.pipeline.classify import (
+        from manuscribe.pipeline.classify import (
             _front_matter_len,
             _looks_like_body_prose,
         )
@@ -1420,7 +1420,7 @@ class TestLightonAssembly:
         assert _front_matter_len(body) == 2
 
     def test_keyword_led_body_with_citation_not_hidden_as_frontmatter(self) -> None:
-        from pdfparser.pipeline.classify import _front_matter_len, _is_frontmatter_text
+        from manuscribe.pipeline.classify import _front_matter_len, _is_frontmatter_text
 
         # A body paragraph that merely opens with a front-matter keyword ("Published
         # …") but ends in a citation superscript must not be mistaken for a metadata
@@ -1441,7 +1441,7 @@ class TestLightonAssembly:
         assert _front_matter_len(body) == 2
 
     def test_ends_like_sentence_sees_past_trailing_citation(self) -> None:
-        from pdfparser.pipeline.furniture import _ends_like_sentence
+        from manuscribe.pipeline.furniture import _ends_like_sentence
 
         # _ends_like_sentence (used for running-furniture detection) must also look
         # past a trailing citation superscript, or a recurring line ending in one is
@@ -1450,7 +1450,7 @@ class TestLightonAssembly:
         assert _ends_like_sentence(block)
 
     def test_equal_contribution_marker_derived_from_byline(self) -> None:
-        from pdfparser.pipeline.classify import _byline_equal_contribution_marker
+        from manuscribe.pipeline.classify import _byline_equal_contribution_marker
 
         # The marker is the footnote symbol the byline puts on ≥2 authors.
         byline = (
@@ -1466,7 +1466,7 @@ class TestLightonAssembly:
         assert _byline_equal_contribution_marker([single]) is None
 
     def test_equal_contribution_footnote_marker_restored(self) -> None:
-        from pdfparser.pipeline.classify import _restore_equal_contribution_marker
+        from manuscribe.pipeline.classify import _restore_equal_contribution_marker
 
         # The OCR swallows the footnote's marker into emphasis ("*…*" -> <em>);
         # restore the byline-derived marker so the note still references its authors.
@@ -1503,7 +1503,7 @@ class TestLightonAssembly:
         )
 
     def test_stray_metadata_predicate(self) -> None:
-        from pdfparser.pipeline.classify import _is_stray_metadata
+        from manuscribe.pipeline.classify import _is_stray_metadata
 
         # Two tokens (tel + e-mail) → relocated.
         assert _is_stray_metadata(
@@ -1652,7 +1652,7 @@ class TestLightonAssembly:
         # Three shapes a page-0, position-independent sweep can mistake for
         # footer/affiliation/footnote metadata, each a normal Methods/Results
         # sentence that must stay in the body.
-        from pdfparser.pipeline.classify import _is_stray_metadata
+        from manuscribe.pipeline.classify import _is_stray_metadata
 
         # A URL and a date both clear the two-token bar, but neither is the
         # e-mail/DOI/phone shape a genuine footer carries — a Methods sentence
@@ -1730,7 +1730,7 @@ class TestLightonAssembly:
         assert "In this work, conducted jointly" in body
 
     def test_affiliation_line_predicate(self) -> None:
-        from pdfparser.pipeline.affiliations import _is_affiliation_line
+        from manuscribe.pipeline.affiliations import _is_affiliation_line
 
         assert _is_affiliation_line(
             "Daniel D. Clark From the Department of Chemistry and Biochemistry, "
@@ -1847,12 +1847,12 @@ class TestDegenerateInputs:
     degrade gracefully — clamp or drop the crop, never crash."""
 
     def _assemble(self, md: str, w: int = 1190, h: int = 1540) -> str:
-        from pdfparser.pipeline.assemble import _assemble_html
+        from manuscribe.pipeline.assemble import _assemble_html
 
         return _assemble_html([md], [Image.new("RGB", (w, h))])
 
     def test_empty_page_list_yields_shell(self) -> None:
-        from pdfparser.pipeline.assemble import _assemble_html
+        from manuscribe.pipeline.assemble import _assemble_html
 
         html = _assemble_html([], [])
         assert html.startswith("<!DOCTYPE html>")
@@ -1863,24 +1863,24 @@ class TestDegenerateInputs:
             assert "<body>" in self._assemble(md)
 
     def test_out_of_bounds_figure_box_is_clamped(self) -> None:
-        from pdfparser.pipeline.figures import _safe_crop
+        from manuscribe.pipeline.figures import _safe_crop
 
         crop = _safe_crop(_fake_image(100, 100), (0, 0, 5000, 5000))
         assert crop is not None and crop.size == (100, 100)
 
     def test_inverted_figure_box_is_dropped(self) -> None:
-        from pdfparser.pipeline.figures import _safe_crop
+        from manuscribe.pipeline.figures import _safe_crop
 
         # x1 < x0 / y1 < y0 -> negative area < the minimum, so no crop is produced.
         assert _safe_crop(_fake_image(100, 100), (90, 90, 10, 10)) is None
 
     def test_zero_area_figure_box_is_dropped(self) -> None:
-        from pdfparser.pipeline.figures import _safe_crop
+        from manuscribe.pipeline.figures import _safe_crop
 
         assert _safe_crop(_fake_image(100, 100), (50, 50, 50, 50)) is None
 
     def test_negative_coords_not_parsed_as_placeholder(self) -> None:
-        from pdfparser.pipeline.figures import _parse_figure_placeholder
+        from manuscribe.pipeline.figures import _parse_figure_placeholder
 
         # the bbox grammar is unsigned, so a negative coordinate is simply "not a
         # figure placeholder" rather than a crash or a bogus negative box
@@ -1896,7 +1896,7 @@ class TestDegenerateInputs:
         assert "The abstract." in html
 
     def test_figure_box_larger_than_tiny_image_does_not_crash(self) -> None:
-        from pdfparser.pipeline.assemble import _assemble_html
+        from manuscribe.pipeline.assemble import _assemble_html
 
         html = _assemble_html(
             ["![image](i.png)0,0,1000,1000"], [Image.new("RGB", (3, 3))]
@@ -1904,13 +1904,13 @@ class TestDegenerateInputs:
         assert "<body>" in html
 
     def test_unterminated_latex_span_passes_through(self) -> None:
-        from pdfparser.pipeline.latex import _latex_to_html
+        from manuscribe.pipeline.latex import _latex_to_html
 
         # an unmatched "$" is left verbatim (no span conversion, no exception)
         assert _latex_to_html("mass $^{1,*") == "mass $^{1,*"
 
     def test_unclosed_table_html_does_not_crash(self) -> None:
-        from pdfparser.pipeline.markdown import _md_to_html_blocks
+        from manuscribe.pipeline.markdown import _md_to_html_blocks
 
         assert _md_to_html_blocks("<table><tr><td>x") == ["<table><tr><td>x"]
 
@@ -1921,7 +1921,7 @@ class TestSuperscriptMarkerCharClass:
     matches the non-digit superscripts ⁱⁿ⁺⁻⁼⁽⁾ (the CLAUDE.md digit-class gotcha)."""
 
     def test_leading_sup_matches_real_markers(self) -> None:
-        from pdfparser.pipeline.classify import _LEADING_SUP_RE
+        from manuscribe.pipeline.classify import _LEADING_SUP_RE
 
         # a superscript-digit affiliation marker and a footnote symbol
         assert _LEADING_SUP_RE.match("¹ Department of Chemistry")
@@ -1930,7 +1930,7 @@ class TestSuperscriptMarkerCharClass:
         assert _LEADING_SUP_RE.match("† Equal contribution")
 
     def test_leading_sup_rejects_non_digit_superscripts(self) -> None:
-        from pdfparser.pipeline.classify import _LEADING_SUP_RE
+        from manuscribe.pipeline.classify import _LEADING_SUP_RE
 
         # ⁿ (U+207F), ⁺ (U+207A) and ⁻ (U+207B) are not affiliation markers; the old
         # [⁰-ⁿ] range matched them, the canonical [⁰⁴-⁹] does not
@@ -1939,7 +1939,7 @@ class TestSuperscriptMarkerCharClass:
         assert _LEADING_SUP_RE.match("⁻ control lane") is None
 
     def test_author_marker_ignores_superscript_exponent(self) -> None:
-        from pdfparser.pipeline.classify import _AUTHOR_MARKER_RE
+        from manuscribe.pipeline.classify import _AUTHOR_MARKER_RE
 
         # a real author marker (digit or <sup>) is found…
         assert _AUTHOR_MARKER_RE.search("Jane Smith¹")
@@ -1955,7 +1955,7 @@ class TestLeadingBoldLabelVocabulary:
     front-matter set.  These lock that against a revert to independent literals."""
 
     def test_banner_is_subset_of_publication_metadata(self) -> None:
-        from pdfparser.pipeline.classify import (
+        from manuscribe.pipeline.classify import (
             _PUBLICATION_BANNER_LABELS,
             _PUBLICATION_METADATA_LABELS,
         )
@@ -1964,7 +1964,7 @@ class TestLeadingBoldLabelVocabulary:
         assert "open access" in _PUBLICATION_METADATA_LABELS
 
     def test_glossary_is_subset_of_frontmatter(self) -> None:
-        from pdfparser.pipeline.classify import (
+        from manuscribe.pipeline.classify import (
             _FRONTMATTER_HEADING_LABELS,
             _GLOSSARY_METADATA_LABELS,
         )
@@ -1975,7 +1975,7 @@ class TestLeadingBoldLabelVocabulary:
         assert delta == {"keywords", "key words"}
 
     def test_single_either_colon_matcher_handles_both_shapes(self) -> None:
-        from pdfparser.pipeline.classify import _BOLD_LABEL_CAPTURE_RE
+        from manuscribe.pipeline.classify import _BOLD_LABEL_CAPTURE_RE
 
         # the one either-colon matcher captures the label name for colon-inside…
         m1 = _BOLD_LABEL_CAPTURE_RE.match("<strong>Keywords:</strong> a, b")

@@ -29,7 +29,7 @@ from pathlib import Path  # noqa: TC003 — beartype reads annotations at runtim
 import numpy as np
 from PIL import Image  # noqa: TC002 — beartype reads annotations at runtime
 
-from pdfparser.pipeline.markdown import _caption_inner_html
+from manuscribe.pipeline.markdown import _caption_inner_html
 
 _log = logging.getLogger(__name__)
 
@@ -182,7 +182,7 @@ def _opens_with_panel_label(block: str) -> bool:
 
 
 # The image-delivery seam: a figure crop, already encoded to image bytes, plus its
-# MIME type → the value pdfparser writes into ``<img src>``.  Inline base64
+# MIME type → the value manuscribe writes into ``<img src>``.  Inline base64
 # (:func:`_base64_src`) is the self-contained default; a sidecar-file writer
 # (:func:`_file_image_writer`) or a caller-supplied sink (e.g. one that stores the
 # bytes in an asset store and returns its served URL) plug in the same way.  The

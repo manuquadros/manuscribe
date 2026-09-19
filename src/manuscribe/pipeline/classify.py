@@ -12,10 +12,10 @@ import re
 from collections import Counter
 from dataclasses import dataclass, field
 
-from pdfparser.pipeline.affiliations import _is_affiliation_line
-from pdfparser.pipeline.block import Block, BlockKind
-from pdfparser.pipeline.furniture import _is_degenerate_repetition
-from pdfparser.pipeline.text import (
+from manuscribe.pipeline.affiliations import _is_affiliation_line
+from manuscribe.pipeline.block import Block, BlockKind
+from manuscribe.pipeline.furniture import _is_degenerate_repetition
+from manuscribe.pipeline.text import (
     _BOLD_LABEL_CAPTURE_RE,
     _BOLD_LABEL_RE,
     _SENTENCE_END_RE,

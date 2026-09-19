@@ -13,8 +13,8 @@ from __future__ import annotations
 import re
 from collections import Counter
 
-from pdfparser.pipeline.block import Block, BlockKind
-from pdfparser.pipeline.text import _visible_text
+from manuscribe.pipeline.block import Block, BlockKind
+from manuscribe.pipeline.text import _visible_text
 
 # Running header/footer: a short, terminal-punctuation-free line that recurs
 # across pages.  Page numbers vary per page, so they are stripped before the

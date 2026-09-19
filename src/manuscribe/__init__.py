@@ -1,6 +1,11 @@
 """PDF parser used to convert PDFs for the D3 Annotation Hub"""
 
-__version__ = "0.1.0"
+from importlib.metadata import PackageNotFoundError, version
+
+try:
+    __version__ = version("manuscribe")
+except PackageNotFoundError:
+    __version__ = "unknown"
 
 try:
     from beartype.claw import beartype_this_package
@@ -9,13 +14,13 @@ try:
 except ImportError:
     pass
 
-from pdfparser.pipeline import (
+from manuscribe.pipeline import (
     ImageSink,
+    ManuscribeError,
     OcrResponseError,
     OcrUnavailableError,
     ParsedDocument,
     PdfInputError,
-    PdfParserError,
     lightonocr_pdf_to_document,
     lightonocr_pdf_to_html,
     load_ocr_model,
@@ -27,7 +32,7 @@ __all__ = [
     "OcrUnavailableError",
     "ParsedDocument",
     "PdfInputError",
-    "PdfParserError",
+    "ManuscribeError",
     "lightonocr_pdf_to_document",
     "lightonocr_pdf_to_html",
     "load_ocr_model",

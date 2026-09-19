@@ -12,9 +12,9 @@ import re
 
 from markdown_it import MarkdownIt
 
-from pdfparser.pipeline.dehyphenate import _dehyphenate_join
-from pdfparser.pipeline.latex import _latex_to_html
-from pdfparser.pipeline.text import _CAPTION_RE, _plain_p_text, _visible_text
+from manuscribe.pipeline.dehyphenate import _dehyphenate_join
+from manuscribe.pipeline.latex import _latex_to_html
+from manuscribe.pipeline.text import _CAPTION_RE, _plain_p_text, _visible_text
 
 _MD = MarkdownIt("commonmark", {"html": True}).enable("table")
 

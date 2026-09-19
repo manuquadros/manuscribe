@@ -4,7 +4,7 @@ The full-page pass occasionally emits neither the ``![image]`` bbox placeholder
 nor the "Figure N" caption for a figure — the figure vanishes from the document,
 and re-OCRing the whole page reproduces the omission (it is systematic, not a
 sporadic miss).  Re-OCRing a tight crop of just the figure recovers it, exactly as
-:mod:`pdfparser.pipeline.tables` recovers content dropped from dense tables.
+:mod:`manuscribe.pipeline.tables` recovers content dropped from dense tables.
 
 Unlike a dropped table — text the PDF text layer can localize directly — a figure
 is an *image*, invisible to the text layer; only its caption is text.  So we
@@ -35,16 +35,16 @@ from collections.abc import Callable  # noqa: TC003 — beartype reads annotatio
 import pypdfium2 as pdfium  # noqa: TC002 — beartype reads annotations at runtime
 from PIL import Image  # noqa: TC002 — beartype reads annotations at runtime
 
-from pdfparser.pipeline.classify import _leading_pages_to_skip_md
-from pdfparser.pipeline.figures import (
+from manuscribe.pipeline.classify import _leading_pages_to_skip_md
+from manuscribe.pipeline.figures import (
     _BBOX_NORM_MAX,
     _is_bare_figure_label,
     _opens_with_panel_label,
     _safe_ocr_region,
 )
-from pdfparser.pipeline.layers import _Box, _DocumentLayers, _normalize
-from pdfparser.pipeline.tables import _group_lines, _scaled_crop, _union
-from pdfparser.pipeline.text import _split_md_blocks
+from manuscribe.pipeline.layers import _Box, _DocumentLayers, _normalize
+from manuscribe.pipeline.tables import _group_lines, _scaled_crop, _union
+from manuscribe.pipeline.text import _split_md_blocks
 
 # A figure caption *label* at the start of a text line: "FIG 1", "Figure 4.",
 # "**Figure 6.**", "FIGURE 1 |" (Frontiers), "Fig 1. Effect…".  After the number

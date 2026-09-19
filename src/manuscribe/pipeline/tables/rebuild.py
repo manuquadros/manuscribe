@@ -15,8 +15,8 @@ from __future__ import annotations
 import html
 import re
 
-from pdfparser.pipeline.layers import _Box, _DocumentLayers, _normalize, _PageLayer
-from pdfparser.pipeline.tables.localize import (
+from manuscribe.pipeline.layers import _Box, _DocumentLayers, _normalize, _PageLayer
+from manuscribe.pipeline.tables.localize import (
     _GAP_FACTOR,
     _anchor_texts,
     _collect_seeds,
@@ -24,7 +24,7 @@ from pdfparser.pipeline.tables.localize import (
     _median,
     _union,
 )
-from pdfparser.pipeline.tables.markup import (
+from manuscribe.pipeline.tables.markup import (
     _CELL_RE,
     _COLSPAN_RE,
     _ROW_RE,
@@ -33,7 +33,7 @@ from pdfparser.pipeline.tables.markup import (
     _collapse_repeated_rows,
     _table_columns,
 )
-from pdfparser.pipeline.text import _visible_text
+from manuscribe.pipeline.text import _visible_text
 
 # Breathing room (pt) added around the seed column — both its x-bounds and its top
 # y-bound — so a glyph just outside the anchors' tight box is still captured.

@@ -1,5 +1,5 @@
 [project]
-name = "pdfparser"
+name = "manuscribe"
 version = "0.1.0"
 description = "PDF parser used to convert PDFs for the D3 Annotation Hub"
 authors = [{ name = "Emanuel Quadros", email = "emanuel.quadros@dsmz.de" }]
@@ -40,9 +40,9 @@ dev = [
 ]
 
 [tool.pdm.scripts]
-to-html = "python -m pdfparser"
+to-html = "python -m manuscribe"
 test = "pytest"
-test-cov = "pytest --cov=pdfparser --cov-report=term-missing"
+test-cov = "pytest --cov=manuscribe --cov-report=term-missing"
 lint = "ruff check ."
 fmt = "ruff format ."
 fmt-check = "ruff format --check ."
@@ -67,7 +67,7 @@ max-complexity = 10
 "__init__.py" = ["F401"]
 
 [tool.ruff.lint.isort]
-known-first-party = ["pdfparser"]
+known-first-party = ["manuscribe"]
 
 [tool.mypy]
 python_version = "3.12"
@@ -87,7 +87,7 @@ addopts = "--tb=short"
 asyncio_mode = "auto"
 
 [tool.coverage.run]
-source = ["src/pdfparser"]
+source = ["src/manuscribe"]
 branch = true
 
 [tool.coverage.report]

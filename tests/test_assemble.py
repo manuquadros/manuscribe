@@ -10,7 +10,7 @@ of OCR-sourced content HTML goes through before reaching the shell.
 
 from helpers import _body, _byline, _fake_image, _header_h1, _run_lighton
 
-from pdfparser.pipeline.assemble import _sanitize_content_html
+from manuscribe.pipeline.assemble import _sanitize_content_html
 
 
 class TestSanitizeContentHtml:
@@ -73,7 +73,7 @@ class TestSanitizeContentHtml:
         assert _sanitize_content_html(html) == html
 
     def test_anchor_tag_unwrapped(self) -> None:
-        # Nothing in pdfparser emits <a>; the block-level markdown-it link rule
+        # Nothing in manuscribe emits <a>; the block-level markdown-it link rule
         # can still turn OCR prose shaped like a citation adjacency into one, so
         # confirm it is unwrapped (text kept, tag/href dropped) rather than kept.
         html = _sanitize_content_html('<a href="javascript:alert(1)">12</a>')

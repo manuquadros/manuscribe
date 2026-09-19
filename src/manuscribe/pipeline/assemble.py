@@ -19,8 +19,8 @@ from pathlib import Path
 import nh3
 from PIL import Image  # noqa: TC002 — beartype reads annotations at runtime
 
-from pdfparser.pipeline.block import Block, BlockKind
-from pdfparser.pipeline.classify import (
+from manuscribe.pipeline.block import Block, BlockKind
+from manuscribe.pipeline.classify import (
     _FOOTNOTE_MARKER_CHARS,
     _UNICODE_SUP_MARKER_RE,
     _classify_parts,
@@ -32,8 +32,8 @@ from pdfparser.pipeline.classify import (
     _recover_headingless_abstract,
     _split_abstract_citation,
 )
-from pdfparser.pipeline.doi import _extract_doi
-from pdfparser.pipeline.figures import (
+from manuscribe.pipeline.doi import _extract_doi
+from manuscribe.pipeline.figures import (
     _FIGURE_MERGE_GAP_FRAC,
     _FIGURE_NOTE_RE,
     ImageSink,
@@ -49,32 +49,32 @@ from pdfparser.pipeline.figures import (
     _safe_crop,
     _union_box,
 )
-from pdfparser.pipeline.furniture import (
+from manuscribe.pipeline.furniture import (
     _capture_license_footer,
     _strip_running_furniture,
 )
-from pdfparser.pipeline.latex import _latex_to_html
-from pdfparser.pipeline.layers import _DocumentLayers, _leading_image_only_pages
-from pdfparser.pipeline.markdown import _caption_inner_html, _md_to_html_blocks
-from pdfparser.pipeline.merge import (
+from manuscribe.pipeline.latex import _latex_to_html
+from manuscribe.pipeline.layers import _DocumentLayers, _leading_image_only_pages
+from manuscribe.pipeline.markdown import _caption_inner_html, _md_to_html_blocks
+from manuscribe.pipeline.merge import (
     _colocate_table_captions,
     _colocate_table_footnotes,
     _join_split_table_caption_labels,
     _merge_split_panel_tables,
     _merge_split_paragraphs_stable,
 )
-from pdfparser.pipeline.model import OcrModel, _ocr_page, _ocr_pages, load_ocr_model
-from pdfparser.pipeline.reconcile import _reconcile_text_layer
-from pdfparser.pipeline.recover_figures import _recover_dropped_figures
-from pdfparser.pipeline.render import _render_page_images
-from pdfparser.pipeline.tables import (
+from manuscribe.pipeline.model import OcrModel, _ocr_page, _ocr_pages, load_ocr_model
+from manuscribe.pipeline.reconcile import _reconcile_text_layer
+from manuscribe.pipeline.recover_figures import _recover_dropped_figures
+from manuscribe.pipeline.render import _render_page_images
+from manuscribe.pipeline.tables import (
     _close_unclosed_tables,
     _collapse_repeated_rows_md,
     _recover_dropped_tables,
     _recover_table_cell_bold,
     _repair_tables_from_text_layer,
 )
-from pdfparser.pipeline.text import (
+from manuscribe.pipeline.text import (
     _TABLE_TAG_RE,
     _looks_like_figure_caption,
     _opens_with_caption_label,
@@ -372,7 +372,7 @@ def _dedup_table_figures(blocks: list[_Block]) -> list[_Block]:
     placeholder line — held on the ``_FigBlock`` — or as its own following block).
 
     The image is dropped; the caption is preserved as a standalone block so
-    :func:`~pdfparser.pipeline.merge._colocate_table_captions` folds it into the
+    :func:`~manuscribe.pipeline.merge._colocate_table_captions` folds it into the
     real table as its ``<caption>``.  When the caption already stands as its own
     block it is left in
     place; only when it rode on the placeholder is it re-emitted."""
@@ -556,7 +556,7 @@ _CONTENT_ATTRIBUTES: dict[str, set[str]] = {
     "ol": {"start"},
     "img": {"src", "alt"},
 }
-# The only content-level class pdfparser itself emits (classify.py/merge.py/
+# The only content-level class manuscribe itself emits (classify.py/merge.py/
 # tables/recover.py footnote paragraphs); anything else stays unstyled rather than
 # letting OCR-crafted markup pick a class the wrapper CSS targets.
 _CONTENT_ALLOWED_CLASSES: dict[str, set[str]] = {"p": {"footnote"}}
@@ -1004,7 +1004,7 @@ def lightonocr_pdf_to_document(
             here as sidecar PNGs and referenced by a path relative to its parent (so
             the HTML, written into that parent, links them) instead of inlined as
             base64 — quicker to regenerate and live-editable in a browser.
-        encode_image: The image-delivery sink ``(png_bytes, mime) -> src``; pdfparser
+        encode_image: The image-delivery sink ``(png_bytes, mime) -> src``; manuscribe
             writes the returned value into each figure's ``<img src>``.  ``None``
             (default) inlines the crops as base64 data URIs, or writes sidecar PNGs
             when ``image_dir`` is set.  Pass a sink to store the bytes elsewhere (e.g.

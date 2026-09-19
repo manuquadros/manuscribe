@@ -1,4 +1,4 @@
-# pdfparser
+# manuscribe
 
 PDF parser used to convert PDFs for the D3 Annotation Hub
 
@@ -41,7 +41,7 @@ pdm run docs-serve
 
 ## Documentation
 
-Published at <https://manuquadros.github.io/pdfparser/> on every push to `main`
+Published at <https://manuquadros.github.io/manuscribe/> on every push to `main`
 (`.github/workflows/docs.yml`). Locally, `pdm run docs-build` writes the same site
 to `docs/_build/html/`; the build fails on any unresolved cross-reference.
 

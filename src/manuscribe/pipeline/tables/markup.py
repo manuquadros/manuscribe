@@ -6,7 +6,7 @@ from __future__ import annotations
 
 import re
 
-from pdfparser.pipeline.text import _visible_text
+from manuscribe.pipeline.text import _visible_text
 
 _TABLE_RE = re.compile(r"<table\b.*?</table>", re.DOTALL | re.IGNORECASE)
 _OPEN_TABLE_RE = re.compile(r"<table\b", re.IGNORECASE)

@@ -8,15 +8,15 @@ from __future__ import annotations
 
 import re
 
-from pdfparser.pipeline.block import Block, BlockKind
-from pdfparser.pipeline.classify import (
+from manuscribe.pipeline.block import Block, BlockKind
+from manuscribe.pipeline.classify import (
     _LEADING_SUP_RE,
     _REF_HEADING_RE,
     _UNICODE_SUP_MARKER_RE,
     _is_stray_metadata,
 )
-from pdfparser.pipeline.dehyphenate import _dehyphenate_join
-from pdfparser.pipeline.text import (
+from manuscribe.pipeline.dehyphenate import _dehyphenate_join
+from manuscribe.pipeline.text import (
     _BOLD_LABEL_RE,
     _TABLE_CAPTION_RE,
     _ends_sentence,

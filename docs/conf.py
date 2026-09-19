@@ -1,4 +1,4 @@
-"""Sphinx configuration for pdfparser.
+"""Sphinx configuration for manuscribe.
 
 The package's logic lives almost entirely in private (``_``-prefixed) functions,
 and so does its design rationale — the bulk of the docstrings document a
@@ -18,7 +18,7 @@ from sphinx.application import Sphinx
 # Make the package importable without installation.
 sys.path.insert(0, str(Path(__file__).parents[1] / "src"))
 
-project = "pdfparser"
+project = "manuscribe"
 author = "Emanuel Quadros"
 copyright = f"{datetime.date.today().year}, Emanuel Quadros"  # noqa: A001
 
@@ -40,7 +40,7 @@ autosummary_generate = True
 # toctree never dangles on a fresh checkout (the stubs are gitignored).
 apidoc_modules = [
     {
-        "path": "../src/pdfparser",
+        "path": "../src/manuscribe",
         "destination": "api",
         # ``private-members`` is the whole point: skip it and the API pages are
         # nearly empty, because the figure-crop, paragraph-merge and
@@ -66,7 +66,7 @@ def _skip_reexports(
 ) -> bool:
     """Keep a re-exported class/function out of the package page.
 
-    ``pdfparser`` and ``pdfparser.pipeline`` re-export their public surface via
+    ``manuscribe`` and ``manuscribe.pipeline`` re-export their public surface via
     ``__all__``; documenting it there as well as in the owning module makes every
     ``:class:`` reference ambiguous and every entry a duplicate.
     """

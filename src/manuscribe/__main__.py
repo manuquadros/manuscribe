@@ -1,7 +1,7 @@
 """Command-line entry point: convert a PDF to a self-contained HTML file.
 
-pdm run python -m pdfparser paper.pdf            # writes paper.html
-pdm run python -m pdfparser paper.pdf out.html   # writes out.html
+pdm run python -m manuscribe paper.pdf            # writes paper.html
+pdm run python -m manuscribe paper.pdf out.html   # writes out.html
 """
 
 from __future__ import annotations
@@ -10,17 +10,17 @@ import argparse
 import sys
 from pathlib import Path
 
-from pdfparser.pipeline import (
+from manuscribe.pipeline import (
+    ManuscribeError,
     OcrUnavailableError,
-    PdfParserError,
     lightonocr_pdf_to_html,
 )
-from pdfparser.pipeline.model import _resolve_base_url
+from manuscribe.pipeline.model import _resolve_base_url
 
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
-        prog="pdfparser",
+        prog="manuscribe",
         description="Convert a PDF to a self-contained HTML document.",
     )
     parser.add_argument("pdf", type=Path, help="Path to the input PDF file.")
@@ -33,13 +33,13 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--vllm-url",
         default=None,
-        help="vLLM endpoint root (default: $PDFPARSER_VLLM_URL or "
+        help="vLLM endpoint root (default: $MANUSCRIBE_VLLM_URL or "
         "http://127.0.0.1:8000/v1).",
     )
     parser.add_argument(
         "--vllm-model",
         default=None,
-        help="Served model name (default: $PDFPARSER_VLLM_MODEL or lightonocr).",
+        help="Served model name (default: $MANUSCRIBE_VLLM_MODEL or lightonocr).",
     )
     parser.add_argument(
         "--image-dir",
@@ -75,7 +75,7 @@ def main(argv: list[str] | None = None) -> int:
             file=sys.stderr,
         )
         return 1
-    except PdfParserError as exc:
+    except ManuscribeError as exc:
         # A bad input PDF or a malformed OCR response — concise message, no traceback.
         print(f"error: {exc}", file=sys.stderr)
         return 1

@@ -30,7 +30,7 @@ def _run_document_to_file(pdf: Path, ocr: object) -> object:
     HTML lands at ``tests/fixtures/<pdf-stem>.html`` so every integration run leaves
     an on-disk copy of each fixture's rendering to open in a browser.
     """
-    from pdfparser.pipeline import OcrModel, lightonocr_pdf_to_document
+    from manuscribe.pipeline import OcrModel, lightonocr_pdf_to_document
 
     assert isinstance(ocr, OcrModel)
     _OUTPUT_DIR.mkdir(exist_ok=True)
@@ -51,7 +51,7 @@ def _run_pipeline_to_file(pdf: Path, ocr: object) -> str:
 def ocr_model() -> object:
     """Load the LightOnOCR model bundle once per session; skip if unavailable."""
     try:
-        from pdfparser.pipeline import load_ocr_model
+        from manuscribe.pipeline import load_ocr_model
 
         return load_ocr_model()
     except Exception as e:
@@ -73,7 +73,7 @@ def parsed_document(ocr_model: object) -> object:
 
 @pytest.fixture(scope="session")
 def article_html(parsed_document: object) -> str:
-    from pdfparser.pipeline import ParsedDocument
+    from manuscribe.pipeline import ParsedDocument
 
     assert isinstance(parsed_document, ParsedDocument)
     return parsed_document.html
@@ -225,7 +225,7 @@ def ad_prefix_run(ocr_model: object) -> tuple[str, list[int]]:
     """
     if not _AD_PREFIX_PDF.exists():
         pytest.skip(f"Fixture PDF not found: {_AD_PREFIX_PDF}")
-    from pdfparser.pipeline import assemble
+    from manuscribe.pipeline import assemble
 
     sizes: list[int] = []
     real_ocr_pages = assemble._ocr_pages
@@ -386,7 +386,7 @@ def plos_run(ocr_model: object) -> object:
         pytest.skip(f"Fixture PDF not found: {_PLOS_PDF}")
     from types import SimpleNamespace
 
-    from pdfparser.pipeline import OcrModel, assemble, lightonocr_pdf_to_html, tables
+    from manuscribe.pipeline import OcrModel, assemble, lightonocr_pdf_to_html, tables
 
     assert isinstance(ocr_model, OcrModel)
     real_recover = assemble._recover_dropped_tables
@@ -411,7 +411,7 @@ def plos_run(ocr_model: object) -> object:
     # that merely failed to localize (which also lowers the batch size).  Patch it in
     # tables.recover, where _plan_page_tables resolves _region_fully_captured.
     mp.setattr(
-        "pdfparser.pipeline.tables.recover._region_fully_captured", gate_with_spy
+        "manuscribe.pipeline.tables.recover._region_fully_captured", gate_with_spy
     )
     _OUTPUT_DIR.mkdir(exist_ok=True)
     try:

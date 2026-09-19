@@ -1,4 +1,4 @@
-from pdfparser import __version__
+from manuscribe import __version__
 
 
 def test_version() -> None:

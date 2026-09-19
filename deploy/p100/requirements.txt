@@ -1,4 +1,4 @@
-# P100 shim runtime — a SEPARATE environment from the pdfparser venv (which
+# P100 shim runtime — a SEPARATE environment from the manuscribe venv (which
 # carries no torch by design). See README.md.
 #
 # torch must ship Pascal (sm_60) kernels, which the pinned vLLM image does not.

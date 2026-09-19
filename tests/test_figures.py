@@ -185,7 +185,7 @@ class TestSplitTableFragmentClassification:
     predicates must recognise it as a table, not fold it into a figcaption."""
 
     def test_caption_continuation_rejects_split_table_fragment(self) -> None:
-        from pdfparser.pipeline.assemble import _is_caption_continuation
+        from manuscribe.pipeline.assemble import _is_caption_continuation
 
         assert not _is_caption_continuation("<tr><td>1</td></tr>\n</table>")
         assert not _is_caption_continuation("</table>")
@@ -194,7 +194,7 @@ class TestSplitTableFragmentClassification:
         assert _is_caption_continuation("Continued legend describing panel B.")
 
     def test_is_table_md_recognises_split_table_fragment(self) -> None:
-        from pdfparser.pipeline.assemble import _is_table_md, _MdBlock
+        from manuscribe.pipeline.assemble import _is_table_md, _MdBlock
 
         assert _is_table_md(_MdBlock("<table>\n<tr><td>a</td></tr>"))
         assert _is_table_md(_MdBlock("<tr><td>b</td></tr>\n</table>"))
@@ -204,7 +204,7 @@ class TestSplitTableFragmentClassification:
 
 class TestFigureLabelPredicates:
     def test_bare_figure_label(self) -> None:
-        from pdfparser.pipeline.figures import _is_bare_figure_label
+        from manuscribe.pipeline.figures import _is_bare_figure_label
 
         assert _is_bare_figure_label("FIG. 2")
         assert _is_bare_figure_label("Figure 3.")
@@ -213,7 +213,7 @@ class TestFigureLabelPredicates:
         assert not _is_bare_figure_label("Figures are shown below.")
 
     def test_panel_label(self) -> None:
-        from pdfparser.pipeline.figures import _is_panel_label
+        from manuscribe.pipeline.figures import _is_panel_label
 
         assert _is_panel_label("A")
         assert _is_panel_label("(B)")
@@ -231,7 +231,7 @@ class TestRecoverDroppedFigures:
     placeholder remapped to page coordinates and spliced back in."""
 
     def test_caption_labels_detected_references_ignored(self) -> None:
-        from pdfparser.pipeline.recover_figures import _emitted_figure_numbers
+        from manuscribe.pipeline.recover_figures import _emitted_figure_numbers
 
         md = (
             "Figure 1. Gene clusters and pathways\n\n"
@@ -245,13 +245,13 @@ class TestRecoverDroppedFigures:
         assert _emitted_figure_numbers([md]) == {1, 3, 5, 6}
 
     def test_gap_in_emitted_numbering(self) -> None:
-        from pdfparser.pipeline.recover_figures import _emitted_figure_numbers
+        from manuscribe.pipeline.recover_figures import _emitted_figure_numbers
 
         pages = ["Figure 1. A", "Figure 2. B", "Figure 3. C", "Figure 5. E"]
         assert _emitted_figure_numbers(pages) == {1, 2, 3, 5}
 
     def test_crop_box_not_collapsed_by_ghost_caption_line(self) -> None:
-        from pdfparser.pipeline.recover_figures import _figure_crop_box
+        from manuscribe.pipeline.recover_figures import _figure_crop_box
 
         # A faux-bold caption double-renders its first line with a sub-point
         # vertical offset, so a ghost copy sits a fraction above the "FIG. 6" label.
@@ -276,7 +276,7 @@ class TestRecoverDroppedFigures:
         assert region_top - cap_top > 400.0  # the figure band, not the caption row
 
     def test_extract_recovered_figure_folds_caption_stops_at_body(self) -> None:
-        from pdfparser.pipeline.recover_figures import _extract_recovered_figure
+        from manuscribe.pipeline.recover_figures import _extract_recovered_figure
 
         crop_md = (
             "![image](image_1.png)210,50,865,440\n\n"
@@ -297,14 +297,14 @@ class TestRecoverDroppedFigures:
         assert "were solved" not in caption
 
     def test_extract_recovered_figure_none_without_placeholder(self) -> None:
-        from pdfparser.pipeline.recover_figures import _extract_recovered_figure
+        from manuscribe.pipeline.recover_figures import _extract_recovered_figure
 
         # a crop that re-OCR'd to no figure box recovers nothing (fail-safe)
         no_box = "Figure 4. Crystal structures\n\nprose"
         assert _extract_recovered_figure(no_box, 4) is None
 
     def test_extract_recovered_figure_caption_before_placeholder(self) -> None:
-        from pdfparser.pipeline.recover_figures import _extract_recovered_figure
+        from manuscribe.pipeline.recover_figures import _extract_recovered_figure
 
         # The crop re-OCR sometimes emits the caption *before* the ![image]
         # placeholder (observed for FIG. 6 of 31051047); the caption — split into a
@@ -326,7 +326,7 @@ class TestRecoverDroppedFigures:
         assert "(A) Reduction reaction activities of PtTRI" in caption
 
     def test_extract_recovered_figure_bare_label_title_after_placeholder(self) -> None:
-        from pdfparser.pipeline.recover_figures import _extract_recovered_figure
+        from manuscribe.pipeline.recover_figures import _extract_recovered_figure
 
         # The same split (bare label, then title) after the placeholder: the title
         # block that follows a bare "FIG. N" label is its caption, not body prose.
@@ -347,7 +347,7 @@ class TestRecoverDroppedFigures:
         assert "three clades" not in caption
 
     def test_extract_recovered_figure_ignores_neighbouring_figure_caption(self) -> None:
-        from pdfparser.pipeline.recover_figures import _extract_recovered_figure
+        from manuscribe.pipeline.recover_figures import _extract_recovered_figure
 
         # The tight crop can catch a neighbouring figure's caption tail above the
         # image; it must not be taken as THIS figure's caption — match the numbered
@@ -365,7 +365,7 @@ class TestRecoverDroppedFigures:
         assert "Figure 5" not in caption
 
     def test_extract_recovered_figure_no_matching_label_yields_empty(self) -> None:
-        from pdfparser.pipeline.recover_figures import _extract_recovered_figure
+        from manuscribe.pipeline.recover_figures import _extract_recovered_figure
 
         # Only a *different* figure/scheme caption is in the crop (no caption for the
         # requested number): recover the image with an empty caption rather than
@@ -379,7 +379,7 @@ class TestRecoverDroppedFigures:
         assert result == ((1, 2, 3, 4), "")
 
     def test_extract_recovered_figure_bare_label_then_heading(self) -> None:
-        from pdfparser.pipeline.recover_figures import _extract_recovered_figure
+        from manuscribe.pipeline.recover_figures import _extract_recovered_figure
 
         # A bare "FIG. N" label followed by a heading (the crop reached into the body
         # below): the heading must NOT be claimed as the title — caption is the label.
@@ -393,7 +393,7 @@ class TestRecoverDroppedFigures:
         assert caption == "FIG. 6"
 
     def test_extract_recovered_figure_bare_label_last_block(self) -> None:
-        from pdfparser.pipeline.recover_figures import _extract_recovered_figure
+        from manuscribe.pipeline.recover_figures import _extract_recovered_figure
 
         # A bare label with no following block (no title arrives) yields a label-only
         # caption, not a crash.
@@ -402,7 +402,7 @@ class TestRecoverDroppedFigures:
         assert result == ((1, 2, 3, 4), "FIG. 6")
 
     def test_caption_already_present_matches_split_label_title(self) -> None:
-        from pdfparser.pipeline.recover_figures import _caption_already_present
+        from manuscribe.pipeline.recover_figures import _caption_already_present
 
         # The recovered caption is a label/title split; the dedup must flatten it so a
         # caption already on the page (in an em-dash form the label regex missed) is
@@ -416,7 +416,7 @@ class TestRecoverDroppedFigures:
         assert _caption_already_present("FIG. 6", page_md) is False
 
     def test_remap_full_width_region_keeps_x_offsets_y_into_band(self) -> None:
-        from pdfparser.pipeline.recover_figures import _remap_bbox_to_page
+        from manuscribe.pipeline.recover_figures import _remap_bbox_to_page
 
         # full-width crop spanning the page's top band [y 600..800] of an 800-pt page;
         # x stays as-is (full width), y maps into the band measured from the page top.
@@ -429,21 +429,21 @@ class TestRecoverDroppedFigures:
         assert bbox == (0, 0, 500, 125)
 
     def test_splice_top_figure_prepended(self) -> None:
-        from pdfparser.pipeline.recover_figures import _splice_figures_into_page
+        from manuscribe.pipeline.recover_figures import _splice_figures_into_page
 
         # caption near the top of an 800-pt page (cap_top 750) → figure prepended
         out = _splice_figures_into_page("body prose", [(750.0, "FIGBLOCK")], 800.0)
         assert out == "FIGBLOCK\n\nbody prose"
 
     def test_splice_bottom_figure_appended(self) -> None:
-        from pdfparser.pipeline.recover_figures import _splice_figures_into_page
+        from manuscribe.pipeline.recover_figures import _splice_figures_into_page
 
         # caption low on the page (cap_top 200) → figure appended after the prose
         out = _splice_figures_into_page("body prose", [(200.0, "FIGBLOCK")], 800.0)
         assert out == "body prose\n\nFIGBLOCK"
 
     def test_two_top_figures_keep_on_page_order(self) -> None:
-        from pdfparser.pipeline.recover_figures import _splice_figures_into_page
+        from manuscribe.pipeline.recover_figures import _splice_figures_into_page
 
         # both captions in the top half; the higher one (cap_top 760) must precede
         # the lower (cap_top 700), not be reversed by sequential prepends
@@ -453,7 +453,7 @@ class TestRecoverDroppedFigures:
         assert out == "HIGHER\n\nLOWER\n\nbody"
 
     def test_top_and_bottom_figures_bracket_the_page(self) -> None:
-        from pdfparser.pipeline.recover_figures import _splice_figures_into_page
+        from manuscribe.pipeline.recover_figures import _splice_figures_into_page
 
         # one figure high (prepended), one low (appended) — body stays between them
         out = _splice_figures_into_page(
@@ -462,7 +462,7 @@ class TestRecoverDroppedFigures:
         assert out == "TOP\n\nbody\n\nBOTTOM"
 
     def test_caption_already_present_detected_through_separator_variation(self) -> None:
-        from pdfparser.pipeline.recover_figures import _caption_already_present
+        from manuscribe.pipeline.recover_figures import _caption_already_present
 
         recovered = "Figure 4. Crystal structures of BkTauF"
         # the page emitted the same caption with an em-dash the label regex misses;
@@ -473,14 +473,14 @@ class TestRecoverDroppedFigures:
         assert not _caption_already_present(recovered, "<p>unrelated prose</p>")
 
     def test_caption_present_check_ignores_bare_label(self) -> None:
-        from pdfparser.pipeline.recover_figures import _caption_already_present
+        from manuscribe.pipeline.recover_figures import _caption_already_present
 
         # a bare "Figure 4" folds too short to match, so an in-text reference like
         # "(Figure 4A)" in the body never suppresses the recovered caption
         assert not _caption_already_present("Figure 4.", "<p>see Figure 4A here</p>")
 
     def test_column_bounds_full_width_for_single_column(self) -> None:
-        from pdfparser.pipeline.recover_figures import _column_bounds
+        from manuscribe.pipeline.recover_figures import _column_bounds
 
         # a body line spanning the page centre → single column → full width
         cap_box = (40.0, 100.0, 300.0, 110.0)
@@ -488,7 +488,7 @@ class TestRecoverDroppedFigures:
         assert _column_bounds(lines, cap_box, 110.0, 600.0) == (0.0, 600.0)
 
     def test_column_bounds_clamps_to_caption_half_for_two_columns(self) -> None:
-        from pdfparser.pipeline.recover_figures import _column_bounds
+        from manuscribe.pipeline.recover_figures import _column_bounds
 
         # no body line crosses the centre → two columns; caption on the right half
         cap_box = (320.0, 100.0, 560.0, 110.0)
@@ -496,8 +496,8 @@ class TestRecoverDroppedFigures:
         assert _column_bounds(lines, cap_box, 110.0, 600.0) == (300.0, 600.0)
 
     def test_attempt_page_figure_declines_on_crop_ocr_failure(self) -> None:
-        from pdfparser.pipeline.layers import _DocumentLayers
-        from pdfparser.pipeline.recover_figures import _attempt_page_figure
+        from manuscribe.pipeline.layers import _DocumentLayers
+        from manuscribe.pipeline.recover_figures import _attempt_page_figure
 
         # A transient GPU OOM in the crop re-OCR must decline that figure (return None),
         # not abort the document. Figure 1's caption localizes deterministically on
@@ -521,7 +521,7 @@ class TestSafeOcrRegion:
     single refinement instead of aborting the whole conversion."""
 
     def test_returns_ocr_output_on_success(self) -> None:
-        from pdfparser.pipeline.figures import _safe_ocr_region
+        from manuscribe.pipeline.figures import _safe_ocr_region
 
         assert _safe_ocr_region(lambda _i: "markdown", Image.new("RGB", (8, 8))) == (
             "markdown"
@@ -530,7 +530,7 @@ class TestSafeOcrRegion:
     def test_returns_none_and_logs_on_failure(
         self, caplog: pytest.LogCaptureFixture
     ) -> None:
-        from pdfparser.pipeline.figures import _safe_ocr_region
+        from manuscribe.pipeline.figures import _safe_ocr_region
 
         def boom(_image: Image.Image) -> str:
             raise RuntimeError("CUDA out of memory")
@@ -576,7 +576,7 @@ class TestTableFigureDedup:
     def test_pipe_caption_requires_title_not_bare_pipe(self) -> None:
         # A stray pipe-delimited prose line ("Table 1 | 2 | 3") is not a caption and
         # must not trigger the dedup drop of a genuinely adjacent figure.
-        from pdfparser.pipeline.text import _opens_with_table_label
+        from manuscribe.pipeline.text import _opens_with_table_label
 
         assert _opens_with_table_label("TABLE 2 | Kinetic parameters for mutants.")
         assert not _opens_with_table_label("Table 1 | 2 | 3")
@@ -639,8 +639,8 @@ class TestFigureFileOutput:
     by a relative path instead of inlined as base64."""
 
     def test_image_dir_writes_sidecar_png(self, tmp_path: Path) -> None:
-        from pdfparser.pipeline.assemble import _assemble_html
-        from pdfparser.pipeline.figures import _file_image_writer
+        from manuscribe.pipeline.assemble import _assemble_html
+        from manuscribe.pipeline.figures import _file_image_writer
 
         img = _fake_image(1190, 1540)
         md = "# T\n\n## Abstract\n\nA.\n\n## Body\n\n![image](i.png)0,0,1000,1000"
@@ -659,7 +659,7 @@ class TestImageSink:
     _MD = "# T\n\n## Abstract\n\nA.\n\n## Body\n\n![image](i.png)0,0,1000,1000"
 
     def test_sink_receives_png_bytes_and_src_used(self) -> None:
-        from pdfparser.pipeline.assemble import _assemble_html
+        from manuscribe.pipeline.assemble import _assemble_html
 
         received: list[tuple[bytes, str]] = []
 
@@ -677,7 +677,7 @@ class TestImageSink:
         assert "data:image/png;base64," not in html
 
     def test_base64_default_inlines_data_uri(self) -> None:
-        from pdfparser.pipeline.figures import _base64_src
+        from manuscribe.pipeline.figures import _base64_src
 
         out = _base64_src(b"\x89PNG\r\n\x1a\nfake", "image/png")
         assert out.startswith("data:image/png;base64,")
@@ -688,7 +688,7 @@ class TestDenormalizeBbox:
     """[0,1000]-normalized model boxes scale to the image's pixel size."""
 
     def test_full_box_maps_to_full_image(self) -> None:
-        from pdfparser.pipeline.figures import _denormalize_bbox
+        from manuscribe.pipeline.figures import _denormalize_bbox
 
         assert _denormalize_bbox((0, 0, 1000, 1000), _fake_image(1190, 1540)) == (
             0,
@@ -698,7 +698,7 @@ class TestDenormalizeBbox:
         )
 
     def test_half_box(self) -> None:
-        from pdfparser.pipeline.figures import _denormalize_bbox
+        from manuscribe.pipeline.figures import _denormalize_bbox
 
         assert _denormalize_bbox((0, 0, 500, 500), _fake_image(1000, 2000)) == (
             0,
@@ -713,22 +713,22 @@ class TestFigureBoxMerge:
     crop; genuinely separate figures stay separate."""
 
     def test_same_column_adjacent_boxes_merge(self) -> None:
-        from pdfparser.pipeline.figures import _figures_same
+        from manuscribe.pipeline.figures import _figures_same
 
         assert _figures_same((100, 100, 900, 500), (110, 500, 890, 560), 50.0) is True
 
     def test_vertically_separated_boxes_do_not_merge(self) -> None:
-        from pdfparser.pipeline.figures import _figures_same
+        from manuscribe.pipeline.figures import _figures_same
 
         assert _figures_same((100, 100, 900, 300), (100, 800, 900, 950), 50.0) is False
 
     def test_side_by_side_boxes_do_not_merge(self) -> None:
-        from pdfparser.pipeline.figures import _figures_same
+        from manuscribe.pipeline.figures import _figures_same
 
         assert _figures_same((0, 0, 100, 500), (200, 0, 300, 500), 50.0) is False
 
     def test_union_box(self) -> None:
-        from pdfparser.pipeline.figures import _union_box
+        from manuscribe.pipeline.figures import _union_box
 
         assert _union_box([(100, 100, 900, 500), (120, 480, 880, 560)]) == (
             100,
@@ -776,19 +776,19 @@ class TestFigureBottomGrowth:
         return img
 
     def test_tight_box_grows_to_figure_bottom(self) -> None:
-        from pdfparser.pipeline.figures import _extend_edge
+        from manuscribe.pipeline.figures import _extend_edge
 
         assert _extend_edge(self._image(), (50, 100, 350, 250), "bottom") == 300
 
     def test_box_at_bottom_does_not_grow(self) -> None:
-        from pdfparser.pipeline.figures import _extend_edge
+        from manuscribe.pipeline.figures import _extend_edge
 
         assert _extend_edge(self._image(), (50, 100, 350, 300), "bottom") == 300
 
     def test_no_growth_when_ink_runs_without_gap(self) -> None:
         # Ink continues past the search window with no whitespace gap (caption /
         # body text below a correct box) → ambiguous → leave the box unchanged.
-        from pdfparser.pipeline.figures import _extend_edge
+        from manuscribe.pipeline.figures import _extend_edge
 
         img = Image.new("RGB", (400, 800), "white")
         img.paste(Image.new("RGB", (300, 300), "black"), (50, 100))
@@ -798,7 +798,7 @@ class TestFigureBottomGrowth:
         # A figure tail narrower than the box (here 3 px of a 300 px-wide box,
         # ~1% ink) must count as content, not be mistaken for the whitespace gap
         # — otherwise the clipped bottom is dropped.
-        from pdfparser.pipeline.figures import _extend_edge
+        from manuscribe.pipeline.figures import _extend_edge
 
         img = Image.new("RGB", (400, 800), "white")
         img.paste(Image.new("RGB", (300, 150), "black"), (50, 100))  # y[100,250)
@@ -806,12 +806,12 @@ class TestFigureBottomGrowth:
         assert _extend_edge(img, (50, 100, 350, 270), "bottom") == 290
 
     def test_growth_stops_before_caption(self) -> None:
-        from pdfparser.pipeline.figures import _extend_edge
+        from manuscribe.pipeline.figures import _extend_edge
 
         assert _extend_edge(self._image(), (50, 100, 350, 250), "bottom") < 360
 
     def test_safe_crop_excludes_caption(self) -> None:
-        from pdfparser.pipeline.figures import _safe_crop
+        from manuscribe.pipeline.figures import _safe_crop
 
         crop = _safe_crop(self._image(), (50, 100, 350, 250))
         assert crop is not None and crop.size == (300, 200)
@@ -833,19 +833,19 @@ class TestFigureRightGrowth:
         return img
 
     def test_tight_box_grows_to_figure_right(self) -> None:
-        from pdfparser.pipeline.figures import _extend_edge
+        from manuscribe.pipeline.figures import _extend_edge
 
         assert _extend_edge(self._image(), (100, 50, 250, 350), "right") == 300
 
     def test_box_at_right_does_not_grow(self) -> None:
-        from pdfparser.pipeline.figures import _extend_edge
+        from manuscribe.pipeline.figures import _extend_edge
 
         assert _extend_edge(self._image(), (100, 50, 300, 350), "right") == 300
 
     def test_no_growth_when_ink_runs_without_gap(self) -> None:
         # Ink continues past the search window with no whitespace gap (a column
         # abutting a correct box) → ambiguous → leave the box unchanged.
-        from pdfparser.pipeline.figures import _extend_edge
+        from manuscribe.pipeline.figures import _extend_edge
 
         img = Image.new("RGB", (800, 400), "white")
         img.paste(Image.new("RGB", (300, 300), "black"), (100, 50))
@@ -854,7 +854,7 @@ class TestFigureRightGrowth:
     def test_narrow_content_right_of_box_is_not_read_as_gap(self) -> None:
         # A figure tail narrower than the box (here 3 px of a 300 px-tall box,
         # ~1% ink) must count as content, not be mistaken for the whitespace gap.
-        from pdfparser.pipeline.figures import _extend_edge
+        from manuscribe.pipeline.figures import _extend_edge
 
         img = Image.new("RGB", (800, 400), "white")
         img.paste(Image.new("RGB", (150, 300), "black"), (100, 50))  # x[100,250)
@@ -865,7 +865,7 @@ class TestFigureRightGrowth:
         # Left-column figure, a whitespace gutter, then right-column text: growth
         # recovers the clipped figure edge but stops at the gutter, never reaching
         # the next column.
-        from pdfparser.pipeline.figures import _extend_edge
+        from manuscribe.pipeline.figures import _extend_edge
 
         img = Image.new("RGB", (800, 400), "white")
         img.paste(Image.new("RGB", (200, 300), "black"), (50, 50))  # x[50,250)
@@ -873,7 +873,7 @@ class TestFigureRightGrowth:
         assert _extend_edge(img, (50, 50, 200, 350), "right") == 250
 
     def test_safe_crop_excludes_neighbour_column(self) -> None:
-        from pdfparser.pipeline.figures import _safe_crop
+        from manuscribe.pipeline.figures import _safe_crop
 
         crop = _safe_crop(self._image(), (100, 50, 250, 350))
         assert crop is not None and crop.size == (200, 300)
@@ -895,20 +895,20 @@ class TestFigureLeftGrowth:
         return img
 
     def test_tight_box_grows_to_figure_left(self) -> None:
-        from pdfparser.pipeline.figures import _extend_edge
+        from manuscribe.pipeline.figures import _extend_edge
 
         # box left clipped 50 px into the figure → grows back out to x=100
         assert _extend_edge(self._image(), (150, 50, 300, 350), "left") == 100
 
     def test_box_at_left_does_not_grow(self) -> None:
-        from pdfparser.pipeline.figures import _extend_edge
+        from manuscribe.pipeline.figures import _extend_edge
 
         assert _extend_edge(self._image(), (100, 50, 300, 350), "left") == 100
 
     def test_no_growth_when_ink_runs_without_gap(self) -> None:
         # Ink continues left past the search window with no gap (a column abutting a
         # correct box) → ambiguous → leave the box unchanged.
-        from pdfparser.pipeline.figures import _extend_edge
+        from manuscribe.pipeline.figures import _extend_edge
 
         img = Image.new("RGB", (800, 400), "white")
         img.paste(Image.new("RGB", (300, 300), "black"), (100, 50))  # x[100,400)
@@ -918,7 +918,7 @@ class TestFigureLeftGrowth:
         # Right-column figure, a whitespace gutter, then left-column text: growth
         # recovers the clipped figure edge but stops at the gutter, never reaching
         # the previous column.
-        from pdfparser.pipeline.figures import _extend_edge
+        from manuscribe.pipeline.figures import _extend_edge
 
         img = Image.new("RGB", (800, 400), "white")
         img.paste(Image.new("RGB", (200, 300), "black"), (50, 50))  # left column
@@ -926,7 +926,7 @@ class TestFigureLeftGrowth:
         assert _extend_edge(img, (410, 50, 560, 350), "left") == 360
 
     def test_safe_crop_recovers_clipped_left_edge(self) -> None:
-        from pdfparser.pipeline.figures import _safe_crop
+        from manuscribe.pipeline.figures import _safe_crop
 
         # box left clipped to x=150; the crop grows back out to the figure's x=100.
         crop = _safe_crop(self._image(), (150, 50, 300, 350))
@@ -950,20 +950,20 @@ class TestFigureTopGrowth:
         return img
 
     def test_tight_box_grows_to_figure_top(self) -> None:
-        from pdfparser.pipeline.figures import _extend_edge
+        from manuscribe.pipeline.figures import _extend_edge
 
         # box top clipped 50 px into the figure → grows back out to y=100
         assert _extend_edge(self._image(), (50, 150, 350, 300), "top") == 100
 
     def test_box_at_top_does_not_grow(self) -> None:
-        from pdfparser.pipeline.figures import _extend_edge
+        from manuscribe.pipeline.figures import _extend_edge
 
         assert _extend_edge(self._image(), (50, 100, 350, 300), "top") == 100
 
     def test_no_growth_when_ink_runs_without_gap(self) -> None:
         # Ink continues up past the search window with no gap (content abutting a
         # correct box) → ambiguous → leave the box unchanged.
-        from pdfparser.pipeline.figures import _extend_edge
+        from manuscribe.pipeline.figures import _extend_edge
 
         img = Image.new("RGB", (400, 800), "white")
         img.paste(Image.new("RGB", (300, 300), "black"), (50, 100))  # y[100,400)
@@ -972,12 +972,12 @@ class TestFigureTopGrowth:
     def test_gap_above_box_stops_growth_before_paragraph(self) -> None:
         # A correct box already ending in whitespace: the paragraph above is
         # separated by a leading gap, so growth is declined, not pulled in.
-        from pdfparser.pipeline.figures import _extend_edge
+        from manuscribe.pipeline.figures import _extend_edge
 
         assert _extend_edge(self._image(), (50, 100, 350, 300), "top") == 100
 
     def test_safe_crop_recovers_clipped_top_edge(self) -> None:
-        from pdfparser.pipeline.figures import _safe_crop
+        from manuscribe.pipeline.figures import _safe_crop
 
         # box top clipped to y=150; the crop grows back out to the figure's y=100.
         crop = _safe_crop(self._image(), (50, 150, 350, 300))
@@ -1003,25 +1003,25 @@ class TestSwallowedCaptionTrim:
         return Image.fromarray(a, "L").convert("RGB")
 
     def test_prose_band_trimmed_when_caption_present(self) -> None:
-        from pdfparser.pipeline.figures import _safe_crop
+        from manuscribe.pipeline.figures import _safe_crop
 
         crop = _safe_crop(self._image(3, 6), (50, 50, 750, 200), caption_text="cap")
         assert crop is not None and crop.size == (700, 150)  # band dropped
 
     def test_prose_band_kept_without_caption(self) -> None:
-        from pdfparser.pipeline.figures import _safe_crop
+        from manuscribe.pipeline.figures import _safe_crop
 
         crop = _safe_crop(self._image(3, 6), (50, 50, 750, 200), caption_text=None)
         assert crop is not None and crop.size == (700, 180)  # band recovered
 
     def test_figure_band_kept_even_with_caption(self) -> None:
-        from pdfparser.pipeline.figures import _safe_crop
+        from manuscribe.pipeline.figures import _safe_crop
 
         crop = _safe_crop(self._image(600, 10), (50, 50, 750, 200), caption_text="cap")
         assert crop is not None and crop.size == (700, 180)  # dense band kept
 
     def test_prose_scores_below_figure_run_length(self) -> None:
-        from pdfparser.pipeline.figures import _mean_norm_run_length
+        from manuscribe.pipeline.figures import _mean_norm_run_length
 
         width = 700
         prose = np.zeros((10, width), bool)
@@ -1043,13 +1043,13 @@ class TestBakedCaptionTrim:
     )
 
     def test_band_is_caption_matches_caption_words(self) -> None:
-        from pdfparser.pipeline.figures import _WORD_RE, _band_is_caption
+        from manuscribe.pipeline.figures import _WORD_RE, _band_is_caption
 
         words = set(_WORD_RE.findall(self._CAPTION.lower()))
         assert _band_is_caption(self._CAPTION, words)
 
     def test_band_is_caption_rejects_low_overlap(self) -> None:
-        from pdfparser.pipeline.figures import _WORD_RE, _band_is_caption
+        from manuscribe.pipeline.figures import _WORD_RE, _band_is_caption
 
         words = set(_WORD_RE.findall(self._CAPTION.lower()))
         # a figure row mentioning a few caption words amid mostly non-caption data:
@@ -1060,7 +1060,7 @@ class TestBakedCaptionTrim:
         )
 
     def test_band_is_caption_rejects_repeated_token_wall(self) -> None:
-        from pdfparser.pipeline.figures import _WORD_RE, _band_is_caption
+        from manuscribe.pipeline.figures import _WORD_RE, _band_is_caption
 
         # a row the model fails to read collapses to one caption word repeated —
         # ~1.0 word-overlap but no diversity, so it must be rejected as degenerate
@@ -1068,7 +1068,7 @@ class TestBakedCaptionTrim:
         assert not _band_is_caption("bmsdh " * 200, words)
 
     def test_band_is_caption_rejects_short_repeated_wall(self) -> None:
-        from pdfparser.pipeline.figures import _WORD_RE, _band_is_caption
+        from manuscribe.pipeline.figures import _WORD_RE, _band_is_caption
 
         # the wall need not be long: three identical caption words must still fail
         # (the old type-ratio guard let this through; the distinct-word floor stops it)
@@ -1076,13 +1076,13 @@ class TestBakedCaptionTrim:
         assert not _band_is_caption("panel panel panel", words)
 
     def test_band_is_caption_rejects_too_few_words(self) -> None:
-        from pdfparser.pipeline.figures import _WORD_RE, _band_is_caption
+        from manuscribe.pipeline.figures import _WORD_RE, _band_is_caption
 
         words = set(_WORD_RE.findall(self._CAPTION.lower()))
         assert not _band_is_caption("Fig 9", words)
 
     def test_ink_bands_split_on_gaps(self) -> None:
-        from pdfparser.pipeline.figures import _ink_bands
+        from manuscribe.pipeline.figures import _ink_bands
 
         mask = np.zeros((200, 50), bool)
         mask[10:40] = True  # band 1
@@ -1090,7 +1090,7 @@ class TestBakedCaptionTrim:
         assert _ink_bands(mask, gap=12) == [(10, 40), (120, 160)]
 
     def test_ocr_band_pads_thin_band(self) -> None:
-        from pdfparser.pipeline.figures import _FIGURE_OCR_MIN_BAND_PX, _ocr_band
+        from manuscribe.pipeline.figures import _FIGURE_OCR_MIN_BAND_PX, _ocr_band
 
         seen: list[tuple[int, int]] = []
         _ocr_band(
@@ -1112,7 +1112,7 @@ class TestBakedCaptionTrim:
         return Image.fromarray(a, "L").convert("RGB")
 
     def test_trim_baked_caption_drops_caption_and_note(self) -> None:
-        from pdfparser.pipeline.figures import _trim_baked_caption
+        from manuscribe.pipeline.figures import _trim_baked_caption
 
         # scan runs bottom→top: note (DOI) → caption → figure band (re-OCRed once to
         # confirm the boundary, then the scan stops as it isn't caption)
@@ -1125,7 +1125,7 @@ class TestBakedCaptionTrim:
         assert y1 == 400  # trimmed to the caption's top, note swept with it
 
     def test_safe_crop_without_ocr_region_keeps_baked_caption(self) -> None:
-        from pdfparser.pipeline.figures import _safe_crop
+        from manuscribe.pipeline.figures import _safe_crop
 
         # no ocr_region → the OCR trim never runs, so a text-bodied baked caption
         # stays (the crop reaches the note band's bottom)
@@ -1141,35 +1141,35 @@ class TestParseFigurePlaceholder:
     ordinary prose."""
 
     def test_box_extracted(self) -> None:
-        from pdfparser.pipeline.figures import _parse_figure_placeholder
+        from manuscribe.pipeline.figures import _parse_figure_placeholder
 
         result = _parse_figure_placeholder("![image](image_1.png)122,89,877,614")
         assert result.is_placeholder
         assert result.bbox_norm == (122, 89, 877, 614)
 
     def test_box_with_surrounding_whitespace(self) -> None:
-        from pdfparser.pipeline.figures import _parse_figure_placeholder
+        from manuscribe.pipeline.figures import _parse_figure_placeholder
 
         result = _parse_figure_placeholder("  ![image](img.png) 10, 20, 30, 40 ")
         assert result.is_placeholder
         assert result.bbox_norm == (10, 20, 30, 40)
 
     def test_bboxless_placeholder_is_placeholder_without_bbox(self) -> None:
-        from pdfparser.pipeline.figures import _parse_figure_placeholder
+        from manuscribe.pipeline.figures import _parse_figure_placeholder
 
         result = _parse_figure_placeholder("![image](image_1.png)")
         assert result.is_placeholder
         assert result.bbox_norm is None
 
     def test_caption_line_is_not_a_placeholder(self) -> None:
-        from pdfparser.pipeline.figures import _parse_figure_placeholder
+        from manuscribe.pipeline.figures import _parse_figure_placeholder
 
         result = _parse_figure_placeholder("FIG. 2 Protein alignments of TRI.")
         assert not result.is_placeholder
         assert result.bbox_norm is None
 
     def test_inline_image_in_prose_is_not_a_placeholder(self) -> None:
-        from pdfparser.pipeline.figures import _parse_figure_placeholder
+        from manuscribe.pipeline.figures import _parse_figure_placeholder
 
         line = "Some prose with ![inline](x.png) embedded mid-sentence."
         assert not _parse_figure_placeholder(line).is_placeholder
@@ -1185,8 +1185,8 @@ class TestFigureRecoveryOrchestration:
     _FIXTURE = Path(__file__).parent / "fixtures" / "30592559.pdf"  # figs 1–4, no ad
 
     def test_textlayer_caption_pages_maps_numbers_to_pages(self) -> None:
-        from pdfparser.pipeline.layers import _DocumentLayers
-        from pdfparser.pipeline.recover_figures import _textlayer_caption_pages
+        from manuscribe.pipeline.layers import _DocumentLayers
+        from manuscribe.pipeline.recover_figures import _textlayer_caption_pages
 
         with _DocumentLayers.open(self._FIXTURE) as layers:
             truth = _textlayer_caption_pages(layers.pdf)
@@ -1194,8 +1194,8 @@ class TestFigureRecoveryOrchestration:
         assert all(ps and ps == sorted(set(ps)) for ps in truth.values())
 
     def test_missing_figures_are_localized_and_spliced(self) -> None:
-        from pdfparser.pipeline.layers import _DocumentLayers
-        from pdfparser.pipeline.recover_figures import _recover_dropped_figures
+        from manuscribe.pipeline.layers import _DocumentLayers
+        from manuscribe.pipeline.recover_figures import _recover_dropped_figures
 
         calls: list[int] = []
 
@@ -1217,8 +1217,8 @@ class TestFigureRecoveryOrchestration:
         assert "Recovered legend title" in joined  # figure 1's caption matched + kept
 
     def test_no_ocr_when_every_figure_already_emitted(self) -> None:
-        from pdfparser.pipeline.layers import _DocumentLayers
-        from pdfparser.pipeline.recover_figures import _recover_dropped_figures
+        from manuscribe.pipeline.layers import _DocumentLayers
+        from manuscribe.pipeline.recover_figures import _recover_dropped_figures
 
         calls: list[int] = []
 
@@ -1233,8 +1233,8 @@ class TestFigureRecoveryOrchestration:
         assert calls == []  # ...and not a single re-OCR
 
     def test_attempt_declines_before_ocr_when_caption_not_on_page(self) -> None:
-        from pdfparser.pipeline.layers import _DocumentLayers
-        from pdfparser.pipeline.recover_figures import _attempt_page_figure
+        from manuscribe.pipeline.layers import _DocumentLayers
+        from manuscribe.pipeline.recover_figures import _attempt_page_figure
 
         calls: list[int] = []
 
@@ -1249,8 +1249,8 @@ class TestFigureRecoveryOrchestration:
         assert calls == []  # localization fails first, so the re-OCR is never reached
 
     def test_candidate_reocring_to_no_placeholder_injects_no_figure(self) -> None:
-        from pdfparser.pipeline.layers import _DocumentLayers
-        from pdfparser.pipeline.recover_figures import _recover_dropped_figures
+        from manuscribe.pipeline.layers import _DocumentLayers
+        from manuscribe.pipeline.recover_figures import _recover_dropped_figures
 
         calls: list[int] = []
 

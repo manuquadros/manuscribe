@@ -113,6 +113,20 @@ class Block:
             heading_level, inner = heading
         elif kind is BlockKind.PARAGRAPH:
             inner = _plain_p_text(html)
+        return Block._finish(html, kind, heading_level, inner, source_page)
+
+    @staticmethod
+    def _finish(
+        html: str,
+        kind: BlockKind,
+        heading_level: int | None,
+        inner: str | None,
+        source_page: int | None,
+    ) -> Block:
+        """Build a ``Block`` once ``kind``/``heading_level``/``inner`` are known,
+        deriving the remaining fields from ``html`` the same way regardless of
+        which constructor (:meth:`of`'s HTML-sniffing, :meth:`from_chandra_div`'s
+        explicit label mapping) determined them."""
         sentence_source = inner if inner is not None else html
         return Block(
             html=html,
@@ -125,3 +139,44 @@ class Block:
             caption_label=_caption_label_of(_visible_text(html)),
             source_page=source_page,
         )
+
+    @staticmethod
+    def from_chandra_div(
+        label: str, inner_html: str, *, source_page: int | None = None
+    ) -> Block | None:
+        """Build a ``Block`` from one chandra-ocr-2 response ``<div
+        data-label="...">...</div>``, given its label and already-unwrapped inner
+        HTML (see ``pipeline.chandra._iter_divs``).
+
+        Unlike :meth:`of`, the block's kind comes directly from ``label`` — chandra
+        already tells you the kind, so there is no HTML-sniffing here. Returns
+        ``None`` for ``Page-Header``/``Page-Footer`` (pure running furniture in
+        every sample gathered — see ``spike_results/chandra_ocr2_phase1_fidelity.md``
+        and the ingestion-adapter design ticket), which drop at ingestion instead
+        of relying on ``furniture.py``'s recurrence heuristics.
+        """
+        if label in ("Page-Header", "Page-Footer"):
+            return None
+        inner_html = inner_html.strip()
+        if label == "Section-Header":
+            heading = _heading_inner(inner_html)
+            if heading is not None:
+                heading_level, inner = heading
+                return Block._finish(
+                    inner_html, BlockKind.HEADING, heading_level, inner, source_page
+                )
+            # A Section-Header without an <h*> tag (rare, but not assumed away):
+            # fall through to the paragraph wrapping below rather than drop it.
+        if label == "Table":
+            return Block._finish(inner_html, BlockKind.TABLE, None, None, source_page)
+        if label in ("List-Group", "Bibliography"):
+            return Block._finish(inner_html, BlockKind.OTHER, None, None, source_page)
+        if label in ("Figure", "Image", "Chemical-Block", "Diagram"):
+            return Block._finish(inner_html, BlockKind.FIGURE, None, None, source_page)
+        # Text, Caption, Footnote, and any Section-Header without an <h*> tag:
+        # a single paragraph — wrap in <p> unless already exactly that shape.
+        para_inner: str | None = _plain_p_text(inner_html)
+        html = inner_html if para_inner is not None else f"<p>{inner_html}</p>"
+        if para_inner is None:
+            para_inner = inner_html
+        return Block._finish(html, BlockKind.PARAGRAPH, None, para_inner, source_page)

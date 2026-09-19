@@ -788,7 +788,10 @@ def _is_publication_value_heading(part: str) -> bool:
     )
 
 
-def _is_frontmatter_text(part: str, *, strict: bool = True) -> bool:
+# noqa PLR0911: a flat chain of independent guard clauses, one recognised
+# front-matter shape per return.  Folding them into a single expression would
+# bury the per-shape reasoning each branch carries.
+def _is_frontmatter_text(part: str, *, strict: bool = True) -> bool:  # noqa: PLR0911
     inner = _plain_p_text(part)
     if inner is None:
         return False
@@ -1097,7 +1100,10 @@ def _is_inline_frontmatter_label(inner: str) -> bool:
     return _bold_label_in(inner, _FRONTMATTER_HEADING_LABELS)
 
 
-def _is_stray_metadata(part: str) -> bool:
+# noqa PLR0911: same flat guard-clause shape as _is_frontmatter_text — the
+# returns are the independent evidence tests the docstring enumerates, each
+# with its own rejection rationale.
+def _is_stray_metadata(part: str) -> bool:  # noqa: PLR0911
     """A self-contained footer-metadata line OCR'd into the body (see
     ``_STRAY_METADATA_MAX_LEN``).  Unlike ``_is_frontmatter_text`` it is judged
     position-independently, so it must stand on its own strong evidence: a

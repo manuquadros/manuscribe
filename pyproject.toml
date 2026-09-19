@@ -66,7 +66,7 @@ release = "python scripts/release.py"
 line-length = 88
 
 [tool.ruff.lint]
-select = ["E", "F", "I", "N", "W", "UP", "B", "SIM", "TCH", "C90"]
+select = ["E", "F", "I", "N", "W", "UP", "B", "SIM", "TCH", "C90", "PLR0911"]
 
 [tool.ruff.lint.mccabe]
 max-complexity = 10

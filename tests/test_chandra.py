@@ -91,6 +91,50 @@ class TestCollapseDecodeLoop:
         assert sum(b.html.count("His-tagged PtTRI") for b in blocks) == 1
 
 
+class TestUnclosedDiv:
+    """A response truncated mid-div (what a decode loop exhausting the token
+    budget produces) leaves that div unclosed. Its content must stop at the next
+    div's opener: the block that follows is whole and separate, and on a
+    figure-labeled div it would otherwise be discarded with the inner HTML."""
+
+    def test_block_after_unclosed_div_survives(self) -> None:
+        raw = (
+            '<div data-bbox="0 0 500 500" data-label="Figure"><img alt="x"/>'
+            + "<p>loop</p>" * 50
+            + '<div data-bbox="0 600 500 700" data-label="Text">'
+            "<p>Real prose.</p></div>"
+        )
+        blocks = parse_chandra_response(raw, _page())
+        assert [b.kind for b in blocks] == [BlockKind.FIGURE, BlockKind.PARAGRAPH]
+        assert blocks[1].inner == "Real prose."
+
+    def test_unclosed_div_keeps_the_content_before_the_truncation(self) -> None:
+        raw = (
+            '<div data-bbox="0 0 500 500" data-label="Text"><p>Partial prose.</p>'
+            '<div data-bbox="0 600 500 700" data-label="Text">'
+            "<p>Next block.</p></div>"
+        )
+        first, second = _iter_divs(raw)
+        assert first.inner_html == "<p>Partial prose.</p>"
+        assert second.inner_html == "<p>Next block.</p>"
+
+    def test_unclosed_div_at_end_of_response_kept(self) -> None:
+        raw = '<div data-bbox="0 0 500 500" data-label="Text"><p>Cut off mid-'
+        (div,) = _iter_divs(raw)
+        assert div.inner_html == "<p>Cut off mid-"
+
+    def test_truncated_loop_loses_neither_the_next_block_nor_the_loop(self) -> None:
+        raw = (
+            '<div data-bbox="0 0 500 500" data-label="Text">'
+            + "<p>Loop.</p>" * 342
+            + '<div data-bbox="0 600 500 700" data-label="Text">'
+            "<p>Real prose.</p></div>"
+        )
+        blocks = parse_chandra_response(raw, _page())
+        assert sum(b.html.count("<p>Loop.</p>") for b in blocks) == 1
+        assert blocks[-1].inner == "Real prose."
+
+
 class TestParseChandraResponse:
     def test_page_furniture_dropped_text_and_heading_kept(self) -> None:
         raw = (

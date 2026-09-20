@@ -33,9 +33,17 @@ from manuscribe.pipeline.text import _collapse_repeated_elements
 # Matches both attribute-name variants chandra emits for the same bbox convention
 # (see the module docstring) — a parser that accepts only one silently drops every
 # block on whichever page came back with the other.
+#
+# The content ends at whichever comes first: this div's ``</div>``, the *next*
+# div's opener, or the end of the response.  chandra's sequence is flat (never
+# nested), so an opener can only follow a close that the model failed to emit —
+# a response truncated mid-div, which is what a decode loop exhausting the token
+# budget produces.  Without the two extra terminators a lazy ``.*?</div>`` runs on
+# to the following div's close tag and swallows that whole block, silently, and on
+# a figure-labeled div the swallowed block is then discarded with the inner HTML.
 _DIV_RE = re.compile(
     r'<div data(?:-bbox)?="(?P<bbox>[-\d. ]+)" data-label="(?P<label>[^"]+)">'
-    r"(?P<inner>.*?)</div>",
+    r'(?P<inner>.*?)(?:</div>|(?=<div data(?:-bbox)?=")|\Z)',
     re.DOTALL,
 )
 _IMG_TAG_RE = re.compile(r"<img\b")
@@ -64,6 +72,13 @@ def _iter_divs(raw: str) -> list[_RawDiv]:
     """Parse chandra's flat div sequence, skipping a block whose bbox attribute
     doesn't parse as four numbers rather than raising — a response is untyped
     model output, not a trusted format.
+
+    A div the model never closed (a truncated response) is kept, carrying the
+    content that preceded the truncation, and is terminated at the next div's
+    opener so the following block survives intact (see ``_DIV_RE``). The partial
+    content is genuine transcription of that region and its bbox is complete —
+    dropping it would hide real body text to no end, and a truncated div whose
+    content is a decode loop is already reduced by the collapse below.
 
     Each div's inner HTML passes through the decode-loop guard here, where every
     consumer of a ``_RawDiv`` gets it: the confirmed hallucination (see the module

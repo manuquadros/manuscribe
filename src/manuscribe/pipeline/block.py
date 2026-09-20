@@ -44,6 +44,13 @@ from manuscribe.pipeline.text import (
 _TABLE_OPEN_RE = re.compile(r"^<table[\s>]", re.IGNORECASE)
 _FIGURE_OPEN_RE = re.compile(r"^<figure[\s>]", re.IGNORECASE)
 
+# The chandra labels whose div stands for a picture: the label maps to
+# ``BlockKind.FIGURE`` here, and ``chandra.parse_chandra_response`` crops the
+# div's region rather than keeping its inner HTML as the block.  One home for
+# both steps of that single decision — a label known to only one of them gets a
+# figure block with no image, or an image with no figure kind.
+_FIGURE_LABELS = frozenset({"Figure", "Image", "Chemical-Block", "Diagram"})
+
 
 class BlockKind(Enum):
     HEADING = "heading"
@@ -171,7 +178,7 @@ class Block:
             return Block._finish(inner_html, BlockKind.TABLE, None, None, source_page)
         if label in ("List-Group", "Bibliography"):
             return Block._finish(inner_html, BlockKind.OTHER, None, None, source_page)
-        if label in ("Figure", "Image", "Chemical-Block", "Diagram"):
+        if label in _FIGURE_LABELS:
             return Block._finish(inner_html, BlockKind.FIGURE, None, None, source_page)
         # Text, Caption, Footnote, and any Section-Header without an <h*> tag:
         # a single paragraph — wrap in <p> unless already exactly that shape.

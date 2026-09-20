@@ -21,7 +21,7 @@ from dataclasses import dataclass
 
 from PIL import Image  # noqa: TC002 — beartype reads annotations at runtime
 
-from manuscribe.pipeline.block import Block
+from manuscribe.pipeline.block import _FIGURE_LABELS, Block
 from manuscribe.pipeline.figures import (
     ImageSink,
     _base64_src,
@@ -46,7 +46,7 @@ _DIV_RE = re.compile(
     r'(?P<inner>.*?)(?:</div>|(?=<div data(?:-bbox)?=")|\Z)',
     re.DOTALL,
 )
-_IMG_TAG_RE = re.compile(r"<img\b")
+_IMG_TAG_RE = re.compile(r"<img\b[^>]*>")
 # Any element together with its matching close tag.  The observed decode loop
 # repeats a <p>, but the model gets stuck on whatever element it was emitting, so
 # the tag is captured and back-referenced rather than listed: the run comparison
@@ -58,7 +58,11 @@ _ELEMENT_RE = re.compile(
     re.DOTALL,
 )
 
-_FIGURE_LABELS = frozenset({"Figure", "Image", "Chemical-Block", "Diagram"})
+# Any tag, open or close, with its self-closing slash captured — the node splitter
+# below tracks nesting depth with it, so a ``<p>`` that *contains* an image is one
+# node and is never cut in half.
+_TAG_RE = re.compile(r"<(?P<close>/?)(?P<tag>[a-zA-Z][\w-]*)\b[^>]*?(?P<void>/?)>")
+_VOID_TAGS = frozenset({"br", "col", "hr", "img", "input", "source", "wbr"})
 
 
 @dataclass(frozen=True, slots=True)
@@ -103,19 +107,94 @@ def _iter_divs(raw: str) -> list[_RawDiv]:
     return divs
 
 
-def _split_leading_text(inner_html: str) -> str | None:
-    """Split a figure-labeled div's content preceding its first ``<img>`` off as a
-    standalone paragraph (a panel label chandra fused into the same div, e.g.
-    ``<p><b>(A)</b></p><img alt="...">``) — mirrors how ``figures.py`` already
-    treats a LightOnOCR panel label as its own block rather than baking fused
-    handling into the figure. Returns ``None`` when there is no leading text or no
-    ``<img>`` tag at all (the whole div is still figure-shaped; its bbox alone
-    drives the crop)."""
-    m = _IMG_TAG_RE.search(inner_html)
-    if m is None:
-        return None
-    before = inner_html[: m.start()].strip()
-    return before or None
+def _top_level_nodes(inner_html: str) -> list[str]:
+    """Split a div's inner HTML into its top-level nodes, in document order.
+
+    A node is one complete element with its subtree, one void tag, or a run of
+    bare text between them; nesting depth is tracked so an element is never cut
+    in half.  Everything the model left unbalanced (a truncated response, a stray
+    close tag) lands in the surrounding node rather than raising — this is
+    untyped model output.  Empty/whitespace nodes are dropped.
+    """
+    nodes: list[str] = []
+    depth = 0
+    start = 0
+    for m in _TAG_RE.finditer(inner_html):
+        if m.group("close"):
+            if depth:
+                depth -= 1
+                if depth == 0:
+                    nodes.append(inner_html[start : m.end()])
+                    start = m.end()
+        elif m.group("void") or m.group("tag").lower() in _VOID_TAGS:
+            if depth == 0:
+                nodes.append(inner_html[start : m.start()])
+                nodes.append(m.group())
+                start = m.end()
+        else:
+            if depth == 0:
+                nodes.append(inner_html[start : m.start()])
+                start = m.start()
+            depth += 1
+    nodes.append(inner_html[start:])
+    return [n for n in nodes if n.strip()]
+
+
+def _figure_div_blocks(
+    div: _RawDiv,
+    page_image: Image.Image,
+    encode_src: ImageSink,
+    source_page: int | None,
+) -> list[Block]:
+    """Blocks for one figure-labeled div: its content as a *sequence*, with the
+    crop standing in for the image.
+
+    chandra fuses into a figure div whatever shares the region — a panel label
+    before the image, and after it prose, further images with their compound
+    labels, or a complete ``<table>`` it already transcribed.  Each top-level
+    node therefore reaches the block stream in document order, so a transcribed
+    table arrives as a table instead of as a picture of itself, and only the
+    ``<img>`` tags themselves are consumed by the crop (chandra's carry no
+    ``src`` — an inline one left in kept text would render as a broken image).
+
+    **One crop per div, covering the whole div bbox**, wherever the first image
+    sits: a div's bbox is the only geometry chandra gives (in the twelve spike
+    dumps only 11 of 113 images inside a figure div carry a ``data-bbox`` of
+    their own).  So a div interleaving several images with text yields one crop
+    of all of them, and a div that is mostly text yields a crop that re-shows
+    that text as pixels beside the blocks carrying it.  Over-including rather
+    than clipping is ``figures.py``'s standing trade-off, and the text is
+    recovered either way.
+
+    A node's kind is sniffed from its HTML (:meth:`Block.of`) because content
+    *inside* a div carries no label of its own — unlike the div, which
+    :meth:`Block.from_chandra_div` maps from the label chandra gave it.
+    """
+    crop = page_image.crop(_denormalize_bbox(div.bbox, page_image))
+    figure = Block.from_chandra_div(
+        div.label, _figure_html(crop, None, encode_src), source_page=source_page
+    )
+    nodes = _top_level_nodes(div.inner_html)
+    if not nodes:
+        return [figure] if figure is not None else []
+    # No image at all (never seen in the dumps, not assumed away): the div is
+    # still figure-labeled, so its region leads and its text follows.
+    crop_at = next((i for i, n in enumerate(nodes) if _IMG_TAG_RE.search(n)), 0)
+    blocks: list[Block] = []
+    for i, node in enumerate(nodes):
+        if i == crop_at and figure is not None:
+            blocks.append(figure)
+        text = _IMG_TAG_RE.sub("", node).strip()
+        if not text:
+            continue
+        block = (
+            Block.of(text, source_page=source_page)
+            if text.startswith("<")
+            else Block.from_chandra_div("Text", text, source_page=source_page)
+        )
+        if block is not None:
+            blocks.append(block)
+    return blocks
 
 
 def parse_chandra_response(
@@ -131,28 +210,18 @@ def parse_chandra_response(
     normalized to its coordinate space (``figures._denormalize_bbox``), and a
     figure-labeled div's crop comes straight from it, not from a second render.
     ``Page-Header``/``Page-Footer`` divs are dropped (see
-    ``Block.from_chandra_div``); everything else becomes one ``Block``, in
-    document order.
+    ``Block.from_chandra_div``); every other div becomes one ``Block`` in
+    document order, except a figure-labeled one, which becomes its crop
+    *together with* the blocks its content holds (:func:`_figure_div_blocks`).
     """
     blocks: list[Block] = []
     for div in _iter_divs(raw):
         if div.label in _FIGURE_LABELS:
-            leading_text = _split_leading_text(div.inner_html)
-            if leading_text is not None:
-                leading = Block.from_chandra_div(
-                    "Text", leading_text, source_page=source_page
-                )
-                if leading is not None:
-                    blocks.append(leading)
-            crop = page_image.crop(_denormalize_bbox(div.bbox, page_image))
-            figure_html = _figure_html(crop, None, encode_src)
-            block = Block.from_chandra_div(
-                div.label, figure_html, source_page=source_page
-            )
-        else:
-            block = Block.from_chandra_div(
-                div.label, div.inner_html, source_page=source_page
-            )
+            blocks.extend(_figure_div_blocks(div, page_image, encode_src, source_page))
+            continue
+        block = Block.from_chandra_div(
+            div.label, div.inner_html, source_page=source_page
+        )
         if block is not None:
             blocks.append(block)
     return blocks

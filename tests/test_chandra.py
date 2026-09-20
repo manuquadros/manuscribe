@@ -13,7 +13,11 @@ from manuscribe.pipeline.assemble import (
     lightonocr_pdf_to_document,
 )
 from manuscribe.pipeline.block import BlockKind
-from manuscribe.pipeline.chandra import _iter_divs, parse_chandra_response
+from manuscribe.pipeline.chandra import (
+    _FIGURE_LABELS,
+    _iter_divs,
+    parse_chandra_response,
+)
 from manuscribe.pipeline.classify import _leading_pages_to_skip_html
 from manuscribe.pipeline.model import OcrEngine, OcrModel
 from manuscribe.pipeline.text import _MAX_IDENTICAL_ELEMENT_RUN
@@ -105,8 +109,15 @@ class TestUnclosedDiv:
             "<p>Real prose.</p></div>"
         )
         blocks = parse_chandra_response(raw, _page())
-        assert [b.kind for b in blocks] == [BlockKind.FIGURE, BlockKind.PARAGRAPH]
-        assert blocks[1].inner == "Real prose."
+        # The collapsed remnant of the loop is kept, like any other content a
+        # figure div carries after its image — the truncation is what this pins.
+        assert [b.kind for b in blocks] == [
+            BlockKind.FIGURE,
+            BlockKind.PARAGRAPH,
+            BlockKind.PARAGRAPH,
+        ]
+        assert blocks[1].inner == "loop"
+        assert blocks[2].inner == "Real prose."
 
     def test_unclosed_div_keeps_the_content_before_the_truncation(self) -> None:
         raw = (
@@ -172,6 +183,91 @@ class TestParseChandraResponse:
         raw = '<div data-bbox="0 0 10 10" data-label="Text"><p>x</p></div>'
         blocks = parse_chandra_response(raw, _page(), source_page=7)
         assert blocks[0].source_page == 7
+
+
+class TestFigureDivSequence:
+    """A figure div's content is a sequence, not a prefix: chandra fuses into one
+    figure div whatever shares the region — a panel label before the image, and
+    after it prose, further images with their labels, or a whole ``<table>`` it
+    already transcribed. Over the twelve phase-1 spike dumps 58 figure divs carry
+    content after their first ``<img>``, against 18 with leading content."""
+
+    _TABLE_AFTER_IMG = (
+        '<div data-bbox="0 0 500 500" data-label="Figure">'
+        '<p>(a)</p><img alt="Bar chart"/>'
+        '<table border="1"><tr><td>(A) 100% L</td><td>28.1</td></tr></table>'
+        "</div>"
+    )
+
+    def test_table_after_the_image_survives_as_a_table(self) -> None:
+        blocks = parse_chandra_response(self._TABLE_AFTER_IMG, _page())
+        assert [b.kind for b in blocks] == [
+            BlockKind.PARAGRAPH,
+            BlockKind.FIGURE,
+            BlockKind.TABLE,
+        ]
+        assert blocks[2].html.startswith("<table")
+        assert "28.1" in blocks[2].html
+
+    def test_trailing_table_reaches_the_assembled_body(self) -> None:
+        page = (
+            _div("Section-Header", "<h1>A Chandra Title</h1>", 30, 80)
+            + _div("Section-Header", "<h2>Introduction</h2>", 200, 220)
+            + _div("Text", "<p>Body prose here.</p>", 220, 400)
+            + self._TABLE_AFTER_IMG
+        )
+        html, _, _ = _assemble_chandra_document([page], [_page()])
+        body = _body(html)
+        assert "<table" in body
+        assert "28.1" in body
+        assert '<figure><img src="data:image/png;base64,' in body
+
+    def test_prose_after_the_image_kept_in_document_order(self) -> None:
+        raw = (
+            '<div data-bbox="0 0 500 500" data-label="Chemical-Block">'
+            '<img alt="models"/><p>Both models feature a CoM binding pocket.</p>'
+            "</div>"
+        )
+        blocks = parse_chandra_response(raw, _page())
+        assert [b.kind for b in blocks] == [BlockKind.FIGURE, BlockKind.PARAGRAPH]
+        assert blocks[1].inner == "Both models feature a CoM binding pocket."
+
+    def test_labels_interleaved_with_images_survive_without_broken_imgs(self) -> None:
+        # chandra's <img> carries no src, so one left in kept text would render
+        # as a broken image; only the div's own bbox is croppable, so the whole
+        # interleave becomes one crop plus the labels it also transcribed.
+        raw = (
+            '<div data-bbox="0 0 500 500" data-label="Chemical-Block">'
+            '<p>R-HPC <img alt="s1"/> M-HPC <img alt="s2"/> S-HPC <img alt="s3"/></p>'
+            "</div>"
+        )
+        blocks = parse_chandra_response(raw, _page())
+        assert [b.kind for b in blocks] == [BlockKind.FIGURE, BlockKind.PARAGRAPH]
+        assert "<img" not in blocks[1].html
+        assert "M-HPC" in blocks[1].visible_text
+        assert "S-HPC" in blocks[1].visible_text
+
+    def test_heading_after_the_image_is_not_flattened_to_a_paragraph(self) -> None:
+        raw = (
+            '<div data-bbox="0 0 500 500" data-label="Figure">'
+            '<img alt="x"/><h2>Results</h2>'
+            "</div>"
+        )
+        blocks = parse_chandra_response(raw, _page())
+        assert [b.kind for b in blocks] == [BlockKind.FIGURE, BlockKind.HEADING]
+
+    def test_every_figure_label_crops_and_keeps_its_trailing_content(self) -> None:
+        # Also the drift check on the label set's single home: a label missing
+        # from it maps to PARAGRAPH here instead of cropping.
+        assert {"Figure", "Image", "Chemical-Block", "Diagram"} == _FIGURE_LABELS
+        for label in _FIGURE_LABELS:
+            raw = f'<div data-bbox="0 0 500 500" data-label="{label}"><img alt="x"/>'
+            raw += "<p>Trailing.</p></div>"
+            blocks = parse_chandra_response(raw, _page())
+            assert [b.kind for b in blocks] == [
+                BlockKind.FIGURE,
+                BlockKind.PARAGRAPH,
+            ]
 
 
 def _div(label: str, inner: str, y0: int, y1: int) -> str:

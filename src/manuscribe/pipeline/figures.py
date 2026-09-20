@@ -256,6 +256,26 @@ def _denormalize_bbox(
     )
 
 
+def _clamp_bbox(
+    bbox: tuple[int, int, int, int], image: Image.Image
+) -> tuple[int, int, int, int]:
+    """Clamp a pixel-space box to ``image``'s bounds, corner by corner.
+
+    A box that came from model output can point off the page entirely; unclamped
+    it reaches ``Image.crop`` as a request to allocate an arbitrarily large
+    canvas (Pillow pads rather than refusing, and past its bomb threshold raises
+    outside this package's error hierarchy).  Clamping leaves any box already on
+    the page untouched, and turns an out-of-range one into a box a caller's
+    positive-area check can then accept or reject."""
+    w, h = image.size
+    return (
+        max(0, min(bbox[0], w)),
+        max(0, min(bbox[1], h)),
+        max(0, min(bbox[2], w)),
+        max(0, min(bbox[3], h)),
+    )
+
+
 def _ink_run_end(ink_per_line: np.ndarray, gap: int, lead_gap: int) -> int | None:
     """Offset (1-based, past the edge) of the last inked line before the first
     whitespace gap of ``gap`` blank lines in a 1-D ink profile, or ``None`` to
@@ -595,11 +615,7 @@ def _safe_crop(
     trimming the caption back out of the crop: cheaply when it was a band growth
     pulled in from *below* the box, and — when ``ocr_region`` is supplied — by
     re-OCRing trailing text bands the model baked *inside* the box."""
-    w, h = image.size
-    x0 = max(0, min(bbox[0], w))
-    y0 = max(0, min(bbox[1], h))
-    x1 = max(0, min(bbox[2], w))
-    y1 = max(0, min(bbox[3], h))
+    x0, y0, x1, y1 = _clamp_bbox(bbox, image)
     if x1 - x0 < _MIN_FIGURE_HEIGHT or y1 - y0 < _MIN_FIGURE_HEIGHT:
         return None
     x0 = _extend_edge(image, (x0, y0, x1, y1), "left")

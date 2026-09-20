@@ -16,6 +16,7 @@ motivates the ``_ELEMENT_RE`` collapse in ``_iter_divs``.
 
 from __future__ import annotations
 
+import logging
 import re
 from dataclasses import dataclass
 
@@ -25,10 +26,13 @@ from manuscribe.pipeline.block import _FIGURE_LABELS, Block
 from manuscribe.pipeline.figures import (
     ImageSink,
     _base64_src,
+    _clamp_bbox,
     _denormalize_bbox,
     _figure_html,
 )
 from manuscribe.pipeline.text import _collapse_repeated_elements
+
+_log = logging.getLogger(__name__)
 
 # Matches both attribute-name variants chandra emits for the same bbox convention
 # (see the module docstring) — a parser that accepts only one silently drops every
@@ -90,11 +94,36 @@ def _iter_divs(raw: str) -> list[_RawDiv]:
     emitted 342 times until the token budget ran out — so the run to collapse is
     between an element and its siblings, not between whole divs. A short run (at or
     below ``_MAX_IDENTICAL_ELEMENT_RUN``) is left alone; nothing here claims three
-    identical short labels can't genuinely coincide."""
+    identical short labels can't genuinely coincide.
+
+    A skip is logged rather than swallowed, and so is a non-empty response none
+    of whose divs matched: the attribute name is known to jitter per page, so a
+    third spelling is the expected failure mode and it would otherwise render as
+    a blank page with nothing said. An empty response is a blank (or skipped)
+    page, which is legitimate, so it is not reported."""
     divs: list[_RawDiv] = []
     for m in _DIV_RE.finditer(raw):
-        coords = [round(float(x)) for x in m.group("bbox").split()]
+        # An untyped string reaches numeric conversion here, so the conversion
+        # itself is the guard: the bbox character class admits both a token
+        # float() rejects ("1.2.3") and a digit run long enough to be float inf,
+        # whose round() raises OverflowError — outside ValueError, outside
+        # ManuscribeError, and so an aborted document.  Catching both classes is
+        # what keeps either from reaching the caller; anything that does convert
+        # is kept, however far off the page it lands.
+        tokens = m.group("bbox").split()
+        coords: list[int] = []
+        if len(tokens) == 4:
+            try:
+                coords = [round(float(t)) for t in tokens]
+            except (ValueError, ArithmeticError):
+                coords = []
         if len(coords) != 4:
+            _log.warning(
+                # untyped output: a runaway digit run fits in this attribute
+                "chandra div bbox %r did not parse as four coordinates;"
+                " skipping the block",
+                m.group("bbox")[:80],
+            )
             continue
         x0, y0, x1, y1 = coords
         divs.append(
@@ -103,6 +132,11 @@ def _iter_divs(raw: str) -> list[_RawDiv]:
                 bbox=(x0, y0, x1, y1),
                 inner_html=_collapse_repeated_elements(m.group("inner"), _ELEMENT_RE),
             )
+        )
+    if not divs and raw.strip():
+        _log.warning(
+            "chandra response matched no div; the page is empty. Head: %r",
+            raw[:200],
         )
     return divs
 
@@ -170,10 +204,25 @@ def _figure_div_blocks(
     *inside* a div carries no label of its own — unlike the div, which
     :meth:`Block.from_chandra_div` maps from the label chandra gave it.
     """
-    crop = page_image.crop(_denormalize_bbox(div.bbox, page_image))
-    figure = Block.from_chandra_div(
-        div.label, _figure_html(crop, None, encode_src), source_page=source_page
-    )
+    # The response is untyped model output, so the box is clamped to the page
+    # before it is measured: that reduces an off-page box to one Pillow can crop
+    # (unclamped, a runaway coordinate is an unbounded allocation, and past
+    # Pillow's bomb threshold an error outside this package's hierarchy), and
+    # leaves an inverted or empty one with no area, which declines the crop while
+    # the div's text still reaches the block stream below.
+    x0, y0, x1, y1 = _clamp_bbox(_denormalize_bbox(div.bbox, page_image), page_image)
+    figure: Block | None = None
+    if x1 > x0 and y1 > y0:
+        figure = Block.from_chandra_div(
+            div.label,
+            _figure_html(page_image.crop((x0, y0, x1, y1)), None, encode_src),
+            source_page=source_page,
+        )
+    else:
+        _log.warning(
+            "chandra figure div bbox %r has no positive area; declining the crop",
+            div.bbox,
+        )
     nodes = _top_level_nodes(div.inner_html)
     if not nodes:
         return [figure] if figure is not None else []

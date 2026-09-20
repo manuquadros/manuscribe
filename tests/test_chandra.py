@@ -2,9 +2,15 @@
 list[Block]. Synthetic div-tree strings only, no server/GPU — see the ingestion
 adapter design ticket and spike_results/chandra_ocr2_phase1_fidelity.md."""
 
+import base64
+import io
+import logging
+import re
+import sys
 from pathlib import Path
 
 import httpx
+import pytest
 from helpers import _abstract, _body, _header_h1
 from PIL import Image
 
@@ -54,9 +60,55 @@ class TestIterDivs:
         divs = _iter_divs(raw)
         assert [d.label for d in divs] == ["Section-Header", "Text"]
 
-    def test_unparseable_bbox_is_skipped_not_raised(self) -> None:
-        raw = '<div data-bbox="not a box" data-label="Text"><p>Hi.</p></div>'
+    def test_wrong_number_of_coordinates_is_skipped_not_raised(self) -> None:
+        # Letters never reach the guard — the bbox character class rejects them,
+        # so the div simply doesn't match. A bbox with the right characters and
+        # the wrong count is what the length check is there for.
+        raw = '<div data-bbox="1 2 3" data-label="Text"><p>Hi.</p></div>'
         assert _iter_divs(raw) == []
+
+    def test_malformed_number_in_bbox_is_skipped_not_raised(self) -> None:
+        # "1.2.3" passes the character class and fails float() — a response is
+        # untyped model output, so this must not abort the document.
+        raw = '<div data-bbox="1.2.3 4 5 6" data-label="Text"><p>Hi.</p></div>'
+        assert _iter_divs(raw) == []
+
+    def test_skipped_bbox_is_reported(self, caplog: pytest.LogCaptureFixture) -> None:
+        raw = '<div data-bbox="1.2.3 4 5 6" data-label="Text"><p>Hi.</p></div>'
+        with caplog.at_level(logging.WARNING):
+            assert _iter_divs(raw) == []
+        assert "1.2.3" in caplog.text
+
+    def test_infinite_coordinate_is_reported_not_silently_dropped(
+        self, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        # A decode loop stuck inside the bbox attribute emits a digit run that
+        # float() reads as inf, whose round() raises OverflowError rather than
+        # ValueError. It must be skipped like any other unusable bbox, and said.
+        bbox = f"{'9' * 309} 0 100 100"
+        raw = f'<div data-bbox="{bbox}" data-label="Text"><p>Hi.</p></div>'
+        with caplog.at_level(logging.WARNING):
+            assert _iter_divs(raw) == []
+        assert "did not parse as four coordinates" in caplog.text
+
+    def test_response_matching_no_div_is_reported(
+        self, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        # The attribute name jitters per page, so a third spelling is the expected
+        # failure — it must say so rather than silently render a blank page.
+        raw = '<div data-box="0 0 10 10" data-label="Text"><p>Hi.</p></div>'
+        with caplog.at_level(logging.WARNING):
+            assert _iter_divs(raw) == []
+        assert "data-box" in caplog.text
+
+    def test_blank_response_is_not_reported(
+        self, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        # A blank page, and a page the pre-OCR ad-skip padded with "", are both
+        # legitimately block-free.
+        with caplog.at_level(logging.WARNING):
+            assert _iter_divs("   \n") == []
+        assert caplog.text == ""
 
 
 class TestCollapseDecodeLoop:
@@ -179,10 +231,99 @@ class TestParseChandraResponse:
         assert blocks[0].kind is BlockKind.PARAGRAPH
         assert blocks[1].kind is BlockKind.FIGURE
 
+    def test_inverted_figure_bbox_declines_the_crop_and_keeps_the_text(
+        self, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        # x1 < x0 raises in Image.crop; the transcription is still good.
+        raw = (
+            '<div data-bbox="500 500 100 100" data-label="Figure">'
+            '<img alt="x"/><p>Figure 1. A caption.</p></div>'
+        )
+        with caplog.at_level(logging.WARNING):
+            blocks = parse_chandra_response(raw, _page())
+        assert [b.kind for b in blocks] == [BlockKind.PARAGRAPH]
+        assert blocks[0].inner == "Figure 1. A caption."
+        assert "positive area" in caplog.text
+
+    def test_out_of_range_figure_bbox_is_clamped_to_the_page(self) -> None:
+        # A runaway coordinate is an unbounded crop — past Pillow's bomb threshold
+        # it raises outside the ManuscribeError hierarchy, and just below it it
+        # quietly embeds a multi-hundred-megabyte blank crop.
+        page = _page()
+        raw = (
+            '<div data-bbox="0 0 9999999 9999999" data-label="Figure">'
+            '<img alt="x"/><p>Figure 1. A caption.</p></div>'
+        )
+        blocks = parse_chandra_response(raw, page)
+        assert [b.kind for b in blocks] == [BlockKind.FIGURE, BlockKind.PARAGRAPH]
+        src = re.search(r'src="data:image/png;base64,([^"]+)"', blocks[0].html)
+        assert src is not None
+        crop = Image.open(io.BytesIO(base64.b64decode(src.group(1))))
+        assert crop.size == page.size
+
     def test_source_page_threaded_through(self) -> None:
         raw = '<div data-bbox="0 0 10 10" data-label="Text"><p>x</p></div>'
         blocks = parse_chandra_response(raw, _page(), source_page=7)
         assert blocks[0].source_page == 7
+
+
+# A coordinate near float's maximum that is still finite: it converts, so the
+# parse keeps it, and the length of a token is therefore not what decides.
+# Denormalizing it against the page *does* overflow, in figures._denormalize_bbox,
+# outside the conversion guarded here — see the xfail below.
+_FINITE_NEAR_MAX = f"0 0 500 {round(sys.float_info.max)}"
+
+# (bbox attribute, whether the div survives the parse).  A bbox that is not four
+# convertible tokens takes its div with it; every other box is kept however
+# unusable it is as a crop, because the transcription still is.  Three separate
+# escapes have come out of these three lines — a token float() rejects, a box
+# Pillow refuses, a digit run that rounds to infinity — so the guard is tested as
+# a corpus rather than as whichever case was found last.
+_ADVERSARIAL_BBOXES: list[tuple[str, bool]] = [
+    ("1.2.3 4 5 6", False),  # passes the character class, fails float()
+    (f"{'9' * 309} 0 100 100", False),  # float inf; round(inf) is an OverflowError
+    ("0 0 9999999 9999999", True),  # unclamped: past Pillow's bomb threshold
+    ("0 0 10000 10000", True),  # unclamped: a ~180-megapixel crop, silently
+    ("500 500 100 100", True),  # inverted
+    ("100 100 100 100", True),  # zero area
+    ("-500 -400 -100 -50", True),  # wholly off the page
+    ("-100 -100 500 500", True),  # partly off the page
+    ("0.5 0.5 999.5 999.5", True),  # non-integer coordinates
+    (".", False),
+    ("-", False),
+    (". . . .", False),  # right count, right characters, none convertible
+    ("1 2 3", False),  # too few
+    ("1 2 3 4 5", False),  # too many
+    ("  0 0 500 500  ", True),  # leading/trailing whitespace
+    (_FINITE_NEAR_MAX, True),  # long, and convertible — unlike the inf row above
+]
+
+
+class TestAdversarialBbox:
+    """No bbox a response can carry may abort the document."""
+
+    @pytest.mark.parametrize("label", ["Text", "Figure"])
+    @pytest.mark.parametrize(("bbox", "keeps_the_div"), _ADVERSARIAL_BBOXES)
+    def test_no_bbox_raises_out_of_the_parse(
+        self, bbox: str, keeps_the_div: bool, label: str
+    ) -> None:
+        # Both labels: the bbox parse is upstream of the figure branch, so an
+        # escape there takes down any block, not only a figure.
+        if bbox == _FINITE_NEAR_MAX and label == "Figure":
+            pytest.xfail(
+                "figures._denormalize_bbox scales the box before anything clamps"
+                " it, so a finite near-max coordinate overflows to inf there and"
+                " round() raises; the magnitude guard belongs in the denormalizer,"
+                " which both engines reach"
+            )
+        img = '<img alt="x"/>' if label == "Figure" else ""
+        inner = f"{img}<p>A caption.</p>"
+        raw = f'<div data-bbox="{bbox}" data-label="{label}">{inner}</div>'
+        blocks = parse_chandra_response(raw, _page())
+        if keeps_the_div:
+            assert "A caption." in "".join(b.html for b in blocks)
+        else:
+            assert blocks == []
 
 
 class TestFigureDivSequence:

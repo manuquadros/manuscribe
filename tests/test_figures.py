@@ -15,6 +15,7 @@ from helpers import (
     _run_lighton,
 )
 from PIL import Image
+from test_dump_replay import _load_dump
 
 
 class TestSplitFigureCaption:
@@ -334,6 +335,47 @@ class TestRecoverDroppedFigures:
         pages = ["Figure 1. A", "Figure 2. B", "Figure 3. C", "Figure 5. E"]
         assert _emitted_figure_numbers(pages) == {1, 2, 3, 5}
 
+    def test_bold_closed_label_counts_as_emitted(self) -> None:
+        from manuscribe.pipeline.recover_figures import _emitted_figure_numbers
+
+        # The model emits a caption label bolded ("**FIG 1**", 30592559 page 1); the
+        # closing ** must not hide the label, or the figure is judged missing and the
+        # crop re-OCR's placeholder is spliced in beside the one already on the page.
+        assert _emitted_figure_numbers(["**FIG 1**"]) == {1}
+        assert _emitted_figure_numbers(["**FIG 2** Proposed active site models."]) == {
+            2
+        }
+        assert _emitted_figure_numbers(["**Figure 3**."]) == {3}
+
+    def test_prose_reference_with_lowercase_tail_not_emitted(self) -> None:
+        from manuscribe.pipeline.recover_figures import _emitted_figure_numbers
+
+        # The capitalised word after the number is the only rule keeping a body
+        # sentence out, so it must stay case-sensitive: a wrapped "Figure 3 shows…"
+        # marking figure 3 emitted would hide a figure 3 the page pass really dropped.
+        assert _emitted_figure_numbers(["Figure 3 shows that the enzyme"]) == set()
+        assert _emitted_figure_numbers(["Fig. 2 shows the same trend"]) == set()
+
+    def test_prose_reference_never_anchors_a_crop(self) -> None:
+        from manuscribe.pipeline.recover_figures import _figure_crop_box
+
+        # The text-layer side of the same rule: _figure_crop_box takes the *first*
+        # line-start match, and wrapped body text starts lines with "Figure N shows…"
+        # constantly, so a prose reference must not become the crop's anchor.
+        text = "Figure 3 shows that the enzyme\n"
+        boxes = [(10.0, 700.0, 20.0, 710.0)] * len(text)
+        assert _figure_crop_box(text, boxes, [0] * len(text), 3, (600.0, 800.0)) is None
+
+    def test_bare_and_caption_label_grammars_agree(self) -> None:
+        from manuscribe.pipeline.figures import _is_bare_figure_label
+        from manuscribe.pipeline.recover_figures import _FIG_CAPTION_LABEL_RE
+
+        # The two grammars disagreeing is the defect: a label the bare test accepts
+        # must never be judged an un-emitted figure by the caption scan.
+        for label in ("**FIG 1**", "FIG. 2", "Figure 3.", "**Fig 4**", "FIG 5 :"):
+            assert _is_bare_figure_label(label)
+            assert _FIG_CAPTION_LABEL_RE.search(label) is not None
+
     def test_crop_box_not_collapsed_by_ghost_caption_line(self) -> None:
         from manuscribe.pipeline.recover_figures import _figure_crop_box
 
@@ -597,6 +639,43 @@ class TestRecoverDroppedFigures:
             result = _attempt_page_figure(layers, 1, 1, boom, "")
         assert reached == [1]  # the crop re-OCR was reached (localization succeeded)
         assert result is None  # …and the failure was caught, not propagated
+
+    def test_bold_closed_label_costs_no_recovery_call(self) -> None:
+        from manuscribe.pipeline.layers import _DocumentLayers
+        from manuscribe.pipeline.recover_figures import _recover_dropped_figures
+
+        # End to end on the motivating fixture: its page 1 carries the figure as
+        # ![image](…) + "**FIG 1**", and the text layer carries all four captions.
+        # Every figure being recognised as emitted, recovery must spend no re-OCR —
+        # and page 1 must keep exactly the one placeholder it already had.
+        calls: list[int] = []
+
+        def counted_ocr(_image: Image.Image) -> str:
+            calls.append(1)
+            return "![image](image_1.png)10,10,900,400\n\nFIG 1. Recovered."
+
+        pages_md = _load_dump("30592559")
+        before = pages_md[1].count("![image]")
+        with _DocumentLayers.open(Path("tests/fixtures/30592559.pdf")) as layers:
+            out = _recover_dropped_figures(layers, pages_md, counted_ocr)
+        assert calls == []
+        assert out[1].count("![image]") == before == 1
+
+    def test_genuinely_dropped_figure_still_recovered(self) -> None:
+        from manuscribe.pipeline.layers import _DocumentLayers
+        from manuscribe.pipeline.recover_figures import _recover_dropped_figures
+
+        # The counterweight: 31123167's dump really is missing figure 4, so the
+        # tightened grammar must not make the gap invisible — the crop re-OCR is
+        # still spent and its placeholder spliced back in.
+        def fake_ocr(_image: Image.Image) -> str:
+            return "![image](image_1.png)10,10,900,400\n\nFigure 4. Recovered."
+
+        pages_md = _load_dump("31123167")
+        before = sum(md.count("![image]") for md in pages_md)
+        with _DocumentLayers.open(Path("tests/fixtures/31123167.pdf")) as layers:
+            out = _recover_dropped_figures(layers, pages_md, fake_ocr)
+        assert sum(md.count("![image]") for md in out) == before + 1
 
 
 class TestSafeOcrRegion:

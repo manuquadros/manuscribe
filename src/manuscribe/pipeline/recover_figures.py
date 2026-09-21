@@ -44,19 +44,22 @@ from manuscribe.pipeline.figures import (
 )
 from manuscribe.pipeline.layers import _Box, _DocumentLayers, _normalize
 from manuscribe.pipeline.tables import _group_lines, _scaled_crop, _union
-from manuscribe.pipeline.text import _split_md_blocks
+from manuscribe.pipeline.text import _FIGURE_LABEL_HEAD, _split_md_blocks
 
 # A figure caption *label* at the start of a text line: "FIG 1", "Figure 4.",
-# "**Figure 6.**", "FIGURE 1 |" (Frontiers), "Fig 1. Effect…".  After the number
-# we require end-of-line, a separator (.:|)), or whitespace then a Capital/paren —
-# so an in-prose reference reflowed to a line start ("Fig. 2, it was predicted…",
-# "(Figure 4A)") does not match: a comma or a lowercase word after the number, or a
-# leading "(", all fail the tail, and "4A" (a panel reference) keeps the digit run
-# from being followed by an accepted separator.
+# "**Figure 6.**", "**FIG 1**", "FIGURE 1 |" (Frontiers), "Fig 1. Effect…".  After
+# the number (and the bold closer, when the label was emitted bold) we require
+# end-of-line, a separator (.:|)), or whitespace then a Capital/paren — so an
+# in-prose reference reflowed to a line start ("Fig. 2, it was predicted…",
+# "Figure 3 shows…", "(Figure 4A)") does not match: a comma or a lowercase word
+# after the number, or a leading "(", all fail the tail, and "4A" (a panel
+# reference) keeps the digit run from being followed by an accepted separator.
+# This tail is the prose discriminator, so it must stay case-*sensitive*; the shared
+# head folds the label word only.
 _FIG_CAPTION_LABEL_RE = re.compile(
-    r"^[ \t]*(?:\*{1,2}[ \t]*)?fig(?:ure|\.)?\.?[ \t]*(\d+)"
+    rf"^[ \t]*{_FIGURE_LABEL_HEAD}[ \t]*\*{{0,2}}"
     r"(?:[ \t]*\r?$|[ \t]*[.:|)]|[ \t]+[A-Z(])",
-    re.IGNORECASE | re.MULTILINE,
+    re.MULTILINE,
 )
 # The recovered placeholder anywhere in the crop re-OCR (not line-anchored: the
 # model sometimes prefixes a stray panel label, e.g. "(A) ![image](…)x0,y0,x1,y1").

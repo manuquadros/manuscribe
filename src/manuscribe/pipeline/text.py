@@ -58,6 +58,16 @@ _CAPTION_RE = re.compile(
 # beside it belongs to its table (see _colocate_table_captions), so the
 # figure-caption test deliberately excludes the table label.
 _FIGURE_CAPTION_RE = re.compile(r"^\*{0,2}(?:fig(?:ure|\.|\b)|scheme)", re.IGNORECASE)
+# The head of a *numbered* figure label — an optional bold opener, the label word,
+# and the number (group 1): "FIG 1", "**Figure 6", "Fig. 4".  The one home for that
+# shape: the bare-label test (figures) and the caption-label scan (recover_figures)
+# both build on it, so the two cannot disagree about what a label looks like, and
+# each appends its own tail — which is what separates a caption from an in-prose
+# reference.  As in _TABLE_CAPTION_RE, only the label word is case-folded: a tail's
+# capitalised-title test *is* the signal keeping "Figure 3 shows …" out, so a global
+# re.IGNORECASE would fold away the one rule doing the work.  Line-bound ([ \t], not
+# \s): every call site matches a label within one line.
+_FIGURE_LABEL_HEAD = r"\*{0,2}[ \t]*(?i:fig(?:ure|\.)?)[ \t]*\.?[ \t]*(\d+)"
 # A table caption ("Table 1 …", "Supplementary Table 2 …").  Matched against a
 # block's *visible* text so it's recognised through a <strong> wrapper.  After
 # the "Table <id>" label a true caption is followed by punctuation, a

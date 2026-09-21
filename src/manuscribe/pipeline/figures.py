@@ -30,6 +30,7 @@ import numpy as np
 from PIL import Image  # noqa: TC002 — beartype reads annotations at runtime
 
 from manuscribe.pipeline.markdown import _caption_inner_html
+from manuscribe.pipeline.text import _FIGURE_LABEL_HEAD
 
 _log = logging.getLogger(__name__)
 
@@ -42,22 +43,22 @@ _FIGURE_PLACEHOLDER_RE = re.compile(
     r"^!\[[^\]]*\]\([^)]*\)"
     r"(?:\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+))?\s*$"
 )
-# A figure caption's opening label ("FIG. 2", "Figure 3.", "**Fig 4**"), shared by
-# the two regexes below so the label's shape has one home.
-_CAPTION_LABEL_PREFIX = r"\*{0,2}\s*fig(?:ure|\.|\b)\s*\.?\s*\d+[a-z]?\s*[.:]?\s*"
+# A figure caption's opening label ("FIG. 2", "Figure 3.", "**Fig 4**"): the shared
+# ``_FIGURE_LABEL_HEAD`` plus the panel letter and separator a *caption* swallows.
+# Both regexes below consume the separator, so neither can test what follows it —
+# which is why the recovery scan, whose whole job is that test, builds its own tail
+# on the head instead of reusing this prefix.
+_CAPTION_LABEL_PREFIX = rf"{_FIGURE_LABEL_HEAD}[A-Za-z]?[ \t]*[.:]?[ \t]*"
 # The label as a whole block, with no caption sentence after the number.  When the
 # descriptive caption arrives as the *following* block, it must be rejoined onto this
 # label — otherwise the figure owns only the label, the caption is stranded in the
 # body, and the baked-caption trim never receives the words it needs to recognise the
 # caption.
-_BARE_FIGURE_LABEL_RE = re.compile(
-    rf"^{_CAPTION_LABEL_PREFIX}\*{{0,2}}\s*$",
-    re.IGNORECASE,
-)
+_BARE_FIGURE_LABEL_RE = re.compile(rf"^{_CAPTION_LABEL_PREFIX}\*{{0,2}}[ \t]*$")
 # The label as the opening prefix of a full caption ("Figure 2. Overview …").  Its
 # abbreviating and post-number periods close no sentence, so a caller reasoning about
 # the caption's sentences must start past this match.
-_CAPTION_LABEL_RE = re.compile(rf"^{_CAPTION_LABEL_PREFIX}", re.IGNORECASE)
+_CAPTION_LABEL_RE = re.compile(rf"^{_CAPTION_LABEL_PREFIX}")
 # A single-letter panel label ("A", "(B)", "C.") the model split out of a
 # multi-panel figure as its own text block.  It belongs to the figure (baked into
 # the crop), not the prose, so it is dropped when adjacent to a figure placeholder.

@@ -90,6 +90,23 @@ podman_args=(
   -e HF_HUB_OFFLINE="${HF_HUB_OFFLINE:-0}"
 )
 
+# Join a host-side MPS daemon (nvidia-cuda-mps-control) when the caller has
+# one set up: the container is a separate namespace, so its CUDA context
+# can't reach the daemon's control socket unless that directory is mounted
+# in at the same path the client-side CUDA_MPS_PIPE_DIRECTORY names.
+if [ -n "${CUDA_MPS_PIPE_DIRECTORY:-}" ]; then
+  podman_args+=(
+    -v "${CUDA_MPS_PIPE_DIRECTORY}:${CUDA_MPS_PIPE_DIRECTORY}"
+    -e CUDA_MPS_PIPE_DIRECTORY="${CUDA_MPS_PIPE_DIRECTORY}"
+  )
+  if [ -n "${CUDA_MPS_LOG_DIRECTORY:-}" ]; then
+    podman_args+=(
+      -v "${CUDA_MPS_LOG_DIRECTORY}:${CUDA_MPS_LOG_DIRECTORY}"
+      -e CUDA_MPS_LOG_DIRECTORY="${CUDA_MPS_LOG_DIRECTORY}"
+    )
+  fi
+fi
+
 # Name the backend only when one was chosen; "let vLLM decide" is the Ampere+
 # path, and vLLM rejects --attention-backend alongside --attention-config.
 backend_args=()

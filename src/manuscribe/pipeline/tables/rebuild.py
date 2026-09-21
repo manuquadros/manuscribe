@@ -271,12 +271,20 @@ def _reconstruct_table_from_text_layer(
     return _build_reconstructed_table(cells, _cell_format_map(table_html), caption_rows)
 
 
+def _table_tokens(table_html: str) -> set[str]:
+    """Every word the table's cells hold, folded through ``_normalize`` so a
+    superscript/dash encoding gap or a line wrap between the OCR and the text layer
+    doesn't read as recovered content."""
+    return {w for cell in _cell_texts(table_html) for w in _normalize(cell).split()}
+
+
 def _repair_tables_from_text_layer(
     layers: _DocumentLayers, pages_md: list[str]
 ) -> list[str]:
     """Replace a two-column table the OCR mangled with a deterministic text-layer
-    reconstruction, when that recovers more rows (the OCR was truncated/off-by-one); a
-    healthy table keeps its better-formatted OCR markup.  One entry per input page."""
+    reconstruction, when that has more rows *and* recovers text the OCR table lacks
+    (it was truncated/off-by-one); a healthy table keeps its better-formatted OCR
+    markup.  One entry per input page."""
     out: list[str] = []
     for i, md in enumerate(pages_md):
         if "<table" not in md.lower():
@@ -299,13 +307,19 @@ def _repair_page_tables(md: str, layers: _DocumentLayers, page_index: int) -> st
             return table
         layer = layers.page_layer(page_index)
         recon = _reconstruct_table_from_text_layer(layer, table)
+        if recon is None:
+            return table  # couldn't localize
         # Compare against the *collapsed* OCR table: a decode-loop explosion inflates
         # its raw <tr> count (collapsed only later in _assemble_html), which would
         # otherwise mask a genuinely shorter (off-by-one/truncated) table.
-        if recon is None or recon.count("<tr") <= _collapse_repeated_rows(table).count(
-            "<tr"
-        ):
-            return table  # couldn't localize, or the OCR table is no shorter
+        collapsed = _collapse_repeated_rows(table)
+        if recon.count("<tr") <= collapsed.count("<tr"):
+            return table  # the OCR table is no shorter
+        # Extra rows alone don't mean the OCR lost content: every text-layer line is a
+        # row, so a row label wrapping onto two lines outnumbers a *correct* OCR table.
+        # Substitute only when the rebuild also carries words that table doesn't.
+        if not _table_tokens(recon) - _table_tokens(collapsed):
+            return table
         return recon
 
     return _TABLE_RE.sub(repair, md)

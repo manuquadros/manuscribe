@@ -1296,6 +1296,73 @@ class TestTextLayerTableRepair:
         assert re.search(r"wavelength \(Å\)</td><td>0\.97934", out)
         assert out.count("RAMS Deviations") <= 1
 
+    def test_repair_declines_correct_table_with_wrapped_label(self) -> None:
+        # A correct OCR table whose row label wraps onto two text-layer lines: every
+        # text-layer line becomes a row, so the rebuild has one row more than the OCR
+        # and would win a pure row-count gate — replacing a correct table with a worse
+        # one (the label split into a colspan="2" fragment row plus a mis-labelled
+        # value row).  The rebuild recovers no text the OCR table lacks, so it must be
+        # declined.
+        from unittest.mock import MagicMock
+
+        import pypdfium2 as pdfium
+        import pytest
+
+        from manuscribe.pipeline import tables
+        from manuscribe.pipeline.layers import (
+            _DocumentLayers,
+            _normalize_with_map,
+            _PageLayer,
+        )
+
+        lines = [
+            ("PDB code", 10, 200),
+            ("6JX2", 140, 200),
+            ("wavelength", 10, 188),
+            ("0.97934", 140, 188),
+            ("space group", 10, 176),
+            ("P212121", 140, 176),
+            ("resolution range", 10, 164),
+            ("78.9-2.6", 140, 164),
+            ("Number of unique", 10, 152),  # the label wraps here ...
+            ("reflections", 10, 140),
+            ("12345", 140, 140),  # ... and its value sits on the second line
+            ("redundancy", 10, 128),
+            ("4.2", 140, 128),
+        ]
+        text, boxes = "", []
+        for segment, x, y in lines:
+            for ch, x0, x1, _, y0, y1 in self._glyphs(segment, x, y):
+                text += ch
+                boxes.append((x0, y0, x1, y1))
+            text += "\n"
+            boxes.append(None)
+        norm, idx_map = _normalize_with_map(text)
+        layer = _PageLayer(text, boxes, [0] * len(boxes), [], norm, idx_map)
+
+        md = (
+            "<table>"
+            "<tr><td>PDB code</td><td>6JX2</td></tr>"
+            "<tr><td>wavelength</td><td>0.97934</td></tr>"
+            "<tr><td>space group</td><td>P212121</td></tr>"
+            "<tr><td>resolution range</td><td>78.9–2.6</td></tr>"
+            "<tr><td>Number of unique reflections</td><td>12345</td></tr>"
+            "<tr><td>redundancy</td><td>4.2</td></tr>"
+            "</table>"
+        )
+        # the rebuild does localize and *is* longer — the gate, not a failed
+        # localization, has to be what declines it
+        recon = tables._reconstruct_table_from_text_layer(layer, md)
+        assert recon is not None
+        assert recon.count("<tr") > md.count("<tr")
+
+        with pytest.MonkeyPatch.context() as mp:
+            mp.setattr("manuscribe.pipeline.layers._page_layer", lambda page: layer)
+            layers = _DocumentLayers(MagicMock(spec=pdfium.PdfDocument))
+            out = tables._repair_page_tables(md, layers, 0)
+        assert out == md
+        assert "colspan" not in out
+
 
 class TestRepairLazyExtraction:
     """_repair_page_tables extracts the page text layer lazily — at most once, and not

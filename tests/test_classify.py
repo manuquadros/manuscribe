@@ -3,6 +3,7 @@
 from helpers import (
     _as_blocks,
     _body,
+    _byline,
     _fake_image,
     _figure_sizes,
     _header_h1,
@@ -343,6 +344,23 @@ class TestByline:
         header = html[html.find("<header>") : html.find("</header>")]
         assert "Nianyang Wu" in header
         assert "Nianyang Wu" not in _body(html)
+
+    def test_plain_byline_has_no_source_line_breaks(self) -> None:
+        # A byline wrapped over several source lines reaches the header as
+        # markdown-it hard breaks ('<br>\n'), and the byline render rewrites only
+        # the tag — so the newline used to survive the flatten into the stored
+        # author list and a consumer splitting it on "; " got leading newlines.
+        from manuscribe.pipeline.assemble import _assemble_document
+
+        authors = "Ada Lovelace¹  \nGrace Hopper²  \nAlan Turing³"
+        md = f"# T\n\n{authors}\n\n## Abstract\n\nA."
+        html, _title, byline = _assemble_document([md], [_fake_image(1190, 1540)])
+        assert byline.split("; ") == ["Ada Lovelace¹", "Grace Hopper²", "Alan Turing³"]
+        assert not any(c.isspace() and c != " " for c in byline)
+        assert "  " not in byline
+        # The rendered header keeps the breaks: a newline is whitespace to a browser,
+        # so the markup is already right and rewriting it would churn the header.
+        assert _byline(html) == "<p>Ada Lovelace¹; \nGrace Hopper²; \nAlan Turing³</p>"
 
     def test_byline_superscript_markers_rendered_not_flattened(self) -> None:
         md = (

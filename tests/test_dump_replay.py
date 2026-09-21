@@ -70,9 +70,10 @@ def _replay_document(stem: str) -> tuple[str, str, str]:
 
 
 def _flatten(fragment: str) -> str:
-    """The reader-visible text of an HTML fragment: tags stripped, entities unescaped
-    — the same form ``_assemble_document`` returns for the title/byline."""
-    return _htmllib.unescape(_visible_text(fragment)).strip()
+    """The reader-visible text of an HTML fragment: tags stripped, entities unescaped,
+    whitespace runs collapsed the way a browser renders them — the same form
+    ``_assemble_document`` returns for the title/byline."""
+    return " ".join(_htmllib.unescape(_visible_text(fragment)).split())
 
 
 @pytest.mark.parametrize("stem", _STEMS)

@@ -978,8 +978,14 @@ def _assemble_pages(pages: list[list[Block]]) -> tuple[str, str, str]:
     # into the plain-text title/byline the Hub stores even though the rendered HTML
     # dropped it.  The shell re-escapes this same string for <title>, so the tab and
     # the returned title cannot spell one title two ways.
-    title = _html.unescape(_visible_text(title_html)).strip()
-    byline = _html.unescape(_visible_text(byline_html)).strip()
+    # Whitespace runs collapse to single spaces: a byline wrapped over several source
+    # lines renders as markdown-it's hard-break `<br>\n`, and `_byline_html` rewrites
+    # only the tag, so the newline survives the flatten and a consumer splitting the
+    # stored author list on "; " gets names with a leading newline.  Collapsed here,
+    # not in `_byline_html` — the newline is whitespace to a browser, so the rendered
+    # header is already correct and rewriting it would churn the markup for nothing.
+    title = " ".join(_html.unescape(_visible_text(title_html)).split())
+    byline = " ".join(_html.unescape(_visible_text(byline_html)).split())
     html = _document_shell(
         title_html=title_html,
         title_text=title,

@@ -289,6 +289,51 @@ under-collect:
   document: an all-front-matter result signals a detection failure, not a
   metadata-only paper.
 
+chandra ingestion: a response is model output, not a format
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+chandra answers with a labeled div-tree, which reads like a format and is not one:
+the bbox attribute name jitters *per page*, a div can arrive unclosed, and a
+coordinate is whatever the decoder emitted.  :mod:`~manuscribe.pipeline.chandra`
+therefore parses defensively, and the bias is the same one classification uses —
+never drop a block to avoid an awkward one.
+
+A **decode loop** repeats an element inside a single div, not a run of whole divs;
+that is the shape actually observed, and it is why the run collapse applies to a
+div's inner HTML via :func:`~manuscribe.pipeline.text._collapse_repeated_elements`
+rather than to the div sequence.  The element match is outermost-first, so a
+``<table>`` in a div is one element and a looped ``<tr>`` inside it is not caught.
+
+A loop that exhausts the token budget leaves its div **unclosed**, so a div's
+content ends at the earliest of its own ``</div>``, the next opener, or end of
+response — a lone ``</div>`` terminator ran on and swallowed the following block
+whole.  The truncated div is kept with its pre-truncation content: the bbox is
+complete and the text is genuine transcription.  It need not be well-formed,
+because :func:`~manuscribe.pipeline.assemble._sanitize_content_html` closes tags
+per block downstream; a balancer here was tried and removed, having duplicated the
+last element of a collapsed loop.
+
+A **figure div is a sequence, not a prefix plus a picture**.  Its content after the
+image is often a table the model already transcribed, and replacing that with a
+crop is the opposite of why this engine was chosen — so the inner HTML is split
+into top-level nodes and emitted in document order, with the crop standing where
+the first image sits.  One crop per div, never one per image: a div carries a
+single bbox, and only about a tenth of the images inside figure divs carry one of
+their own, so a per-image path would guess for the rest.
+
+The **parse can decline, but must not abort**.  A bbox that does not convert skips
+its block and says so in the log; a figure box is clamped to the page before its
+area is measured, so a box with nothing left to crop declines the crop while the
+div's text still reaches the block stream.  The guard is the conversion itself,
+caught broadly — bounding the coordinate *string* instead was tried and removed,
+because length sees only one of the two ways a coordinate fails: ``1.2.3`` is five
+characters and dies at ``float()``, so no threshold catches it, while a threshold
+tight enough to stop a runaway digit run also rejects a longer coordinate that
+would have converted, dropping the block with it.  A non-empty response matching
+no div warns rather than
+rendering silently blank; an empty one does not, since skipped leading pages are
+legitimately padded with ``""``.
+
 Other deliberate choices
 ------------------------
 

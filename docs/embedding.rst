@@ -56,13 +56,16 @@ original low-level error is always chained as ``__cause__``.
      - When
    * - :class:`~manuscribe.pipeline.errors.OcrUnavailableError`
      - **Retry, uncapped**
-     - Server unreachable / unhealthy, a timeout, a 5xx, or a page-level GPU
-       out-of-memory.  The work is fine; wait for the server to come back and re-lease.
+     - Server unreachable / unhealthy, a timeout (including HTTP 408), a 429, a 5xx,
+       or a page-level GPU out-of-memory.  The work is fine; wait for the server to
+       come back and re-lease.
    * - :class:`~manuscribe.pipeline.errors.OcrResponseError`
      - **Retry, low cap (~2)**
-     - A malformed or unexpected OCR payload.  Usually transient, but a persistent one
-       is a real bug — cap the retries so it surfaces as a failed job, not a GPU-burning
-       loop.
+     - A malformed or unexpected OCR payload, **or the server rejecting the request**
+       — any 4xx but 408/429 (an oversized ``max_tokens``, a page image the vision
+       tower won't take, an unknown model name).  A rejection re-fails identically on
+       every lease, so the cap is what stops it re-rendering and re-sending the whole
+       document forever; it surfaces as a failed job instead.
    * - :class:`~manuscribe.pipeline.errors.PdfInputError`
      - **Fail permanently**
      - Corrupt / encrypted / non-PDF / missing file.  Re-running re-fails identically;

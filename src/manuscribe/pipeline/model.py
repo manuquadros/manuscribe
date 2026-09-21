@@ -22,7 +22,11 @@ from enum import Enum
 import httpx
 from PIL import Image  # noqa: TC002 — beartype reads annotations at runtime
 
-from manuscribe.pipeline.errors import OcrResponseError, OcrUnavailableError
+from manuscribe.pipeline.errors import (
+    ManuscribeError,
+    OcrResponseError,
+    OcrUnavailableError,
+)
 
 _DEFAULT_BASE_URL = "http://127.0.0.1:8000/v1"
 _DEFAULT_MODEL = "lightonocr"
@@ -72,6 +76,10 @@ _DEFAULT_HEALTH_TIMEOUT_S = 10.0
 _MAX_OCR_RETRIES = 2
 _RETRY_BACKOFF_BASE_S = 0.5
 _RETRYABLE_STATUS = frozenset({429, 502, 503, 504})
+# The 4xx that are *not* the server rejecting the request itself: 408 is a timeout
+# and 429 a back-pressure hint, both transient.  Every other 4xx re-fails identically
+# on the next lease (see _ocr_request_failure).
+_TRANSIENT_CLIENT_STATUS = frozenset({408, 429})
 # Cap a server-sent Retry-After so a pathological header can't pin a pool worker.
 _MAX_RETRY_AFTER_S = 30.0
 
@@ -424,13 +432,38 @@ def _retry_delay(exc: httpx.HTTPError, attempt: int) -> float:
     )
 
 
+def _ocr_request_failure(exc: httpx.HTTPError, base_url: str) -> ManuscribeError:
+    """Classify a failed page POST for the *worker's* retry policy (docs/embedding.rst).
+
+    A non-retryable 4xx is the server rejecting the request — an oversized
+    ``max_tokens``, a page the vision tower won't take, a model name that doesn't
+    exist.  It reproduces on every lease, so surfacing it as the uncapped-retry
+    :class:`OcrUnavailableError` makes the worker re-render and re-send the whole
+    document forever; :class:`OcrResponseError`'s low retry cap turns it into a failed
+    job instead.  408/429 are excluded: they are a timeout and a back-pressure hint,
+    genuinely transient despite their 4xx class.
+    """
+    if (
+        isinstance(exc, httpx.HTTPStatusError)
+        and 400 <= exc.response.status_code < 500
+        and exc.response.status_code not in _TRANSIENT_CLIENT_STATUS
+    ):
+        return OcrResponseError(
+            f"OCR server at {base_url} rejected the request "
+            f"(HTTP {exc.response.status_code})"
+        )
+    return OcrUnavailableError(f"OCR request to {base_url} failed")
+
+
 def _request_ocr(encoded: str, ocr: OcrModel, max_new_tokens: int) -> httpx.Response:
     """POST one page to the chat endpoint, retrying transient failures.
 
     A connection-level blip or a retryable vLLM status (see ``_is_retryable_ocr_error``)
     is retried with backoff (``_retry_delay``) up to ``_MAX_OCR_RETRIES`` times; any
-    other error — and a final exhausted retry — re-raises unchanged, so a genuine
-    failure (and a slow-timeout wedge) still surfaces promptly.
+    other error — and a final exhausted retry — surfaces promptly (so a slow-timeout
+    wedge isn't re-spent), classified by ``_ocr_request_failure`` into the retryable
+    ``OcrUnavailableError`` or, for a request the server rejects deterministically,
+    the capped-retry ``OcrResponseError``.
     """
     body = {
         "model": ocr.model,
@@ -455,9 +488,7 @@ def _request_ocr(encoded: str, ocr: OcrModel, max_new_tokens: int) -> httpx.Resp
             return response
         except httpx.HTTPError as exc:
             if not _is_retryable_ocr_error(exc) or attempt >= _MAX_OCR_RETRIES:
-                raise OcrUnavailableError(
-                    f"OCR request to {ocr.base_url} failed"
-                ) from exc
+                raise _ocr_request_failure(exc, ocr.base_url) from exc
             time.sleep(_retry_delay(exc, attempt))
     raise AssertionError("unreachable: OCR retry loop exited without return/raise")
 

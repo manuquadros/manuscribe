@@ -10,7 +10,11 @@ from helpers import (
 )
 from PIL import Image
 
-from manuscribe.pipeline.errors import OcrResponseError, OcrUnavailableError
+from manuscribe.pipeline.errors import (
+    ManuscribeError,
+    OcrResponseError,
+    OcrUnavailableError,
+)
 
 # Verbatim ``/v1/models`` entry from a live LightOnOCR vLLM server: ``id`` is the name
 # run-server.sh pins whatever loads, ``root`` the weights actually served.
@@ -981,27 +985,49 @@ class TestOcrTransientRetry:
         # the initial attempt plus exactly _MAX_OCR_RETRIES retries, then it gives up
         assert len(calls) == _MAX_OCR_RETRIES + 1
 
-    def test_non_retryable_status_not_retried(
-        self, monkeypatch: pytest.MonkeyPatch
+    @pytest.mark.parametrize(
+        ("status", "expected", "retried"),
+        [
+            # A rejected request re-fails identically on every lease, so it must carry
+            # the *capped*-retry error — the uncapped one has the worker re-render and
+            # re-send the whole document forever.
+            (400, OcrResponseError, False),
+            (404, OcrResponseError, False),
+            (413, OcrResponseError, False),
+            # 4xx by number only: a timeout and a back-pressure hint are transient, so
+            # they keep the uncapped disposition (429 is retried in-request too).
+            (408, OcrUnavailableError, False),
+            (429, OcrUnavailableError, True),
+            (500, OcrUnavailableError, False),
+        ],
+    )
+    def test_status_classification_and_attempt_count(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        status: int,
+        expected: type[ManuscribeError],
+        retried: bool,
     ) -> None:
         import httpx
 
-        from manuscribe.pipeline.model import OcrModel, _ocr_page
+        from manuscribe.pipeline.model import _MAX_OCR_RETRIES, OcrModel, _ocr_page
 
         self._no_sleep(monkeypatch)
         calls: list[int] = []
 
-        # A 400 is a caller bug, not a transient blip — retrying re-fails identically,
-        # so it must propagate on the first attempt.
         def handler(request: httpx.Request) -> httpx.Response:
             calls.append(1)
-            return httpx.Response(400, json={"error": "bad request"})
+            return httpx.Response(status, json={"error": "nope"})
 
         client = httpx.Client(transport=httpx.MockTransport(handler))
         ocr = OcrModel(client=client, base_url="http://srv/v1", model="m")
-        with pytest.raises(OcrUnavailableError):
+        with pytest.raises(expected) as excinfo:
             _ocr_page(_fake_image(8, 8), ocr)
-        assert len(calls) == 1
+        # exact type, not a subclass: the two dispositions are siblings, so an
+        # isinstance-style check would pass on the wrong one if they ever merged.
+        assert type(excinfo.value) is expected
+        assert isinstance(excinfo.value.__cause__, httpx.HTTPStatusError)
+        assert len(calls) == (_MAX_OCR_RETRIES + 1 if retried else 1)
 
     def test_read_timeout_is_not_retried(self, monkeypatch: pytest.MonkeyPatch) -> None:
         import httpx

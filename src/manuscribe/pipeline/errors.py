@@ -24,7 +24,9 @@ class OcrUnavailableError(ManuscribeError):
 
 
 class OcrResponseError(ManuscribeError):
-    """The OCR server replied, but the payload was malformed or unconsumable.
+    """The OCR server replied, but the reply was unusable — a malformed payload, or a
+    rejection of the request itself (a non-retryable 4xx: an oversized ``max_tokens``,
+    an unservable page image, an unknown model name).
 
     Retryable, but a worker should *cap* the attempts: it is usually a transient
     garble, yet may be a genuine defect that an uncapped retry would loop on forever.

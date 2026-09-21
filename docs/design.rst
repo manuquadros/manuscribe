@@ -358,6 +358,20 @@ with one carve-out that is itself an "is this X or Y?" call: a letter in *unit
 position* — trailing a numeric magnitude, ``5 V``, ``9.8 m/s²`` — is a unit symbol,
 not a variable, and stays upright.
 
+The model, however, does not always emit the delimiters — one document writes
+``$K_m$`` in a table and a bare ``V_{max}`` or ``0.52 \pm 0.00 mM`` in the prose
+beside it — so a second, narrow pass
+(:func:`~manuscribe.pipeline.latex._convert_undelimited`) reduces the two shapes
+that can only be TeX: a *braced* script (``V_{max}``, ``Author^{1}``) and a
+resolvable multi-letter macro (``\pm``, ``\geq``).  The unbraced ``K_m`` shape is
+deliberately left alone, because the corpus is full of identifiers that look
+exactly like it (locus tags such as ``Xaut_4868``, file names), and a single-letter
+macro is left alone because ``pylatexenc`` resolves ``\r``/``\b`` to combining
+diacritics that a stray backslash must not acquire.  Both exclusions are lossless
+degradation again, but a span left literal is invisible to the consumer, which has
+no other way to learn the output still holds TeX source — so every declined span is
+named in a debug log record.
+
 OCR decoding is greedy (:func:`~manuscribe.pipeline.model._ocr_page`).  OCR wants
 the single most-likely transcription, and a deterministic decode avoids
 run-to-run drift — notably a figure box that occasionally over-segments into two

@@ -324,6 +324,92 @@ class TestLatexToHtml:
         assert _latex_to_html("Sec $^{-1}$ mM $^{-1}$") == "Sec⁻¹ mM⁻¹"
 
 
+class TestUndelimitedLatex:
+    """The model often omits the ``$…$`` wrapper, so the two shapes that can only be
+    TeX are converted without it — and nothing else is, so an ambiguous identifier
+    survives byte-for-byte."""
+
+    def test_braced_script_converts_without_delimiters(self) -> None:
+        from manuscribe.pipeline.latex import _latex_to_html
+
+        assert _latex_to_html("V_{max} rose") == "V<sub>max</sub> rose"
+        assert _latex_to_html("Author^{1}") == "Author¹"
+        assert _latex_to_html("pH^{S}") == "pH<sup>S</sup>"
+
+    def test_known_macro_converts_without_delimiters(self) -> None:
+        from manuscribe.pipeline.latex import _latex_to_html
+
+        assert _latex_to_html(r"0.52 \pm 0.00 mM") == "0.52 ± 0.00 mM"
+        assert _latex_to_html(r"n \geq 5") == "n ≥ 5"
+
+    def test_unknown_macro_stays_literal(self) -> None:
+        from manuscribe.pipeline.latex import _latex_to_html
+
+        # Lossless degradation: a macro pylatexenc cannot resolve is kept verbatim
+        # rather than guessed at or dropped.
+        assert _latex_to_html(r"a \notacommand b") == r"a \notacommand b"
+        assert _latex_to_html(r"\text{C}") == r"\text{C}"
+        # A single-letter macro resolves to a combining diacritic, which a stray
+        # backslash in prose must not acquire.
+        assert _latex_to_html(r"C:\report of \r things") == r"C:\report of \r things"
+
+    def test_unbraced_script_stays_literal(self) -> None:
+        from manuscribe.pipeline.latex import _latex_to_html
+
+        # "K_m" is indistinguishable from a locus tag or file name, so it is left
+        # alone; only the braced form is unambiguous enough to convert.
+        assert (
+            _latex_to_html("parameters (K_m, V_{max}) were")
+            == "parameters (K_m, V<sub>max</sub>) were"
+        )
+        assert _latex_to_html("Xaut_4868 and my_file") == "Xaut_4868 and my_file"
+
+    def test_declined_span_is_reported(self) -> None:
+        import logging
+
+        from manuscribe.pipeline.latex import _latex_to_html
+
+        # A span left literal is a coverage hole the consumer cannot otherwise see.
+        logger = logging.getLogger("manuscribe.pipeline.latex")
+        records: list[str] = []
+        handler = logging.Handler()
+        handler.emit = lambda record: records.append(record.getMessage())  # type: ignore[method-assign]
+        logger.addHandler(handler)
+        previous = logger.level
+        logger.setLevel(logging.DEBUG)
+        try:
+            _latex_to_html(r"K_m and \notacommand")
+        finally:
+            logger.removeHandler(handler)
+            logger.setLevel(previous)
+        assert records, "a declined span must be reported"
+        assert "K_m" in records[0]
+        assert r"\notacommand" in records[0]
+
+    def test_emitted_script_content_is_markdown_escaped(self) -> None:
+        from manuscribe.pipeline.latex import _latex_to_html
+
+        # The conversion lands in the pre-markdown stream, so a literal '*'/'_' it
+        # emits must be an entity or markdown-it re-reads it as emphasis.
+        assert _latex_to_html("X_{a*b} and Y_{c_d}") == (
+            "X<sub>a&#42;b</sub> and Y<sub>c&#95;d</sub>"
+        )
+
+    def test_html_tags_are_not_scanned(self) -> None:
+        from manuscribe.pipeline.latex import _latex_to_html
+
+        # _latex_to_html also runs over raw HTML in the stream; an attribute holding
+        # a brace or backslash must not be rewritten into a <sub>.
+        assert (
+            _latex_to_html('<img src="a_{b}.png" alt="x">')
+            == '<img src="a_{b}.png" alt="x">'
+        )
+        assert (
+            _latex_to_html("<td>V_{max}</td><td>K_m</td>")
+            == "<td>V<sub>max</sub></td><td>K_m</td>"
+        )
+
+
 class TestRenderInlineHtml:
     """The inline renderer for already-LaTeX'd fragments (figure captions, table
     cells): balanced emphasis, but no full-CommonMark code/link/autolink parsing of

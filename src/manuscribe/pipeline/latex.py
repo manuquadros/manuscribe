@@ -12,11 +12,14 @@ pylatexenc's maintained macro table rather than a hand-curated map.
 from __future__ import annotations
 
 import functools
+import logging
 import re
 
 from pylatexenc.latex2text import LatexNodes2Text  # type: ignore[import-untyped]
 
 from manuscribe.pipeline.text import _SUP_DIGITS
+
+_log = logging.getLogger(__name__)
 
 # Unicode superscript forms.  A LaTeX ``$^{…}$`` run is rendered with these
 # glyphs when every character has one (so "NAD$^+$" → "NAD⁺"); otherwise it falls
@@ -301,8 +304,75 @@ def _latex_span_to_html(content: str) -> str:
     return content.translate(_MD_EMPHASIS_ESCAPE)
 
 
+# The model drops the "$…$" wrapper often enough that raw TeX reaches the reader as
+# source text — the same document writes "$K_m$" in one table and a bare "V_{max}",
+# "0.52 \pm 0.00 mM" or "\geq" in the prose beside it.  Only the two shapes that
+# cannot be anything *but* TeX are converted without delimiters:
+#
+#   * a braced script ("V_{max}", "Author^{1}") — plain text never braces a script;
+#   * a resolvable multi-letter macro ("\pm", "\geq", "\times").
+#
+# A single-letter macro is excluded: pylatexenc resolves "\r"/"\b"/"\c" to combining
+# diacritics, and undelimited prose is far likelier to carry a stray backslash than a
+# real accent.  The unbraced "K_m" shape is excluded too — identifiers in this corpus
+# carry underscores (locus tags like "Xaut_4868", file names), so subscripting them
+# would corrupt more than it fixes.  Everything excluded stays literal per the
+# lossless-degradation rule and is reported by ``_convert_undelimited``.
+_UNDELIMITED_SCRIPT_RE = re.compile(r"([_^])\{([^{}]*)\}")
+# TeX-shaped residue left literal, for the declined-span record: an unbraced script.
+# The class is deliberately loose — a plain snake_case identifier matches — because the
+# record's claim is only "this reads as TeX and the rules could not classify it".
+_UNBRACED_SCRIPT_RE = re.compile(r"\b[A-Za-z][A-Za-z0-9]*[_^][A-Za-z0-9]+\b")
+# _latex_to_html also runs over raw HTML in the pre-markdown stream (<table>, <sup>,
+# <br>).  The undelimited pass keys on bare '_'/'^'/'\' rather than a paired delimiter,
+# so tags are split out and left untouched rather than scanned for scripts.
+_HTML_TAG_SPLIT_RE = re.compile(rf"({_HTML_TAG_RE.pattern})")
+
+
+def _undelimited_script_html(m: re.Match[str]) -> str:
+    # The content lands in the pre-markdown stream, so escape its markdown-active
+    # characters exactly as _latex_span_to_html does for the delimited path.
+    core = m.group(2).translate(_MD_EMPHASIS_ESCAPE)
+    return _to_superscript(core) if m.group(1) == "^" else f"<sub>{core}</sub>"
+
+
+def _convert_undelimited(text: str) -> str:
+    """Convert the undelimited TeX shapes that are unambiguous, and log the rest.
+
+    Runs after the ``$…$`` pass, on what it left.  A span the rules decline stays
+    literal, which is silent corruption from the consumer's side — the output still
+    holds TeX source and nothing else reports it — so every declined span is named in
+    one debug record per call.  Debug, not warning: ``_UNBRACED_SCRIPT_RE`` also matches
+    ordinary snake_case identifiers, so the record is a coverage note, not an alarm.
+    """
+    declined: list[str] = []
+
+    def command(m: re.Match[str]) -> str:
+        name = m.group(0)
+        if len(name) > 2:
+            glyph = _latex_command_to_unicode(name)
+            if glyph != name:
+                return glyph
+        declined.append(name)
+        return name
+
+    parts = _HTML_TAG_SPLIT_RE.split(text)
+    for i, part in enumerate(parts[::2]):
+        part = _LATEX_COMMAND_RE.sub(command, part)
+        part = _UNDELIMITED_SCRIPT_RE.sub(_undelimited_script_html, part)
+        declined.extend(m.group(0) for m in _UNBRACED_SCRIPT_RE.finditer(part))
+        parts[i * 2] = part
+    if declined:
+        _log.debug(
+            "latex: left unconverted TeX-shaped spans: %s", sorted(set(declined))
+        )
+    return "".join(parts)
+
+
 def _latex_to_html(text: str) -> str:
-    """Replace each inline ``$…$`` *math* span with deterministic HTML.
+    """Replace each inline ``$…$`` *math* span with deterministic HTML, then reduce
+    the unambiguous TeX the model emitted without delimiters
+    (:func:`_convert_undelimited`).
 
     Runs on the markdown *before* parsing so the emitted ``<sub>``/``<sup>`` pass
     through as raw HTML and the ``_`` inside ``V_{max}`` isn't read as emphasis.
@@ -335,4 +405,4 @@ def _latex_to_html(text: str) -> str:
         lambda m: "S" + m.group(1).translate(_MD_EMPHASIS_ESCAPE), text
     )
     text = _LITERAL_S_LABEL_RE.sub(r"\1S", text)
-    return _LATEX_SPAN_RE.sub(replace, text)
+    return _convert_undelimited(_LATEX_SPAN_RE.sub(replace, text))

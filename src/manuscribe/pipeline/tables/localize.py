@@ -3,9 +3,9 @@ bounding box, grow it along the reading axis to the whole table (rotation-aware 
 sideways tables), render that box to a re-OCR crop, and judge — via the coverage
 gate — whether the page already captured the region in full.
 
-Text layer = **geometry only** here (design B-prime): cell *content* is never read
-into the document; the box it seeds is.  Depends only on the foundational
-``layers`` primitives plus ``render``/``text``."""
+Text layer = **geometry only** here: cell *content* is never read into the
+document; the box it seeds is.  Depends only on the foundational ``layers``
+primitives plus ``render``/``text``."""
 
 from __future__ import annotations
 

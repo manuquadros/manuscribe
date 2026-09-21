@@ -34,7 +34,7 @@ from manuscribe.pipeline.text import _visible_text
 
 # CSS-style font weight: 400 normal, 700 bold.  >=600 captures semibold/bold while
 # excluding normal/medium — the 31123167 fixture's bold section rows read 708, plain
-# cells 315 (see plans/table-cell-bold-recovery.md).
+# cells 315.
 _BOLD_WEIGHT_MIN = 600
 # A cell counts as bold when at least this fraction of its matched glyphs are bold, so
 # a lone bold superscript can't bold a whole cell, nor one thin glyph un-bold a

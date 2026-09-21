@@ -42,15 +42,22 @@ _FIGURE_PLACEHOLDER_RE = re.compile(
     r"^!\[[^\]]*\]\([^)]*\)"
     r"(?:\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+))?\s*$"
 )
-# A figure label the model emitted as its own block with no caption sentence after
-# the number ("FIG. 2", "Figure 3.", "**Fig 4**").  When the descriptive caption
-# arrives as the *following* block, it must be rejoined onto this label — otherwise
-# the figure owns only the label, the caption is stranded in the body, and the
-# baked-caption trim never receives the words it needs to recognise the caption.
+# A figure caption's opening label ("FIG. 2", "Figure 3.", "**Fig 4**"), shared by
+# the two regexes below so the label's shape has one home.
+_CAPTION_LABEL_PREFIX = r"\*{0,2}\s*fig(?:ure|\.|\b)\s*\.?\s*\d+[a-z]?\s*[.:]?\s*"
+# The label as a whole block, with no caption sentence after the number.  When the
+# descriptive caption arrives as the *following* block, it must be rejoined onto this
+# label — otherwise the figure owns only the label, the caption is stranded in the
+# body, and the baked-caption trim never receives the words it needs to recognise the
+# caption.
 _BARE_FIGURE_LABEL_RE = re.compile(
-    r"^\*{0,2}\s*fig(?:ure|\.|\b)\s*\.?\s*\d+[a-z]?\s*[.:]?\s*\*{0,2}\s*$",
+    rf"^{_CAPTION_LABEL_PREFIX}\*{{0,2}}\s*$",
     re.IGNORECASE,
 )
+# The label as the opening prefix of a full caption ("Figure 2. Overview …").  Its
+# abbreviating and post-number periods close no sentence, so a caller reasoning about
+# the caption's sentences must start past this match.
+_CAPTION_LABEL_RE = re.compile(rf"^{_CAPTION_LABEL_PREFIX}", re.IGNORECASE)
 # A single-letter panel label ("A", "(B)", "C.") the model split out of a
 # multi-panel figure as its own text block.  It belongs to the figure (baked into
 # the crop), not the prose, so it is dropped when adjacent to a figure placeholder.

@@ -62,6 +62,42 @@ class TestSplitFigureCaption:
         # …while the real heading still renders as its own <h2>
         assert "<h2>Crystal structures of <em>BkTauF</em></h2>" in html
 
+    @pytest.mark.parametrize(
+        ("caption", "expected"),
+        [
+            # A results heading very often repeats the next figure's title, so a
+            # caption that is only "label + title" must survive the echo strip
+            # whole — the label's period closes no sentence.
+            (
+                "Fig. 3 Mutant strains grown in LB",
+                "Fig. 3 Mutant strains grown in LB",
+            ),
+            (
+                "Figure 2. Mutant strains grown in LB",
+                "Figure 2. Mutant strains grown in LB",
+            ),
+            # …while a caption that states its legend first still loses the echo.
+            (
+                "Figure 2. Overview of the assay. Arrows mark flux. "
+                "Mutant strains grown in LB",
+                "Figure 2. Overview of the assay. Arrows mark flux.",
+            ),
+        ],
+    )
+    def test_heading_echo_strip_spares_the_caption_title(
+        self, caption: str, expected: str
+    ) -> None:
+        img = _fake_image(1190, 1540)
+        md = (
+            "# T\n\n## Abstract\n\nA.\n\n## Body\n\nIntro prose.\n\n"
+            f"![image](i.png)100,100,900,600\n\n{caption}\n\n"
+            "## Mutant strains grown in LB\n\n"
+            "Colonies were counted after overnight growth."
+        )
+        html = _run_lighton([md], image=img)
+        assert f"<figcaption>{expected}</figcaption>" in html
+        assert "<h2>Mutant strains grown in LB</h2>" in html
+
     def test_panel_labels_between_split_boxes_dropped(self) -> None:
         # The motivating Fig 2 case: the model split the figure into two panel
         # boxes and emitted the bare "A"/"B" panel labels as their own blocks; the

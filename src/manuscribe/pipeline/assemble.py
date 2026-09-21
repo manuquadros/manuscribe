@@ -36,6 +36,7 @@ from manuscribe.pipeline.classify import (
 )
 from manuscribe.pipeline.doi import _extract_doi
 from manuscribe.pipeline.figures import (
+    _CAPTION_LABEL_RE,
     _FIGURE_MERGE_GAP_FRAC,
     _FIGURE_NOTE_RE,
     ImageSink,
@@ -159,7 +160,9 @@ def _starts_figure(block: str) -> bool:
 
 # A caption's final clause: the run after its last sentence terminator, with no
 # terminator of its own (a heading the OCR echoed onto the caption trails off without
-# punctuation, unlike a closed legend sentence).
+# punctuation, unlike a closed legend sentence).  Searched from past the caption
+# label, whose periods ("Fig.", "Figure 2.") close no sentence — anchored at 0 they
+# make a label-plus-title caption's whole title read as the final clause.
 _SENTENCE_TAIL_RE = re.compile(r"[.!?]\s+([^.!?]+?)\s*$")
 # This stream is raw markdown (pre-HTML), so a heading is "## Title", not "<h2>…".
 _MD_HEADING_RE = re.compile(r"^#{1,6}\s+(.*)$")
@@ -183,7 +186,8 @@ def _strip_trailing_heading_echo(caption: str, next_block: str) -> str:
     if heading is None:
         return caption
     stripped = caption.rstrip()
-    m = _SENTENCE_TAIL_RE.search(stripped)
+    label = _CAPTION_LABEL_RE.match(stripped)
+    m = _SENTENCE_TAIL_RE.search(stripped, label.end() if label else 0)
     if m is None:
         return caption
     tail_tokens = set(_WORD_RE.findall(m.group(1).lower()))

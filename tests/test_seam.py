@@ -472,6 +472,64 @@ class TestOcrSeam:
         assert _ocr_page(_fake_image(8, 8), ocr) == truncated
         assert len(calls) == 2
 
+    def test_decode_loop_partway_through_retries_at_bounded_budget(self) -> None:
+        import json
+
+        import httpx
+
+        from manuscribe.pipeline.model import (
+            _CONTEXT_SAFETY_MARGIN,
+            OcrModel,
+            _first_pass_new_tokens,
+            _ocr_page,
+        )
+
+        # Real prose first, then a fragment repeated well past the collapse bar —
+        # the loop clearly starts partway through, not at the response's start,
+        # so there is real content worth spending one bounded retry to recover.
+        prefix = (
+            "Real prose describing the finding on this page in careful, "
+            "ordinary detail. " * 5
+        )[:400]
+        content = prefix + "<p>Loop</p>" * 39
+        # Must be at least as long as content's own collapsed length (prefix plus
+        # one kept loop instance), or the final "not degenerate" comparison would
+        # reject a perfectly good clean retry for merely being the shorter text.
+        clean_retry = (
+            prefix + "and the recovered tail finishes the caption in full this time, "
+            "describing the specimen completely without interruption."
+        )
+        calls: list[int] = []
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            calls.append(json.loads(request.content)["max_tokens"])
+            body, reason = (
+                (content, "length") if len(calls) == 1 else (clean_retry, "stop")
+            )
+            return httpx.Response(
+                200,
+                json={
+                    "choices": [
+                        {"message": {"content": body}, "finish_reason": reason}
+                    ],
+                    "usage": {"prompt_tokens": 100},
+                },
+            )
+
+        client = httpx.Client(transport=httpx.MockTransport(handler))
+        ocr = OcrModel(
+            client=client,
+            base_url="http://srv/v1",
+            model="lightonocr",
+            context_len=2048,
+        )
+        first_pass_budget = _first_pass_new_tokens(ocr.context_len)
+        full_window_budget = ocr.context_len - 100 - _CONTEXT_SAFETY_MARGIN
+
+        assert _ocr_page(_fake_image(8, 8), ocr) == clean_retry
+        assert len(calls) == 2
+        assert first_pass_budget < calls[1] < full_window_budget
+
     def test_ocr_pages_preserves_order_under_concurrency(self) -> None:
         import json
 
@@ -911,6 +969,40 @@ class TestOcrSeam:
         assert ocr.client is first_client and not ocr.client.is_closed
         assert ocr.context_len == 8192
         ocr.close()
+
+
+class TestDecodeLoopOnset:
+    """Direct tests of ``_decode_loop_onset``, so the onset-finding logic behind
+    ``_ocr_page``'s bounded retry is proven general-purpose rather than tuned to
+    one repeated string."""
+
+    def test_partial_loop_onset_is_where_the_repeats_start(self) -> None:
+        from manuscribe.pipeline.model import _decode_loop_onset
+
+        prefix = (
+            "Table 3 summarizes the measured concentrations across all sampled sites. "
+        )
+        content = prefix + "<li>N/A</li>" * 10
+        assert _decode_loop_onset(content) == len(prefix)
+
+    def test_partial_loop_onset_generalizes_to_a_different_unit(self) -> None:
+        from manuscribe.pipeline.model import _decode_loop_onset
+
+        prefix = "Figure 4 shows the cumulative distribution for each cohort. "
+        content = prefix + "<span>err</span>" * 12
+        assert _decode_loop_onset(content) == len(prefix)
+
+    def test_whole_response_loop_has_no_onset(self) -> None:
+        from manuscribe.pipeline.model import _decode_loop_onset
+
+        # None signals nothing precedes the loop worth retrying for — the
+        # existing test_decode_loop_declines_retry keeps this content declined.
+        assert _decode_loop_onset("<p>Loop</p>" * 50) is None
+
+    def test_no_repeat_run_has_no_onset(self) -> None:
+        from manuscribe.pipeline.model import _decode_loop_onset
+
+        assert _decode_loop_onset("<p>one</p><p>two</p><p>three</p>") is None
 
 
 class TestOcrTransientRetry:

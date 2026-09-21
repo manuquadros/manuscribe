@@ -28,7 +28,10 @@ from manuscribe.pipeline.errors import (
     OcrResponseError,
     OcrUnavailableError,
 )
-from manuscribe.pipeline.text import _collapse_repeated_elements
+from manuscribe.pipeline.text import (
+    _MAX_IDENTICAL_ELEMENT_RUN,
+    _collapse_repeated_elements,
+)
 
 _DEFAULT_BASE_URL = "http://127.0.0.1:8000/v1"
 _DEFAULT_MODEL = "lightonocr"
@@ -97,6 +100,12 @@ _ELEMENT_RE = re.compile(
 # collapsing it removes most of the response. A response that shrinks past this bar
 # once collapsed is the loop, not dense content.
 _DECODE_LOOP_SHRINK_RATIO = 0.5
+# A bounded decode-loop retry's budget is the estimated tokens to reach the loop's
+# onset plus this much headroom to finish the element the loop interrupted (a
+# caption tail, a table's last cell) — small relative to a typical
+# _first_pass_new_tokens budget so the bounded retry stays well short of the
+# uncapped dense-page retry it is deliberately smaller than.
+_DECODE_LOOP_RETRY_HEADROOM_TOKENS = 300
 
 
 class OcrEngine(Enum):
@@ -560,6 +569,51 @@ def _looks_like_decode_loop(content: str) -> bool:
     return _collapsed_len(content) <= len(content) * _DECODE_LOOP_SHRINK_RATIO
 
 
+def _decode_loop_onset(content: str) -> int | None:
+    """Character offset in ``content`` where its decode-loop repeat run begins,
+    or ``None`` when there is nothing worth recovering ahead of it.
+
+    Walks the same ``_ELEMENT_RE`` matches ``_looks_like_decode_loop`` collapses
+    to decide *whether* a response is a loop, but reports *where* the first
+    over-threshold run of identical adjacent elements starts instead of
+    collapsing it — generalising to any repeated unit's shape or length, since
+    it is driven entirely by what actually repeats in this response.
+
+    Returns ``None`` both when no such run exists (``content`` isn't a decode
+    loop by this measure) and when the run's onset is closer to the start of
+    ``content`` than one instance of the repeated unit is long — i.e. under one
+    full repeat separates "the start of the response" from "the loop", too
+    little to call it real content distinct from the loop's own noise.
+    """
+    matches = list(_ELEMENT_RE.finditer(content))
+    i = 0
+    while i < len(matches):
+        key = matches[i].group()
+        j = i + 1
+        while j < len(matches) and matches[j].group() == key:
+            j += 1
+        if j - i > _MAX_IDENTICAL_ELEMENT_RUN:
+            onset = matches[i].start()
+            return onset if onset >= len(key) else None
+        i = j
+    return None
+
+
+def _decode_loop_retry_budget(onset: int, content: str, first_pass_budget: int) -> int:
+    """Token budget for a bounded decode-loop retry.
+
+    Estimates a chars-per-token rate from the first pass's own budget vs. the
+    truncated response it produced (the only calibration available without a
+    real tokenizer — the response is what actually cost that many tokens),
+    applies it to ``onset`` to estimate the tokens needed to reach the loop,
+    and adds a small fixed headroom to finish the interrupted element.  The
+    caller caps the result against the uncapped full-window retry budget.
+    """
+    chars_per_token = len(content) / first_pass_budget
+    onset_tokens = round(onset / chars_per_token)
+    return onset_tokens + _DECODE_LOOP_RETRY_HEADROOM_TOKENS
+
+
 def _ocr_page(
     image: Image.Image, ocr: OcrModel, max_new_tokens: int | None = None
 ) -> str:
@@ -577,12 +631,18 @@ def _ocr_page(
     the entire remaining context window — greedy decode reproduces the prefix and
     continues past the cut.  But truncation is also what a decode loop (the model
     repeating one fragment until the budget runs out) looks like, and a re-roll at
-    the same greedy temperature reproduces the loop, so that case is declined
-    outright rather than retried (``_looks_like_decode_loop``).  If even the full
-    window is too small, the retry times out (see below), or it comes back
-    degenerate (empty/shorter than the first response, once decode-loop repeats
-    are collapsed out of both), the best-effort truncated text is kept rather
-    than dropped.
+    the same greedy temperature reproduces the loop, so a full-window retry would
+    only raise the odds of burning the request timeout on a reproduced loop.  When
+    the loop consumes (nearly) the whole response (``_decode_loop_onset`` finds no
+    real content ahead of it), the retry is declined outright and the truncated
+    first pass is kept.  When the loop clearly starts partway through — real
+    content first, then the loop — one retry is still sent, but at a budget
+    bounded to roughly "reach the onset and finish the element"
+    (``_decode_loop_retry_budget``), not the full window, so recovering the tail
+    carries only a bounded timeout risk rather than the dense-page retry's.  If
+    even that retry times out (see below) or comes back degenerate (empty/shorter
+    than the first response, once decode-loop repeats are collapsed out of both),
+    the best-effort truncated text is kept rather than dropped.
 
     ``max_new_tokens`` defaults to the window's share (``_first_pass_new_tokens``).
     """
@@ -601,9 +661,16 @@ def _ocr_page(
     content, finish_reason, prompt_tokens = _post_ocr_page(encoded, ocr, budget)
     if finish_reason != "length" or prompt_tokens is None:
         return content
+    full_window_budget = ocr.context_len - prompt_tokens - _CONTEXT_SAFETY_MARGIN
     if _looks_like_decode_loop(content):
-        return content
-    retry_budget = ocr.context_len - prompt_tokens - _CONTEXT_SAFETY_MARGIN
+        onset = _decode_loop_onset(content)
+        if onset is None:
+            return content
+        retry_budget = min(
+            _decode_loop_retry_budget(onset, content, budget), full_window_budget
+        )
+    else:
+        retry_budget = full_window_budget
     if retry_budget <= budget:
         return content
     try:

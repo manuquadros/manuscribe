@@ -96,6 +96,10 @@ _TABLE_TAG_RE = re.compile(r"</?(?:table|tr|td|th|tbody|thead)\b", re.IGNORECASE
 
 _BLOCK_SPLIT_RE = re.compile(r"\n[ \t]*\n")
 
+# Case-insensitive: an HTML parser reads <IMG SRC=…> as an image just as it reads
+# the lowercase spelling, so a case-sensitive strip would leave the tag standing.
+_IMG_TAG_RE = re.compile(r"<img\b[^>]*>", re.IGNORECASE)
+
 
 def _split_md_blocks(md: str) -> list[str]:
     """Split markdown into blocks on blank lines (a run of whitespace-only lines).
@@ -200,3 +204,23 @@ def _collapse_repeated_elements(html: str, element_re: re.Pattern[str]) -> str:
             cursor = m.end()
     out.append(html[cursor:])
     return "".join(out)
+
+
+def _strip_img_tags(html: str) -> str:
+    """Remove every ``<img>`` tag from a fragment of OCR-sourced HTML.
+
+    The trust boundary for ``<img src>``: an image element is *pipeline* output
+    (``figures._figure_html``, whose src comes from the ``ImageSink`` the caller
+    supplied), never transcription — LightOnOCR emits figures as ``![image]``
+    placeholders consumed before markdown rendering and chandra's own ``<img>``
+    carries no src at all.  So an ``<img>`` in OCR-sourced HTML is the model
+    echoing markup a crafted PDF printed as visible text, and its src would make
+    every reader of the assembled document fetch an attacker-chosen URL.  Removing
+    it here, upstream of the pipeline's own figures, is what lets the final
+    allow-list pass keep accepting a sink's served URL.
+
+    Substitution is iterated to a fixed point because one pass can splice a fresh
+    tag out of the text surrounding a removed one (``<im<img x>g src=…>``)."""
+    while (stripped := _IMG_TAG_RE.sub("", html)) != html:
+        html = stripped
+    return html

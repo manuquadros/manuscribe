@@ -606,6 +606,12 @@ _CONTENT_ATTRIBUTES: dict[str, set[str]] = {
 # tables/recover.py footnote paragraphs); anything else stays unstyled rather than
 # letting OCR-crafted markup pick a class the wrapper CSS targets.
 _CONTENT_ALLOWED_CLASSES: dict[str, set[str]] = {"p": {"footnote"}}
+# Left at nh3's defaults plus "data" because the only <img> that reaches this
+# pass is the pipeline's own (figures._figure_html), whose src is whatever the
+# caller's ImageSink returned — an inline data URI, a sidecar path, or a served
+# URL from the caller's store.  Every OCR-transcribed <img> is already gone
+# (text._strip_img_tags), so an external scheme here can only be one the caller
+# chose, not one a crafted PDF printed.
 _CONTENT_URL_SCHEMES = frozenset(nh3.ALLOWED_URL_SCHEMES) | {"data"}
 
 _CONTENT_SANITIZER = nh3.Cleaner(

@@ -14,6 +14,7 @@ import re
 from helpers import _body, _byline, _fake_image, _header_h1, _run_lighton
 
 from manuscribe.pipeline.assemble import _assemble_document, _sanitize_content_html
+from manuscribe.pipeline.text import _strip_img_tags
 
 
 class TestSanitizeContentHtml:
@@ -155,3 +156,62 @@ class TestDocumentTitleEscaping:
         assert tab.group(1) == "Tea &amp; Coffee Biosynthesis"
         assert _html.unescape(tab.group(1)) == title
         assert _header_h1(html) == "Tea &amp; Coffee <em>Biosynthesis</em>"
+
+
+class TestUntrustedImageSrc:
+    """The ``<img src>`` trust boundary: a transcribed image element is dropped
+    before the pipeline adds its own, so the final allow-list pass can keep
+    accepting whatever src the caller's ``ImageSink`` returned."""
+
+    _PREAMBLE = "# T\n\nJane Doe\n\n## Abstract\n\nA.\n\n## Body\n\n"
+
+    def test_markdown_image_external_src_dropped_from_body(self) -> None:
+        html = _run_lighton(
+            [self._PREAMBLE + "Prose ![x](http://attacker.example/track.png) more.\n"]
+        )
+        assert "attacker.example" not in html
+        assert "<img" not in _body(html)
+        assert "Prose" in _body(html)
+
+    def test_raw_img_tag_external_src_dropped_from_body(self) -> None:
+        html = _run_lighton(
+            [
+                self._PREAMBLE
+                + '<p>Prose <img src="http://attacker.example/track.png"> more.</p>\n'
+            ]
+        )
+        assert "attacker.example" not in html
+        assert "<img" not in _body(html)
+
+    def test_raw_img_tag_external_src_dropped_from_figure_caption(self) -> None:
+        img = _fake_image(1190, 1540)
+        md = (
+            self._PREAMBLE + "![image](i.png)100,100,900,600\n\n"
+            'Figure 1. A caption <img src="http://attacker.example/t.png"> here.\n'
+        )
+        html = _run_lighton([md], image=img)
+        assert "attacker.example" not in html
+        caption = re.search(r"<figcaption>(.*?)</figcaption>", html, re.DOTALL)
+        assert caption is not None
+        assert "<img" not in caption.group(1)
+
+    def test_uppercase_and_respliced_img_tags_are_stripped(self) -> None:
+        # An HTML parser reads either spelling as an image: <IMG> because tag names
+        # are case-insensitive, and the second because removing the inner tag in a
+        # single pass splices a fresh one out of the text around it.
+        assert _strip_img_tags('a<IMG SRC="http://e/x.png">b') == "ab"
+        assert _strip_img_tags('<im<img x>g src="http://e/x.png">') == ""
+
+    def test_pipeline_figure_keeps_its_data_uri(self) -> None:
+        img = _fake_image(1190, 1540)
+        md = self._PREAMBLE + "![image](i.png)100,100,900,600\n\nFigure 1. A caption.\n"
+        html = _run_lighton([md], image=img)
+        assert '<figure><img src="data:image/png;base64,' in html
+
+    def test_sink_returned_external_url_survives(self) -> None:
+        img = _fake_image(1190, 1540)
+        md = self._PREAMBLE + "![image](i.png)100,100,900,600\n\nFigure 1. A caption.\n"
+        html, _, _ = _assemble_document(
+            [md], [img], None, lambda _b, _m: "https://cdn.example/store/fig1.png"
+        )
+        assert '<img src="https://cdn.example/store/fig1.png"' in html

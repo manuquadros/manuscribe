@@ -30,7 +30,11 @@ from manuscribe.pipeline.figures import (
     _denormalize_bbox,
     _figure_html,
 )
-from manuscribe.pipeline.text import _collapse_repeated_elements
+from manuscribe.pipeline.text import (
+    _IMG_TAG_RE,
+    _collapse_repeated_elements,
+    _strip_img_tags,
+)
 
 _log = logging.getLogger(__name__)
 
@@ -50,7 +54,6 @@ _DIV_RE = re.compile(
     r'(?P<inner>.*?)(?:</div>|(?=<div data(?:-bbox)?=")|\Z)',
     re.DOTALL,
 )
-_IMG_TAG_RE = re.compile(r"<img\b[^>]*>")
 # Any element together with its matching close tag.  The observed decode loop
 # repeats a <p>, but the model gets stuck on whatever element it was emitting, so
 # the tag is captured and back-referenced rather than listed: the run comparison
@@ -245,7 +248,7 @@ def _figure_div_blocks(
     for i, node in enumerate(nodes):
         if i == crop_at and figure is not None:
             blocks.append(figure)
-        text = _IMG_TAG_RE.sub("", node).strip()
+        text = _strip_img_tags(node).strip()
         if not text:
             continue
         block = (
@@ -281,7 +284,7 @@ def parse_chandra_response(
             blocks.extend(_figure_div_blocks(div, page_image, encode_src, source_page))
             continue
         block = Block.from_chandra_div(
-            div.label, div.inner_html, source_page=source_page
+            div.label, _strip_img_tags(div.inner_html), source_page=source_page
         )
         if block is not None:
             blocks.append(block)

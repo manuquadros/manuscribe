@@ -14,7 +14,12 @@ from markdown_it import MarkdownIt
 
 from manuscribe.pipeline.dehyphenate import _dehyphenate_join
 from manuscribe.pipeline.latex import _latex_to_html
-from manuscribe.pipeline.text import _CAPTION_RE, _plain_p_text, _visible_text
+from manuscribe.pipeline.text import (
+    _CAPTION_RE,
+    _plain_p_text,
+    _strip_img_tags,
+    _visible_text,
+)
 
 _MD = MarkdownIt("commonmark", {"html": True}).enable("table")
 
@@ -61,7 +66,7 @@ def _render_inline_html(text: str) -> str:
     through ``_latex_to_html`` (figure captions); :func:`_render_inline` is the
     variant that applies that pass first."""
     rendered: str = _MD_INLINE.renderInline(text)
-    return rendered.strip()
+    return _strip_img_tags(rendered.strip())
 
 
 # A bolded figure-caption title ("**Figure 1. …**") runs straight into the legend
@@ -180,7 +185,7 @@ def _md_to_html_blocks(md_text: str) -> list[str]:
             group, i = tokens[i:j], j
         else:
             group, i = [token], i + 1
-        html = _MD.renderer.render(group, _MD.options, {}).strip()
+        html = _strip_img_tags(_MD.renderer.render(group, _MD.options, {}).strip())
         if not html or html.startswith("<hr"):
             continue
         if "<td" in html or "<th" in html:

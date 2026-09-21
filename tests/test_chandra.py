@@ -459,6 +459,21 @@ class TestAssembleChandraDocument:
         assert "Buy our product." not in html
         _assert_article_rendered(html)
 
+    @pytest.mark.parametrize("label", ["Text", "Figure"])
+    @pytest.mark.parametrize("fragment", ["</", "<"])
+    def test_truncated_tag_never_renders_as_text(
+        self, label: str, fragment: str
+    ) -> None:
+        # The sanitizer closes the unbalanced element, but a half-written tag is
+        # not markup to it — left in place it reaches the page escaped.
+        page = _ARTICLE_PAGE + (
+            f'<div data-bbox="0 800 1000 900" data-label="{label}">'
+            f"<p>Kept prose.</p><p>Cut here{fragment}"
+        )
+        body = _body(_assemble_chandra_document([page], [_page()])[0])
+        assert "Cut here" in body
+        assert "&lt;" not in body
+
     def test_leading_pages_to_skip_reads_html_headings(self) -> None:
         assert _leading_pages_to_skip_html([_AD_PAGE, _ARTICLE_PAGE]) == 1
         assert _leading_pages_to_skip_html([_ARTICLE_PAGE]) == 0

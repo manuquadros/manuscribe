@@ -68,6 +68,13 @@ _ELEMENT_RE = re.compile(
 _TAG_RE = re.compile(r"<(?P<close>/?)(?P<tag>[a-zA-Z][\w-]*)\b[^>]*?(?P<void>/?)>")
 _VOID_TAGS = frozenset({"br", "col", "hr", "img", "input", "source", "wbr"})
 
+# A half-written tag at the end of a truncated div's content ("<p>Kept text</").
+# ``assemble._sanitize_content_html`` closes the unbalanced *element* downstream,
+# but the fragment is not markup to it — a "</" with no name reaches the page as
+# escaped text.  Anchored at the end and unable to cross a ">", so it only ever
+# eats the tail left after the last complete element.
+_TRUNCATED_TAG_RE = re.compile(r"<(?:[/a-zA-Z][^>]*)?\Z")
+
 
 @dataclass(frozen=True, slots=True)
 class _RawDiv:
@@ -86,7 +93,9 @@ def _iter_divs(raw: str) -> list[_RawDiv]:
     opener so the following block survives intact (see ``_DIV_RE``). The partial
     content is genuine transcription of that region and its bbox is complete —
     dropping it would hide real body text to no end, and a truncated div whose
-    content is a decode loop is already reduced by the collapse below.
+    content is a decode loop is already reduced by the collapse below. Only the
+    half-written tag the cut left behind is dropped (``_TRUNCATED_TAG_RE``), which
+    would otherwise render as escaped text.
 
     Each div's inner HTML passes through the decode-loop guard here, where every
     consumer of a ``_RawDiv`` gets it: the confirmed hallucination (see the module
@@ -126,11 +135,14 @@ def _iter_divs(raw: str) -> list[_RawDiv]:
             )
             continue
         x0, y0, x1, y1 = coords
+        inner = m.group("inner")
+        if not m.group().endswith("</div>"):
+            inner = _TRUNCATED_TAG_RE.sub("", inner)
         divs.append(
             _RawDiv(
                 label=m.group("label"),
                 bbox=(x0, y0, x1, y1),
-                inner_html=_collapse_repeated_elements(m.group("inner"), _ELEMENT_RE),
+                inner_html=_collapse_repeated_elements(inner, _ELEMENT_RE),
             )
         )
     if not divs and raw.strip():

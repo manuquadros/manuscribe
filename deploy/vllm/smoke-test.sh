@@ -25,11 +25,27 @@ cd "$REPO_ROOT"
 echo "server: ${BASE_URL}   model: ${MODEL}" >&2
 # Probe /models before rendering: against a remote server the likeliest failure
 # is an unreachable host, a closed port or a dead tunnel, and it reads far more
-# clearly here than as a curl error after the multi-second render below.
-curl -sS -m 20 "${BASE_URL}/models" >/dev/null || {
+# clearly here than as a curl error after the multi-second render below. The
+# body is also read for data[0].root: run-server.sh pins the served id to
+# "lightonocr" whatever weights actually load (see CLAUDE.md's model.py notes
+# on _parse_server_engine), so the "model:" line above can name the wrong
+# engine on a server restarted onto different weights. root is the field
+# model.py itself trusts, so echoing it here is what keeps this script's own
+# diagnostic honest instead of repeating the same trap.
+MODELS_BODY="$(curl -sS -m 20 "${BASE_URL}/models")" || {
   echo "cannot reach ${BASE_URL}/models - is the server up and the port reachable?" >&2
   exit 1
 }
+echo "  served id: ${MODEL}   weights root (from /models): $(
+  printf '%s' "$MODELS_BODY" | python3 -c '
+import json, sys
+try:
+    data = json.load(sys.stdin)["data"]
+    print(data[0].get("root", "<not reported>"))
+except (json.JSONDecodeError, KeyError, IndexError, TypeError):
+    print("<unparseable /models response>")
+'
+)" >&2
 
 # Render with the project's own renderer so the image matches what the pipeline
 # would send (200 DPI, long side <= 1540).

@@ -401,6 +401,77 @@ class TestOcrSeam:
             _ocr_page(_fake_image(8, 8), ocr) == "a real but truncated page of markdown"
         )
 
+    def test_decode_loop_declines_retry(self) -> None:
+        import json
+
+        import httpx
+
+        from manuscribe.pipeline.model import OcrModel, _ocr_page
+
+        # The first response truncates on a fragment repeated well past the
+        # collapse bar — a decode loop, not a dense page. A re-roll at the same
+        # greedy temperature reproduces the loop, so the retry must never be
+        # sent, and the raw (truncated) loop content is kept rather than a
+        # cleaner retry response the model never got the chance to send.
+        looped = "<p>Loop</p>" * 50
+        calls: list[int] = []
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            calls.append(json.loads(request.content)["max_tokens"])
+            content, reason = (
+                (looped, "length") if len(calls) == 1 else ("clean retry", "stop")
+            )
+            return httpx.Response(
+                200,
+                json={
+                    "choices": [
+                        {"message": {"content": content}, "finish_reason": reason}
+                    ],
+                    "usage": {"prompt_tokens": 2500},
+                },
+            )
+
+        client = httpx.Client(transport=httpx.MockTransport(handler))
+        ocr = OcrModel(client=client, base_url="http://srv/v1", model="lightonocr")
+        assert _ocr_page(_fake_image(8, 8), ocr) == looped
+        assert len(calls) == 1
+
+    def test_retry_timeout_falls_back_to_truncated_first_pass(self) -> None:
+        import json
+
+        import httpx
+
+        from manuscribe.pipeline.model import OcrModel, _ocr_page
+
+        # The retry's budget can be several times the first pass's on the same
+        # fixed request_timeout, so a page whose first pass was merely slow (not
+        # looping) can time out on the retry. That must degrade the page to its
+        # truncated-but-real first response, not abort the whole document.
+        truncated = "a real but truncated page of markdown"
+        calls: list[int] = []
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            calls.append(json.loads(request.content)["max_tokens"])
+            if len(calls) == 1:
+                return httpx.Response(
+                    200,
+                    json={
+                        "choices": [
+                            {
+                                "message": {"content": truncated},
+                                "finish_reason": "length",
+                            }
+                        ],
+                        "usage": {"prompt_tokens": 2500},
+                    },
+                )
+            raise httpx.ReadTimeout("simulated retry timeout", request=request)
+
+        client = httpx.Client(transport=httpx.MockTransport(handler))
+        ocr = OcrModel(client=client, base_url="http://srv/v1", model="lightonocr")
+        assert _ocr_page(_fake_image(8, 8), ocr) == truncated
+        assert len(calls) == 2
+
     def test_ocr_pages_preserves_order_under_concurrency(self) -> None:
         import json
 

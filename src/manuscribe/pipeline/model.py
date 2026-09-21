@@ -13,6 +13,7 @@ import base64
 import io
 import os
 import random
+import re
 import time
 import warnings
 from concurrent.futures import FIRST_EXCEPTION, ThreadPoolExecutor, wait
@@ -27,6 +28,7 @@ from manuscribe.pipeline.errors import (
     OcrResponseError,
     OcrUnavailableError,
 )
+from manuscribe.pipeline.text import _collapse_repeated_elements
 
 _DEFAULT_BASE_URL = "http://127.0.0.1:8000/v1"
 _DEFAULT_MODEL = "lightonocr"
@@ -82,6 +84,19 @@ _RETRYABLE_STATUS = frozenset({429, 502, 503, 504})
 _TRANSIENT_CLIENT_STATUS = frozenset({408, 429})
 # Cap a server-sent Retry-After so a pathological header can't pin a pool worker.
 _MAX_RETRY_AFTER_S = 30.0
+# The generic "any element" shape, matching chandra._ELEMENT_RE's decode-loop guard —
+# duplicated rather than imported: this seam sees the raw response before either
+# engine's parser runs, so it can't depend on the chandra ingestion module without
+# inverting the layering (model.py is the foundation both engines sit on).
+_ELEMENT_RE = re.compile(
+    r"<(?P<tag>[a-zA-Z][\w-]*)\b[^>]*>.*?</(?P=tag)\s*>",
+    re.DOTALL,
+)
+# A genuinely dense page collapses by at most a few incidentally-repeated rows or
+# labels; a decode loop is what consumed the token budget in the first place, so
+# collapsing it removes most of the response. A response that shrinks past this bar
+# once collapsed is the loop, not dense content.
+_DECODE_LOOP_SHRINK_RATIO = 0.5
 
 
 class OcrEngine(Enum):
@@ -532,6 +547,19 @@ def _first_pass_new_tokens(context_len: int) -> int:
     return context_len // _FIRST_PASS_WINDOW_SHARE
 
 
+def _collapsed_len(content: str) -> int:
+    """Length of ``content`` with decode-loop element repeats collapsed out."""
+    return len(_collapse_repeated_elements(content, _ELEMENT_RE))
+
+
+def _looks_like_decode_loop(content: str) -> bool:
+    """Whether a truncated response is a decode repetition loop rather than dense
+    content that legitimately filled the budget (see ``_DECODE_LOOP_SHRINK_RATIO``)."""
+    if not content:
+        return False
+    return _collapsed_len(content) <= len(content) * _DECODE_LOOP_SHRINK_RATIO
+
+
 def _ocr_page(
     image: Image.Image, ocr: OcrModel, max_new_tokens: int | None = None
 ) -> str:
@@ -547,9 +575,14 @@ def _ocr_page(
     truncates mid-output, dropping the rest of the table and everything after it.
     On that signal (``finish_reason == "length"``) the page is re-OCR'd once with
     the entire remaining context window — greedy decode reproduces the prefix and
-    continues past the cut.  If even the full window is too small, or the retry
-    comes back degenerate (empty/shorter than the first response), the best-effort
-    truncated text is kept rather than dropped.
+    continues past the cut.  But truncation is also what a decode loop (the model
+    repeating one fragment until the budget runs out) looks like, and a re-roll at
+    the same greedy temperature reproduces the loop, so that case is declined
+    outright rather than retried (``_looks_like_decode_loop``).  If even the full
+    window is too small, the retry times out (see below), or it comes back
+    degenerate (empty/shorter than the first response, once decode-loop repeats
+    are collapsed out of both), the best-effort truncated text is kept rather
+    than dropped.
 
     ``max_new_tokens`` defaults to the window's share (``_first_pass_new_tokens``).
     """
@@ -568,14 +601,23 @@ def _ocr_page(
     content, finish_reason, prompt_tokens = _post_ocr_page(encoded, ocr, budget)
     if finish_reason != "length" or prompt_tokens is None:
         return content
+    if _looks_like_decode_loop(content):
+        return content
     retry_budget = ocr.context_len - prompt_tokens - _CONTEXT_SAFETY_MARGIN
     if retry_budget <= budget:
         return content
-    retried, _, _ = _post_ocr_page(encoded, ocr, retry_budget)
-    # A degenerate retry (null content -> "", or a non-deterministic shorter decode)
-    # must not discard the good-but-truncated first response; keep whichever
-    # recovered more of the page.
-    return retried if len(retried) >= len(content) else content
+    try:
+        retried, _, _ = _post_ocr_page(encoded, ocr, retry_budget)
+    except OcrUnavailableError:
+        # The retry's budget can be several times the first pass's, on the same
+        # fixed request_timeout — so a page whose first pass was merely slow (not
+        # looping) can time out here where it would have finished at the smaller
+        # budget.  _request_ocr already reclassifies that httpx.TimeoutException
+        # into this typed error, so there is no raw timeout to catch directly.
+        # Falling back to the truncated-but-real first pass degrades this one page
+        # instead of aborting the whole document.
+        return content
+    return retried if _collapsed_len(retried) >= _collapsed_len(content) else content
 
 
 def _resolve_ocr_concurrency() -> int:
